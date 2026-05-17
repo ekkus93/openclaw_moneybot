@@ -633,6 +633,11 @@ class LedgerRepository:
             SELECT created_at, 'spend_request', 'spend_request', id
             FROM spend_requests WHERE opportunity_id = ?
             UNION ALL
+            SELECT bt.created_at, 'wallet_transaction', 'wallet_transaction', bt.id
+            FROM btc_transactions bt
+            JOIN spend_requests sr ON sr.id = bt.spend_request_id
+            WHERE sr.opportunity_id = ?
+            UNION ALL
             SELECT created_at, 'email_draft', 'email_draft', id
             FROM email_records WHERE opportunity_id = ?
             UNION ALL
@@ -644,6 +649,7 @@ class LedgerRepository:
             rows = connection.execute(
                 query,
                 (
+                    opportunity_id,
                     opportunity_id,
                     opportunity_id,
                     opportunity_id,
