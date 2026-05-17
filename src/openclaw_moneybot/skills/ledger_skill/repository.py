@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -14,6 +15,7 @@ from openclaw_moneybot.shared import (
     EmailDraftRecord,
     EvidenceRecord,
     ExperimentReview,
+    LedgerRecord,
     Opportunity,
     PolicyDecision,
     SpendRequest,
@@ -27,6 +29,7 @@ from openclaw_moneybot.skills.ledger_skill.hashing import (
     verify_hash_chain,
 )
 from openclaw_moneybot.skills.ledger_skill.models import (
+    LedgerEventEntry,
     LedgerTimelineEntry,
     LedgerWriteResult,
     TaxExportResult,
@@ -73,6 +76,11 @@ class LedgerRepository:
 
     def _row_to_dict(self, row: sqlite3.Row) -> dict[str, str | None]:
         return {key: row[key] for key in row.keys()}
+
+    def _load_model(self, row: sqlite3.Row | None, model_type: type[Any]) -> Any | None:
+        if row is None:
+            return None
+        return model_type.model_validate_json(str(row["raw_json"]))
 
     def _serialize_model(self, model: Any) -> str:
         return canonical_json(model.model_dump(mode="json"))
@@ -196,6 +204,24 @@ class LedgerRepository:
                 related_id=opportunity.opportunity_id,
                 payload_json=payload_json,
                 created_at=opportunity.created_at.isoformat(),
+                idempotency_key=idempotency_key,
+            )
+
+    def record_ledger_record(
+        self,
+        record: LedgerRecord,
+        *,
+        idempotency_key: str | None = None,
+    ) -> LedgerWriteResult:
+        payload_json = self._serialize_model(record)
+        with self._connect() as connection:
+            return self._insert_event(
+                connection,
+                event_type=f"record_{record.record_type.value}",
+                related_type=record.record_type,
+                related_id=record.record_id,
+                payload_json=payload_json,
+                created_at=record.created_at.isoformat(),
                 idempotency_key=idempotency_key,
             )
 
@@ -633,6 +659,119 @@ class LedgerRepository:
                 event_type=str(row["event_type"]),
                 related_type=RecordType(str(row["related_type"])),
                 related_id=str(row["related_id"]),
+            )
+            for row in rows
+        ]
+
+    def get_opportunity(self, opportunity_id: str) -> Opportunity | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT raw_json FROM opportunities WHERE id = ?",
+                (opportunity_id,),
+            ).fetchone()
+        return self._load_model(row, Opportunity)
+
+    def get_policy_decision(self, policy_decision_id: str) -> PolicyDecision | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT raw_json FROM policy_decisions WHERE id = ?",
+                (policy_decision_id,),
+            ).fetchone()
+        return self._load_model(row, PolicyDecision)
+
+    def get_tos_legal_check(self, tos_legal_check_id: str) -> TosLegalCheck | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT raw_json FROM tos_legal_checks WHERE id = ?",
+                (tos_legal_check_id,),
+            ).fetchone()
+        return self._load_model(row, TosLegalCheck)
+
+    def get_budget_plan(self, budget_plan_id: str) -> BudgetPlan | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT raw_json FROM budget_plans WHERE id = ?",
+                (budget_plan_id,),
+            ).fetchone()
+        return self._load_model(row, BudgetPlan)
+
+    def get_spend_request(self, spend_request_id: str) -> SpendRequest | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT raw_json FROM spend_requests WHERE id = ?",
+                (spend_request_id,),
+            ).fetchone()
+        return self._load_model(row, SpendRequest)
+
+    def get_wallet_transaction(self, wallet_transaction_id: str) -> WalletTransactionRecord | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT raw_json FROM btc_transactions WHERE id = ?",
+                (wallet_transaction_id,),
+            ).fetchone()
+        return self._load_model(row, WalletTransactionRecord)
+
+    def get_email_record(self, email_draft_id: str) -> EmailDraftRecord | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT raw_json FROM email_records WHERE id = ?",
+                (email_draft_id,),
+            ).fetchone()
+        return self._load_model(row, EmailDraftRecord)
+
+    def get_evidence_record(self, evidence_id: str) -> EvidenceRecord | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT raw_json FROM evidence_records WHERE id = ?",
+                (evidence_id,),
+            ).fetchone()
+        return self._load_model(row, EvidenceRecord)
+
+    def get_experiment_review(self, experiment_review_id: str) -> ExperimentReview | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT raw_json FROM experiment_reviews WHERE id = ?",
+                (experiment_review_id,),
+            ).fetchone()
+        return self._load_model(row, ExperimentReview)
+
+    def get_related_events(
+        self,
+        *,
+        related_type: RecordType | None = None,
+        related_id: str | None = None,
+        event_type: str | None = None,
+    ) -> list[LedgerEventEntry]:
+        clauses: list[str] = []
+        parameters: list[str] = []
+        if related_type is not None:
+            clauses.append("related_type = ?")
+            parameters.append(related_type.value)
+        if related_id is not None:
+            clauses.append("related_id = ?")
+            parameters.append(related_id)
+        if event_type is not None:
+            clauses.append("event_type = ?")
+            parameters.append(event_type)
+        where_clause = ""
+        if clauses:
+            where_clause = "WHERE " + " AND ".join(clauses)
+        query = f"""
+            SELECT id, created_at, event_type, related_type, related_id, payload_json
+            FROM ledger_events
+            {where_clause}
+            ORDER BY created_at ASC, rowid ASC
+        """
+        with self._connect() as connection:
+            rows = connection.execute(query, parameters).fetchall()
+        return [
+            LedgerEventEntry(
+                ledger_event_id=str(row["id"]),
+                created_at=str(row["created_at"]),
+                event_type=str(row["event_type"]),
+                related_type=RecordType(str(row["related_type"])),
+                related_id=str(row["related_id"]),
+                payload=json.loads(str(row["payload_json"])),
             )
             for row in rows
         ]

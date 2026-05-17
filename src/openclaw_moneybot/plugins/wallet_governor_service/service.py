@@ -123,7 +123,7 @@ class WalletGovernorService:
         if quote.amount_sats + quote.fee_sats > balance_sats:
             return self._store_rejection(request.idempotency_key, "insufficient_balance")
 
-        spend_request_id = make_id("spend")
+        spend_request_id = request.spend_request_id or make_id("spend")
         spend_request = SpendRequest(
             created_at=utc_now(),
             spend_request_id=spend_request_id,

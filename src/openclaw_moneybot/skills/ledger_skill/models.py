@@ -28,6 +28,17 @@ class LedgerTimelineEntry(MoneyBotModel):
     related_id: str
 
 
+class LedgerEventEntry(MoneyBotModel):
+    """A generic ledger event entry."""
+
+    ledger_event_id: str
+    created_at: str
+    event_type: str
+    related_type: RecordType
+    related_id: str
+    payload: dict[str, object]
+
+
 class TaxExportResult(MoneyBotModel):
     """Result of exporting ledger tax/accounting data."""
 

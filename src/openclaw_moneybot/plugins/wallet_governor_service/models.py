@@ -60,6 +60,7 @@ class WalletQuoteResponse(MoneyBotModel):
 class WalletSendRequest(MoneyBotModel):
     """Validated local-only wallet send request."""
 
+    spend_request_id: str | None = None
     opportunity_id: str | None = None
     budget_plan_id: str
     policy_decision_id: str

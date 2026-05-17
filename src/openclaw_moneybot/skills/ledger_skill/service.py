@@ -9,13 +9,16 @@ from openclaw_moneybot.shared import (
     EmailDraftRecord,
     EvidenceRecord,
     ExperimentReview,
+    LedgerRecord,
     Opportunity,
     PolicyDecision,
     SpendRequest,
     TosLegalCheck,
     WalletTransactionRecord,
 )
+from openclaw_moneybot.shared.types import RecordType
 from openclaw_moneybot.skills.ledger_skill.models import (
+    LedgerEventEntry,
     LedgerTimelineEntry,
     LedgerWriteResult,
     TaxExportResult,
@@ -40,6 +43,11 @@ class LedgerService:
         self, opportunity: Opportunity, *, idempotency_key: str | None = None
     ) -> LedgerWriteResult:
         return self.repository.create_opportunity(opportunity, idempotency_key=idempotency_key)
+
+    def record_ledger_record(
+        self, record: LedgerRecord, *, idempotency_key: str | None = None
+    ) -> LedgerWriteResult:
+        return self.repository.record_ledger_record(record, idempotency_key=idempotency_key)
 
     def record_policy_decision(
         self, decision: PolicyDecision, *, idempotency_key: str | None = None
@@ -89,6 +97,46 @@ class LedgerService:
 
     def get_opportunity_timeline(self, opportunity_id: str) -> list[LedgerTimelineEntry]:
         return self.repository.get_opportunity_timeline(opportunity_id)
+
+    def get_opportunity(self, opportunity_id: str) -> Opportunity | None:
+        return self.repository.get_opportunity(opportunity_id)
+
+    def get_policy_decision(self, policy_decision_id: str) -> PolicyDecision | None:
+        return self.repository.get_policy_decision(policy_decision_id)
+
+    def get_tos_legal_check(self, tos_legal_check_id: str) -> TosLegalCheck | None:
+        return self.repository.get_tos_legal_check(tos_legal_check_id)
+
+    def get_budget_plan(self, budget_plan_id: str) -> BudgetPlan | None:
+        return self.repository.get_budget_plan(budget_plan_id)
+
+    def get_spend_request(self, spend_request_id: str) -> SpendRequest | None:
+        return self.repository.get_spend_request(spend_request_id)
+
+    def get_wallet_transaction(self, wallet_transaction_id: str) -> WalletTransactionRecord | None:
+        return self.repository.get_wallet_transaction(wallet_transaction_id)
+
+    def get_email_record(self, email_draft_id: str) -> EmailDraftRecord | None:
+        return self.repository.get_email_record(email_draft_id)
+
+    def get_evidence_record(self, evidence_id: str) -> EvidenceRecord | None:
+        return self.repository.get_evidence_record(evidence_id)
+
+    def get_experiment_review(self, experiment_review_id: str) -> ExperimentReview | None:
+        return self.repository.get_experiment_review(experiment_review_id)
+
+    def get_related_events(
+        self,
+        *,
+        related_type: RecordType | None = None,
+        related_id: str | None = None,
+        event_type: str | None = None,
+    ) -> list[LedgerEventEntry]:
+        return self.repository.get_related_events(
+            related_type=related_type,
+            related_id=related_id,
+            event_type=event_type,
+        )
 
     def export_tax_records(self, output_path: Path) -> TaxExportResult:
         return self.repository.export_tax_records(output_path)

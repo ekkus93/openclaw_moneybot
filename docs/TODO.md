@@ -270,24 +270,24 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
 
 ## Phase 10 - Wallet governor client
 
-- [ ] Implement `wallet_governor_client`.
-  - [ ] Add balance, quote, and spend request models
-  - [ ] Add client-side preflight validation
-  - [ ] Restrict base URL to localhost unless explicitly configured
-  - [ ] Default to read-only or spend-disabled mode
-- [ ] Enforce client-side safeguards.
-  - [ ] Reject missing policy/budget/ledger references
-  - [ ] Reject invalid or missing destination
-  - [ ] Reject unsupported assets
-  - [ ] Reject over-limit requests before HTTP call
-  - [ ] Reject any `send_all` style request
-- [ ] Write all outcomes back to ledger.
-  - [ ] Successful send
-  - [ ] Explicit rejection
-  - [ ] Service errors/timeouts
-- [ ] Add tests with fake service responses.
-- [ ] Track detailed work in:
-  - [ ] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/wallet_governor_client/TODO.md`
+- [x] Implement `wallet_governor_client`.
+  - [x] Add balance, quote, and spend request models
+  - [x] Add client-side preflight validation
+  - [x] Restrict base URL to localhost unless explicitly configured
+  - [x] Default to read-only or spend-disabled mode
+- [x] Enforce client-side safeguards.
+  - [x] Reject missing policy/budget/ledger references
+  - [x] Reject invalid or missing destination
+  - [x] Reject unsupported assets
+  - [x] Reject over-limit requests before HTTP call
+  - [x] Reject any `send_all` style request
+- [x] Write all outcomes back to ledger.
+  - [x] Successful send
+  - [x] Explicit rejection
+  - [x] Service errors/timeouts
+- [x] Add tests with fake service responses.
+- [x] Track detailed work in:
+  - [x] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/wallet_governor_client/TODO.md`
 
 ## Phase 11 - Experiment review and feedback loop
 
