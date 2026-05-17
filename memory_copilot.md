@@ -38,3 +38,9 @@
 - The service now enforces spend-enabled gating, supported-asset checks, single/daily/weekly USD caps, no-`send_all`, required purpose/counterparty/destination/reference fields, idempotent responses, and unlock-then-lock wallet handling around sends.
 - Successful sends write both `SpendRequest` and `WalletTransactionRecord` entries to the ledger, keeping wallet activity inside the documented wallet boundary and preserving auditability.
 - The repository passes full `ruff`, `mypy`, and `pytest` after adding the wallet governor service, bringing the automated test count to 78 passing tests.
+
+## 2026-05-17T19:29:46Z - GPT-5.4 - Completed phases 10 through 14
+- Implemented `wallet_governor_client` with localhost-only config enforcement, deterministic preflight checks, ledgered prewrites, archived service responses, and safe handling of sent, rejected, and error outcomes.
+- Implemented `experiment_reviewer`, a narrow `ledger_api`, and the default orchestrated workflow under `src/openclaw_moneybot/orchestration/`, including a dry-run mission path and a tiny capped payment path backed by the fake wallet backend.
+- Added integration coverage for one full dry-run workflow, one fail-closed wallet path, and one tiny capped payment path, plus extra config-default tests for disabled wallet spending and draft-only email mode.
+- Updated `README.md` with operator instructions for `uv` setup, Ruff, mypy, pytest, config defaults, dry-run mission wiring, and wallet spending toggles. The repository now passes full `ruff`, `mypy`, and `pytest` with 104 passing tests.

@@ -318,50 +318,50 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
 
 ## Phase 13 - Orchestration and end-to-end workflow
 
-- [ ] Implement the default workflow wiring.
-  - [ ] `opportunity_scout`
-  - [ ] `moneybot_policy_guard`
-  - [ ] `tos_legal_checker`
-  - [ ] `budget_and_roi_planner`
-  - [ ] `moneybot_policy_guard` re-check for execution
-  - [ ] `ledger_skill`
-  - [ ] Execution-adjacent skill calls
-  - [ ] `wallet_governor_client` if needed and approved
-  - [ ] `receipt_and_evidence_archiver`
-  - [ ] `ledger_skill` final outputs
-  - [ ] `experiment_reviewer`
-- [ ] Implement one complete dry-run path first.
-  - [ ] No real spending
-  - [ ] No real sending
-  - [ ] Full ledger trail
-  - [ ] Full evidence trail
-- [ ] Only after dry-run success, implement one tiny real-wallet payment path under strict limits.
+- [x] Implement the default workflow wiring.
+  - [x] `opportunity_scout`
+  - [x] `moneybot_policy_guard`
+  - [x] `tos_legal_checker`
+  - [x] `budget_and_roi_planner`
+  - [x] `moneybot_policy_guard` re-check for execution
+  - [x] `ledger_skill`
+  - [x] Execution-adjacent skill calls
+  - [x] `wallet_governor_client` if needed and approved
+  - [x] `receipt_and_evidence_archiver`
+  - [x] `ledger_skill` final outputs
+  - [x] `experiment_reviewer`
+- [x] Implement one complete dry-run path first.
+  - [x] No real spending
+  - [x] No real sending
+  - [x] Full ledger trail
+  - [x] Full evidence trail
+- [x] Only after dry-run success, implement one tiny real-wallet payment path under strict limits.
 
 ## Phase 14 - Acceptance, testing, and operational readiness
 
-- [ ] Add or confirm offline unit tests for every skill and service.
-- [ ] Add integration tests for the end-to-end dry-run workflow.
-- [ ] Add integration tests for blocked/fail-closed wallet cases.
-- [ ] Add startup validation and safe defaults.
-  - [ ] Wallet spending disabled by default
-  - [ ] Email sending disabled by default
-  - [ ] Unknown categories default to `needs_review`
-  - [ ] Missing config fails closed
-- [ ] Add operator documentation.
-  - [ ] How to set up the local environment with `uv`
-  - [ ] How to run `ruff`
-  - [ ] How to run `mypy`
-  - [ ] How to run `pytest`
-  - [ ] How to run a dry-run mission
-  - [ ] How to enable/disable wallet spending
-- [ ] Confirm v1 acceptance criteria.
-  - [ ] All nine skill specs and implementation TODOs exist
-  - [ ] Ledger stores required records
-  - [ ] Policy guard blocks prohibited categories
-  - [ ] Evidence archive stores and links artifacts
-  - [ ] Email remains draft-only in v1
-  - [ ] Wallet spending cannot bypass policy, budget, ledger, or service limits
-  - [ ] The project can complete one full dry-run and one tiny capped payment test
+- [x] Add or confirm offline unit tests for every skill and service.
+- [x] Add integration tests for the end-to-end dry-run workflow.
+- [x] Add integration tests for blocked/fail-closed wallet cases.
+- [x] Add startup validation and safe defaults.
+  - [x] Wallet spending disabled by default
+  - [x] Email sending disabled by default
+  - [x] Unknown categories default to `needs_review`
+  - [x] Missing config fails closed
+- [x] Add operator documentation.
+  - [x] How to set up the local environment with `uv`
+  - [x] How to run `ruff`
+  - [x] How to run `mypy`
+  - [x] How to run `pytest`
+  - [x] How to run a dry-run mission
+  - [x] How to enable/disable wallet spending
+- [x] Confirm v1 acceptance criteria.
+  - [x] All nine skill specs and implementation TODOs exist
+  - [x] Ledger stores required records
+  - [x] Policy guard blocks prohibited categories
+  - [x] Evidence archive stores and links artifacts
+  - [x] Email remains draft-only in v1
+  - [x] Wallet spending cannot bypass policy, budget, ledger, or service limits
+  - [x] The project can complete one full dry-run and one tiny capped payment test
 
 ## Detailed TODO references
 

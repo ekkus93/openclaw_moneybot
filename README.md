@@ -1,2 +1,126 @@
-# openclaw_moneybot
-An experiment with OpenClaw gone wild
+# OpenClaw MoneyBot
+
+OpenClaw MoneyBot is a bounded, auditable local experiment runner for small money-making workflows. It is intentionally **not** a general autonomous finance agent: policy, ledger, evidence, and wallet boundaries are all explicit and testable.
+
+## Requirements
+
+- Python **3.11**
+- [`uv`](https://docs.astral.sh/uv/) for environment and dependency management
+
+## Setup
+
+```bash
+uv sync --python 3.11 --all-groups
+```
+
+## Quality gates
+
+Run Ruff:
+
+```bash
+uv run --python 3.11 ruff check .
+```
+
+Run mypy:
+
+```bash
+uv run --python 3.11 mypy .
+```
+
+Run pytest:
+
+```bash
+uv run --python 3.11 pytest
+```
+
+## Safe defaults
+
+- Wallet spending is **disabled by default**.
+- Email stays in **`draft_only`** mode by default.
+- Unknown policy categories default to **`needs_review`**.
+- Missing config fails closed with a structured error.
+
+## Running a dry-run mission
+
+1. Create a config file:
+
+```yaml
+policy:
+  policy_version: "v1"
+  blocked_categories: ["gambling"]
+  review_required_categories: ["affiliate_marketing"]
+  max_single_spend_usd: 10
+  max_daily_spend_usd: 20
+  max_weekly_spend_usd: 40
+ledger:
+  database_path: "data/moneybot.sqlite3"
+archive:
+  base_directory: "archive"
+wallet_governor:
+  base_url: "http://127.0.0.1:8080"
+  timeout_seconds: 5
+  spend_enabled: false
+  allowed_assets: ["BTC"]
+email:
+  mode: "draft_only"
+  max_outbound_per_day: 0
+```
+
+2. Build the orchestrator from config and run a mission:
+
+```python
+from datetime import UTC, datetime
+
+from openclaw_moneybot.orchestration import DryRunMissionRequest, build_orchestrator
+from openclaw_moneybot.shared import load_app_config
+from openclaw_moneybot.skills.opportunity_scout import ScoutSourceDocument
+
+config = load_app_config("moneybot.yaml")
+orchestrator = build_orchestrator(config)
+
+result = orchestrator.run_dry_run(
+    DryRunMissionRequest(
+        mission="Review one bounded bounty",
+        current_date=datetime.now(tz=UTC),
+        source_documents=[
+            ScoutSourceDocument(
+                source_name="Example bounty",
+                category_hint="bounty",
+                source_url="https://example.com/bounty",
+                rules_url="https://example.com/bounty/rules",
+                payment_method="BTC payout",
+                content_text=(
+                    "Eligibility: open to individual developers.\n"
+                    "Payment: bounty paid after accepted submission.\n"
+                    "Automation: no prohibition on automated research tools.\n"
+                    "Requires $5 spend for a hosted preview environment.\n"
+                    "Payout is up to $25."
+                ),
+            )
+        ],
+        draft_recipient_email="maintainer@example.com",
+        draft_recipient_name="Maintainer",
+        enable_wallet_payment=False,
+    )
+)
+
+print(result.model_dump())
+```
+
+For an automated reference run, the integration coverage in `tests/integration/test_workflow.py` exercises:
+
+- one full dry-run path
+- one fail-closed wallet path
+- one tiny capped payment path using the fake wallet backend
+
+## Enabling or disabling wallet spending
+
+Wallet spending is controlled only through config:
+
+```yaml
+wallet_governor:
+  base_url: "http://127.0.0.1:8080"
+  spend_enabled: false
+```
+
+Set `spend_enabled: true` only when the local wallet governor service is available and you explicitly want governed payment calls to be allowed.

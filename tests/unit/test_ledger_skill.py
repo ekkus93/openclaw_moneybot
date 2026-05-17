@@ -213,7 +213,7 @@ def test_repository_operations_round_trip(repository: LedgerRepository, tmp_path
     timeline = repository.get_opportunity_timeline("opp_001")
     export_result = repository.export_tax_records(tmp_path / "tax" / "records.csv")
 
-    assert len(timeline) == 7
+    assert len(timeline) == 8
     assert export_result.row_count == 1
     assert export_result.output_path.exists()
 

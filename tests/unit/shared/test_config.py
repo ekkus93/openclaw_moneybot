@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from openclaw_moneybot.shared.config import AppConfig, load_app_config
+from openclaw_moneybot.shared.config import (
+    AppConfig,
+    EmailConfig,
+    WalletGovernorConfig,
+    load_app_config,
+)
 from openclaw_moneybot.shared.errors import ErrorCode, MoneyBotError
 from openclaw_moneybot.shared.types import EmailMode
 
@@ -88,3 +93,15 @@ email:
         load_app_config(config_path)
 
     assert error.value.detail.error_code is ErrorCode.INVALID_CONFIG
+
+
+def test_wallet_spending_disabled_by_default() -> None:
+    config = WalletGovernorConfig(base_url="http://127.0.0.1:8080")
+
+    assert config.spend_enabled is False
+
+
+def test_email_mode_defaults_to_draft_only() -> None:
+    config = EmailConfig()
+
+    assert config.mode is EmailMode.DRAFT_ONLY
