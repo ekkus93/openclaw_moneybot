@@ -48,24 +48,24 @@ Reference: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/MASTER_IMPLEMENTATION_TODO.md
 
 ## Phase 1 — Safety and state foundation
 
-- [ ] Implement ledger_skill
-  - [ ] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/ledger_skill/TODO.md
-  - [ ] Create SQLite schema and migrations.
-  - [ ] Implement append-oriented and tamper-evident ledger.
-  - [ ] Add idempotency keys and duplicate prevention.
-  - [ ] Add unit and integration tests.
-- [ ] Implement moneybot_policy_guard
-  - [ ] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/moneybot_policy_guard/TODO.md
-  - [ ] Implement deterministic rule taxonomy and risk labels.
-  - [ ] Implement allow/block/needs_review logic.
-  - [ ] Integrate with ledger_skill for policy decision records.
-  - [ ] Add unit and integration tests.
-- [ ] Implement receipt_and_evidence_archiver
-  - [ ] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/receipt_and_evidence_archiver/TODO.md
-  - [ ] Implement local file storage layout.
-  - [ ] Implement SHA-256 hashing and integrity checks.
-  - [ ] Integrate with ledger_skill for evidence records.
-  - [ ] Add unit and integration tests.
+- [x] Implement ledger_skill
+  - [x] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/ledger_skill/TODO.md
+  - [x] Create SQLite schema and migrations.
+  - [x] Implement append-oriented and tamper-evident ledger.
+  - [x] Add idempotency keys and duplicate prevention.
+  - [x] Add unit and integration tests.
+- [x] Implement moneybot_policy_guard
+  - [x] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/moneybot_policy_guard/TODO.md
+  - [x] Implement deterministic rule taxonomy and risk labels.
+  - [x] Implement allow/block/needs_review logic.
+  - [x] Integrate with ledger_skill for policy decision records.
+  - [x] Add unit and integration tests.
+- [x] Implement receipt_and_evidence_archiver
+  - [x] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/receipt_and_evidence_archiver/TODO.md
+  - [x] Implement local file storage layout.
+  - [x] Implement SHA-256 hashing and integrity checks.
+  - [x] Integrate with ledger_skill for evidence records.
+  - [x] Add unit and integration tests.
 
 ## Phase 2 — Research and decision skills
 
