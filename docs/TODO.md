@@ -228,21 +228,21 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
 
 ## Phase 8 - Draft-only communications
 
-- [ ] Implement `email_drafter` in v1 draft-only mode.
-  - [ ] Add structured request/result models
-  - [ ] Add safe template support
-  - [ ] Add compliance checks
-  - [ ] Archive drafts and link them to ledger/evidence
-- [ ] Enforce communication rules.
-  - [ ] No mass outreach
-  - [ ] No deceptive identity
-  - [ ] No fake affiliation
-  - [ ] No unsupported claims
-  - [ ] No repeated harassment loops
-  - [ ] No sending in v1
-- [ ] Add tests for allowed draft generation and blocked misuse patterns.
-- [ ] Track detailed work in:
-  - [ ] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/email_drafter/TODO.md`
+- [x] Implement `email_drafter` in v1 draft-only mode.
+  - [x] Add structured request/result models
+  - [x] Add safe template support
+  - [x] Add compliance checks
+  - [x] Archive drafts and link them to ledger/evidence
+- [x] Enforce communication rules.
+  - [x] No mass outreach
+  - [x] No deceptive identity
+  - [x] No fake affiliation
+  - [x] No unsupported claims
+  - [x] No repeated harassment loops
+  - [x] No sending in v1
+- [x] Add tests for allowed draft generation and blocked misuse patterns.
+- [x] Track detailed work in:
+  - [x] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/email_drafter/TODO.md`
 
 ## Phase 9 - Wallet governor service
 

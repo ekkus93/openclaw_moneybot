@@ -26,3 +26,9 @@
 - The repository now has a working Python 3.11 + uv scaffold, shared Pydantic contracts and config loading, an SQLite ledger with tamper-evident event hashing, a deterministic policy gate, a local evidence archiver with redaction and ledger integration, an offline-first TOS/legal checker, and a bounded budget planner with wallet handoff generation.
 - Each completed phase was followed by `ruff`, `mypy`, and `pytest`, and the changes were committed and pushed in phase-by-phase commits on the `copilot` branch.
 - Remaining phases are still pending: opportunity scouting, draft-only email, wallet governor service, wallet governor client, experiment reviewer, optional local services, orchestration, and final acceptance/operations work.
+
+## 2026-05-17T19:07:02Z - GPT-5.4 - Completed phases 7 and 8
+- Implemented and pushed Phase 7 `opportunity_scout` with deterministic source parsing, candidate filtering, deduplication, ranking, and downstream TOS/legal handoff data.
+- Implemented Phase 8 `email_drafter` as a strict draft-only skill with safe templates, compliance/risk checks, ledger email records, and archived draft bodies linked through the evidence system.
+- The repository now passes full `ruff`, `mypy`, and `pytest` after phases 7 and 8, with 70 passing tests covering the new scout and email behavior.
+- Next code phases are wallet governor service, wallet governor client, experiment reviewer, optional local services, and orchestration; manual acceptance work remains intentionally deferred for now.
