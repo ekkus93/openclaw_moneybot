@@ -13,6 +13,7 @@ authors = [{ name = "Phil" }]
 dependencies = [
   "httpx>=0.28,<0.29",
   "pydantic>=2.11,<3",
+  "PyYAML>=6,<7",
 ]
 
 [dependency-groups]
@@ -21,6 +22,7 @@ dev = [
   "pytest>=8.3,<9",
   "pytest-cov>=6,<7",
   "ruff>=0.11,<0.12",
+  "types-PyYAML>=6.0.12,<7",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -46,4 +48,3 @@ python_version = "3.11"
 strict = true
 packages = ["openclaw_moneybot"]
 plugins = ["pydantic.mypy"]
-

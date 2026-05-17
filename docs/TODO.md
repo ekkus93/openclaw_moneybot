@@ -59,25 +59,25 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
 
 ## Phase 1 - Shared contracts, config, and errors
 
-- [ ] Create shared schema/contracts modules.
-  - [ ] Common IDs and timestamp handling
-  - [ ] Risk levels, decision enums, and action categories
-  - [ ] Opportunity, policy, TOS/legal, budget, spend, evidence, email, and review models
-- [ ] Create shared config models and loaders.
-  - [ ] MoneyBot policy config
-  - [ ] Ledger config
-  - [ ] Archive config
-  - [ ] Wallet governor client/service config
-  - [ ] Email mode config
-- [ ] Create a shared structured error model.
-  - [ ] Stable error codes
-  - [ ] Safe user-facing messages
-  - [ ] Recoverability metadata
-  - [ ] Validation error formatting
-- [ ] Add shared tests.
-  - [ ] Schema validation tests
-  - [ ] Config validation tests
-  - [ ] Serialization consistency tests
+- [x] Create shared schema/contracts modules.
+  - [x] Common IDs and timestamp handling
+  - [x] Risk levels, decision enums, and action categories
+  - [x] Opportunity, policy, TOS/legal, budget, spend, evidence, email, and review models
+- [x] Create shared config models and loaders.
+  - [x] MoneyBot policy config
+  - [x] Ledger config
+  - [x] Archive config
+  - [x] Wallet governor client/service config
+  - [x] Email mode config
+- [x] Create a shared structured error model.
+  - [x] Stable error codes
+  - [x] Safe user-facing messages
+  - [x] Recoverability metadata
+  - [x] Validation error formatting
+- [x] Add shared tests.
+  - [x] Schema validation tests
+  - [x] Config validation tests
+  - [x] Serialization consistency tests
 
 ## Phase 2 - Ledger foundation
 
