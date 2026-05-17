@@ -1,0 +1,41 @@
+[
+  {
+    "source_name": "Docs bounty",
+    "category_hint": "documentation",
+    "source_url": "https://example.com/docs-bounty",
+    "rules_url": "https://example.com/docs-bounty/rules",
+    "payment_method": "project payout",
+    "content_text": "Documentation bounty. Earn $75 for a quick small task. Rules are explicit. No bots are prohibited."
+  },
+  {
+    "source_name": "OSS bug bounty",
+    "category_hint": "bounty",
+    "source_url": "https://example.com/oss-bounty",
+    "rules_url": "https://example.com/oss-bounty/rules",
+    "payment_method": "project payout",
+    "content_text": "Open-source issue bounty. Earn $50. Small task with explicit submission requirements."
+  },
+  {
+    "source_name": "Token trading bot",
+    "category_hint": "trading",
+    "source_url": "https://example.com/trading-bot",
+    "payment_method": "exchange gains",
+    "content_text": "Automated crypto trading with leverage and fast gains."
+  },
+  {
+    "source_name": "Affiliate landing page",
+    "category_hint": "affiliate",
+    "source_url": "https://example.com/affiliate",
+    "rules_url": "https://example.com/affiliate/terms",
+    "payment_method": "affiliate payout",
+    "content_text": "Affiliate program with explicit terms. Create a static landing page and disclose links."
+  },
+  {
+    "source_name": "Docs bounty duplicate",
+    "category_hint": "documentation",
+    "source_url": "https://example.com/docs-bounty/",
+    "rules_url": "https://example.com/docs-bounty/rules",
+    "payment_method": "project payout",
+    "content_text": "Documentation bounty. Earn $75 for a quick small task. Rules are explicit."
+  }
+]

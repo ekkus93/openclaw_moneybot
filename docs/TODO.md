@@ -206,25 +206,25 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
 
 ## Phase 7 - Opportunity discovery
 
-- [ ] Implement `opportunity_scout` as a research-only skill.
-  - [ ] Define supported source categories
-  - [ ] Define unsupported/prohibited categories
-  - [ ] Extract structured candidate data
-  - [ ] Deduplicate candidates
-  - [ ] Score and rank candidates deterministically
-- [ ] Preserve strict limits.
-  - [ ] No spending
-  - [ ] No email sending
-  - [ ] No account creation
-  - [ ] No form submission
-  - [ ] No commitment to opportunities
-- [ ] Produce downstream handoffs.
-  - [ ] TOS/legal check requests
-  - [ ] Ledger-ready opportunity discovery records
-  - [ ] Evidence references where available
-- [ ] Add tests for extraction, rejection, dedupe, and ranking.
-- [ ] Track detailed work in:
-  - [ ] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/opportunity_scout/TODO.md`
+- [x] Implement `opportunity_scout` as a research-only skill.
+  - [x] Define supported source categories
+  - [x] Define unsupported/prohibited categories
+  - [x] Extract structured candidate data
+  - [x] Deduplicate candidates
+  - [x] Score and rank candidates deterministically
+- [x] Preserve strict limits.
+  - [x] No spending
+  - [x] No email sending
+  - [x] No account creation
+  - [x] No form submission
+  - [x] No commitment to opportunities
+- [x] Produce downstream handoffs.
+  - [x] TOS/legal check requests
+  - [x] Ledger-ready opportunity discovery records
+  - [x] Evidence references where available
+- [x] Add tests for extraction, rejection, dedupe, and ranking.
+- [x] Track detailed work in:
+  - [x] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/opportunity_scout/TODO.md`
 
 ## Phase 8 - Draft-only communications
 

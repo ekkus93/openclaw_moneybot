@@ -20,3 +20,9 @@
 - The new master TODO organizes work into phases: repository/tooling foundation, shared contracts/config/errors, ledger, policy guard, evidence archive, TOS/legal checking, budget planning, opportunity scouting, draft-only email, wallet governor service, wallet governor client, experiment review, orchestration, and acceptance/operations.
 - The document explicitly points back to the detailed skill and plugin TODO files under `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/` so there is a single project-management entry point plus deeper implementation checklists.
 - The suggested first implementation slice remains: Python/tooling foundation -> shared contracts/config/errors -> `ledger_skill` -> `moneybot_policy_guard` -> `receipt_and_evidence_archiver`.
+
+## 2026-05-17T18:58:49Z - GPT-5.4 - Completed phases 0 through 6
+- Implemented and pushed the first six phases from `docs/TODO.md`: project/tooling foundation, shared contracts/config/errors, ledger foundation, deterministic policy guard, evidence archive, TOS/legal checker, and budget planner.
+- The repository now has a working Python 3.11 + uv scaffold, shared Pydantic contracts and config loading, an SQLite ledger with tamper-evident event hashing, a deterministic policy gate, a local evidence archiver with redaction and ledger integration, an offline-first TOS/legal checker, and a bounded budget planner with wallet handoff generation.
+- Each completed phase was followed by `ruff`, `mypy`, and `pytest`, and the changes were committed and pushed in phase-by-phase commits on the `copilot` branch.
+- Remaining phases are still pending: opportunity scouting, draft-only email, wallet governor service, wallet governor client, experiment reviewer, optional local services, orchestration, and final acceptance/operations work.
