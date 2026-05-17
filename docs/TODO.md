@@ -166,24 +166,24 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
 
 ## Phase 5 - Rules, terms, and legal review
 
-- [ ] Implement `tos_legal_checker`.
-  - [ ] Build input/output contracts
-  - [ ] Support local evidence-driven extraction first
-  - [ ] Extract rules relevant to eligibility, payment, automation, outreach, account use, and data handling
-  - [ ] Produce structured `proceed`, `reject`, or `human_review` results
-- [ ] Add deterministic checks for:
-  - [ ] Bot/automation prohibitions
-  - [ ] Commercial-use prohibitions
-  - [ ] Fake identity requirements
-  - [ ] Spam/outreach restrictions
-  - [ ] Regulated-finance indicators
-  - [ ] Unclear payment mechanisms
-  - [ ] Missing or ambiguous rules
-- [ ] Link output to evidence archive and ledger.
-- [ ] Produce handoff data for policy evaluation.
-- [ ] Add fixture-based tests for allowed, blocked, and ambiguous cases.
-- [ ] Track detailed work in:
-  - [ ] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/tos_legal_checker/TODO.md`
+- [x] Implement `tos_legal_checker`.
+  - [x] Build input/output contracts
+  - [x] Support local evidence-driven extraction first
+  - [x] Extract rules relevant to eligibility, payment, automation, outreach, account use, and data handling
+  - [x] Produce structured `proceed`, `reject`, or `human_review` results
+- [x] Add deterministic checks for:
+  - [x] Bot/automation prohibitions
+  - [x] Commercial-use prohibitions
+  - [x] Fake identity requirements
+  - [x] Spam/outreach restrictions
+  - [x] Regulated-finance indicators
+  - [x] Unclear payment mechanisms
+  - [x] Missing or ambiguous rules
+- [x] Link output to evidence archive and ledger.
+- [x] Produce handoff data for policy evaluation.
+- [x] Add fixture-based tests for allowed, blocked, and ambiguous cases.
+- [x] Track detailed work in:
+  - [x] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/tos_legal_checker/TODO.md`
 
 ## Phase 6 - Budgeting and bounded experiment design
 

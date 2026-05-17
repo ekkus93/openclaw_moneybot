@@ -1,0 +1,4 @@
+Eligibility: open to individual developers.
+Payment: bounty paid after accepted submission.
+Automation: no prohibition on automated research tools.
+Submission requirements: one truthful submission per participant.
