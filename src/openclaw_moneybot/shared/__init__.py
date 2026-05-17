@@ -20,6 +20,7 @@ from openclaw_moneybot.shared.contracts import (
     PolicyDecision,
     SpendRequest,
     TosLegalCheck,
+    WalletTransactionRecord,
 )
 from openclaw_moneybot.shared.errors import ErrorCode, MoneyBotError, MoneyBotErrorDetail
 
@@ -43,5 +44,6 @@ __all__ = [
     "SpendRequest",
     "TosLegalCheck",
     "WalletGovernorConfig",
+    "WalletTransactionRecord",
     "load_app_config",
 ]

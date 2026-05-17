@@ -55,6 +55,7 @@ class PolicyDecision(TimestampedModel):
     """Structured policy decision output."""
 
     policy_decision_id: str
+    opportunity_id: str | None = None
     decision: PolicyDecisionType
     risk_level: RiskLevel
     confidence: ConfidenceLevel = ConfidenceLevel.HIGH
@@ -131,6 +132,7 @@ class SpendRequest(TimestampedModel):
     """A wallet spend request."""
 
     spend_request_id: str
+    opportunity_id: str | None = None
     budget_plan_id: str
     policy_decision_id: str
     ledger_record_id: str
@@ -141,6 +143,20 @@ class SpendRequest(TimestampedModel):
     purpose: str
     category: str
     evidence_archive_ids: list[str] = Field(default_factory=list)
+
+
+class WalletTransactionRecord(TimestampedModel):
+    """A recorded wallet transaction."""
+
+    wallet_transaction_id: str
+    spend_request_id: str
+    txid: str
+    amount_btc: str
+    fee_btc: str
+    amount_usd_estimate: float = Field(ge=0)
+    status: str
+    destination: str
+    purpose: str
 
 
 class EvidenceRecord(TimestampedModel):

@@ -81,37 +81,37 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
 
 ## Phase 2 - Ledger foundation
 
-- [ ] Implement the SQLite ledger as the local system of record.
-  - [ ] Create schema and migrations
-  - [ ] Add append-oriented tables
-  - [ ] Add foreign keys and indexes
-  - [ ] Add idempotency support
-  - [ ] Add tamper-evident event hashing
-- [ ] Implement ledger operations for all major record types.
-  - [ ] Opportunities
-  - [ ] Policy decisions
-  - [ ] TOS/legal checks
-  - [ ] Budget plans
-  - [ ] Spend requests
-  - [ ] Wallet transactions
-  - [ ] Email drafts/events
-  - [ ] Evidence artifacts
-  - [ ] Experiment reviews
-  - [ ] Audit events
-- [ ] Implement read/query helpers.
-  - [ ] Opportunity timeline
-  - [ ] Daily/weekly spend totals
-  - [ ] Exportable accounting/tax views
-- [ ] Add tests for:
-  - [ ] Migrations
-  - [ ] Idempotency
-  - [ ] Hash-chain verification
-  - [ ] Foreign key enforcement
-  - [ ] Duplicate prevention
-  - [ ] CSV/JSONL export if added
-- [ ] Track detailed work in:
-  - [ ] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/ledger_skill/TODO.md`
-  - [ ] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/plugins/ledger_api_TODO.md`
+- [x] Implement the SQLite ledger as the local system of record.
+  - [x] Create schema and migrations
+  - [x] Add append-oriented tables
+  - [x] Add foreign keys and indexes
+  - [x] Add idempotency support
+  - [x] Add tamper-evident event hashing
+- [x] Implement ledger operations for all major record types.
+  - [x] Opportunities
+  - [x] Policy decisions
+  - [x] TOS/legal checks
+  - [x] Budget plans
+  - [x] Spend requests
+  - [x] Wallet transactions
+  - [x] Email drafts/events
+  - [x] Evidence artifacts
+  - [x] Experiment reviews
+  - [x] Audit events
+- [x] Implement read/query helpers.
+  - [x] Opportunity timeline
+  - [x] Daily/weekly spend totals
+  - [x] Exportable accounting/tax views
+- [x] Add tests for:
+  - [x] Migrations
+  - [x] Idempotency
+  - [x] Hash-chain verification
+  - [x] Foreign key enforcement
+  - [x] Duplicate prevention
+  - [x] CSV/JSONL export if added
+- [x] Track detailed work in:
+  - [x] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/ledger_skill/TODO.md`
+  - [x] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/plugins/ledger_api_TODO.md`
 
 ## Phase 3 - Deterministic policy guard
 
