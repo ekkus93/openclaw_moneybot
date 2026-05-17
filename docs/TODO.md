@@ -246,27 +246,27 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
 
 ## Phase 9 - Wallet governor service
 
-- [ ] Implement `wallet_governor_service` as the only wallet-facing component.
-  - [ ] Keep service local-only
-  - [ ] Add health, balance, limits, quote, and capped send endpoints
-  - [ ] Load secrets only in the service boundary
-  - [ ] Never expose passphrases, RPC cookies, private keys, or backups
-- [ ] Enforce hard spend rules.
-  - [ ] Max single payment
-  - [ ] Max daily payment
-  - [ ] Max weekly payment
-  - [ ] No `send-all`
-  - [ ] Required purpose/counterparty/destination
-  - [ ] Required policy, budget, and ledger references
-  - [ ] Idempotency and duplicate protection
-- [ ] Add wallet integration protections.
-  - [ ] Localhost-only RPC/service access
-  - [ ] Minimal wallet unlock time
-  - [ ] Immediate lock after spend attempt
-  - [ ] Safe logging only
-- [ ] Add fake-backend and, later, limited integration testing.
-- [ ] Track detailed work in:
-  - [ ] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/plugins/wallet_governor_service_TODO.md`
+- [x] Implement `wallet_governor_service` as the only wallet-facing component.
+  - [x] Keep service local-only
+  - [x] Add health, balance, limits, quote, and capped send endpoints
+  - [x] Load secrets only in the service boundary
+  - [x] Never expose passphrases, RPC cookies, private keys, or backups
+- [x] Enforce hard spend rules.
+  - [x] Max single payment
+  - [x] Max daily payment
+  - [x] Max weekly payment
+  - [x] No `send-all`
+  - [x] Required purpose/counterparty/destination
+  - [x] Required policy, budget, and ledger references
+  - [x] Idempotency and duplicate protection
+- [x] Add wallet integration protections.
+  - [x] Localhost-only RPC/service access
+  - [x] Minimal wallet unlock time
+  - [x] Immediate lock after spend attempt
+  - [x] Safe logging only
+- [x] Add fake-backend and, later, limited integration testing.
+- [x] Track detailed work in:
+  - [x] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/plugins/wallet_governor_service_TODO.md`
 
 ## Phase 10 - Wallet governor client
 

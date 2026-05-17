@@ -32,3 +32,9 @@
 - Implemented Phase 8 `email_drafter` as a strict draft-only skill with safe templates, compliance/risk checks, ledger email records, and archived draft bodies linked through the evidence system.
 - The repository now passes full `ruff`, `mypy`, and `pytest` after phases 7 and 8, with 70 passing tests covering the new scout and email behavior.
 - Next code phases are wallet governor service, wallet governor client, experiment reviewer, optional local services, and orchestration; manual acceptance work remains intentionally deferred for now.
+
+## 2026-05-17T19:09:42Z - GPT-5.4 - Completed phase 9 wallet governor service
+- Implemented a local-only `wallet_governor_service` plugin package with deterministic health, balance, limits, quote, and governed send operations backed by a fake wallet backend for tests.
+- The service now enforces spend-enabled gating, supported-asset checks, single/daily/weekly USD caps, no-`send_all`, required purpose/counterparty/destination/reference fields, idempotent responses, and unlock-then-lock wallet handling around sends.
+- Successful sends write both `SpendRequest` and `WalletTransactionRecord` entries to the ledger, keeping wallet activity inside the documented wallet boundary and preserving auditability.
+- The repository passes full `ruff`, `mypy`, and `pytest` after adding the wallet governor service, bringing the automated test count to 78 passing tests.
