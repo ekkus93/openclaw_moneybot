@@ -20,15 +20,15 @@ Required workflow:
 
 ## Skills Included
 
-- `skills/moneybot_policy_guard/SKILL.md`
-- `skills/opportunity_scout/SKILL.md`
-- `skills/tos_legal_checker/SKILL.md`
-- `skills/budget_and_roi_planner/SKILL.md`
-- `skills/ledger_skill/SKILL.md`
-- `skills/wallet_governor_client/SKILL.md`
-- `skills/email_drafter/SKILL.md`
-- `skills/receipt_and_evidence_archiver/SKILL.md`
-- `skills/experiment_reviewer/SKILL.md`
+- `src/openclaw_moneybot/skills/moneybot_policy_guard/SKILL.md`
+- `src/openclaw_moneybot/skills/opportunity_scout/SKILL.md`
+- `src/openclaw_moneybot/skills/tos_legal_checker/SKILL.md`
+- `src/openclaw_moneybot/skills/budget_and_roi_planner/SKILL.md`
+- `src/openclaw_moneybot/skills/ledger_skill/SKILL.md`
+- `src/openclaw_moneybot/skills/wallet_governor_client/SKILL.md`
+- `src/openclaw_moneybot/skills/email_drafter/SKILL.md`
+- `src/openclaw_moneybot/skills/receipt_and_evidence_archiver/SKILL.md`
+- `src/openclaw_moneybot/skills/experiment_reviewer/SKILL.md`
 
 ## Global Non-Negotiable Rules
 
