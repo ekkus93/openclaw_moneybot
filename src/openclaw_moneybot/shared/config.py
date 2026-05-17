@@ -11,7 +11,7 @@ from pydantic import Field, ValidationError, field_validator
 
 from openclaw_moneybot.shared.base import MoneyBotModel
 from openclaw_moneybot.shared.errors import ErrorCode, MoneyBotError, MoneyBotErrorDetail
-from openclaw_moneybot.shared.types import EmailMode
+from openclaw_moneybot.shared.types import ActionType, EmailMode
 
 
 class MoneyBotPolicyConfig(MoneyBotModel):
@@ -20,6 +20,9 @@ class MoneyBotPolicyConfig(MoneyBotModel):
     policy_version: str
     blocked_categories: list[str]
     review_required_categories: list[str]
+    allowed_action_types: list[ActionType] = Field(
+        default_factory=lambda: list(ActionType)
+    )
     max_single_spend_usd: float = Field(gt=0)
     max_daily_spend_usd: float = Field(gt=0)
     max_weekly_spend_usd: float = Field(gt=0)

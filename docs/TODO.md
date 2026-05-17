@@ -115,28 +115,28 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
 
 ## Phase 3 - Deterministic policy guard
 
-- [ ] Implement `moneybot_policy_guard` as the central gatekeeper.
-  - [ ] Define the deterministic taxonomy of allowed, blocked, and review-required categories
-  - [ ] Encode hard-block rules first
-  - [ ] Encode missing-information rules
-  - [ ] Encode explicit allow rules only for low-risk actions
-- [ ] Enforce policy requirements for dangerous actions.
-  - [ ] Spending
-  - [ ] Email sending
-  - [ ] Browser form submission
-  - [ ] Account creation
-  - [ ] Publishing content
-  - [ ] Shell operations that touch sensitive areas
-- [ ] Include structured policy outputs.
-  - [ ] Decision
-  - [ ] Risk level
-  - [ ] Matched rules
-  - [ ] Mitigations
-  - [ ] Human review reason
-  - [ ] Expiration/version metadata
-- [ ] Add tests for blocked, review-required, and allowed paths.
-- [ ] Track detailed work in:
-  - [ ] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/moneybot_policy_guard/TODO.md`
+- [x] Implement `moneybot_policy_guard` as the central gatekeeper.
+  - [x] Define the deterministic taxonomy of allowed, blocked, and review-required categories
+  - [x] Encode hard-block rules first
+  - [x] Encode missing-information rules
+  - [x] Encode explicit allow rules only for low-risk actions
+- [x] Enforce policy requirements for dangerous actions.
+  - [x] Spending
+  - [x] Email sending
+  - [x] Browser form submission
+  - [x] Account creation
+  - [x] Publishing content
+  - [x] Shell operations that touch sensitive areas
+- [x] Include structured policy outputs.
+  - [x] Decision
+  - [x] Risk level
+  - [x] Matched rules
+  - [x] Mitigations
+  - [x] Human review reason
+  - [x] Expiration/version metadata
+- [x] Add tests for blocked, review-required, and allowed paths.
+- [x] Track detailed work in:
+  - [x] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/moneybot_policy_guard/TODO.md`
 
 ## Phase 4 - Evidence archive
 
