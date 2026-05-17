@@ -140,29 +140,29 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
 
 ## Phase 4 - Evidence archive
 
-- [ ] Implement `receipt_and_evidence_archiver`.
-  - [ ] Create immutable local archive layout
-  - [ ] Store metadata sidecars
-  - [ ] Hash archived artifacts
-  - [ ] Add verification helpers
-- [ ] Support core evidence types.
-  - [ ] Opportunity page snapshots
-  - [ ] TOS/rules snapshots
-  - [ ] Budget plan snapshots
-  - [ ] Policy decision snapshots
-  - [ ] Email drafts
-  - [ ] Invoices and receipts
-  - [ ] Wallet transaction metadata
-  - [ ] Deliverables and payout proof
-  - [ ] Experiment review snapshots
-- [ ] Add secret/privacy protections.
-  - [ ] Redact accidentally captured secrets
-  - [ ] Record redaction events
-  - [ ] Reject unsafe paths
-- [ ] Link all archived artifacts back to ledger records.
-- [ ] Add tests for immutability, hashing, path safety, and redaction.
-- [ ] Track detailed work in:
-  - [ ] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/receipt_and_evidence_archiver/TODO.md`
+- [x] Implement `receipt_and_evidence_archiver`.
+  - [x] Create immutable local archive layout
+  - [x] Store metadata sidecars
+  - [x] Hash archived artifacts
+  - [x] Add verification helpers
+- [x] Support core evidence types.
+  - [x] Opportunity page snapshots
+  - [x] TOS/rules snapshots
+  - [x] Budget plan snapshots
+  - [x] Policy decision snapshots
+  - [x] Email drafts
+  - [x] Invoices and receipts
+  - [x] Wallet transaction metadata
+  - [x] Deliverables and payout proof
+  - [x] Experiment review snapshots
+- [x] Add secret/privacy protections.
+  - [x] Redact accidentally captured secrets
+  - [x] Record redaction events
+  - [x] Reject unsafe paths
+- [x] Link all archived artifacts back to ledger records.
+- [x] Add tests for immutability, hashing, path safety, and redaction.
+- [x] Track detailed work in:
+  - [x] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/receipt_and_evidence_archiver/TODO.md`
 
 ## Phase 5 - Rules, terms, and legal review
 
