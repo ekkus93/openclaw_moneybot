@@ -703,6 +703,22 @@ class LedgerRepository:
             ).fetchone()
         return self._load_model(row, SpendRequest)
 
+    def list_spend_requests_for_opportunity(self, opportunity_id: str) -> list[SpendRequest]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT raw_json
+                FROM spend_requests
+                WHERE opportunity_id = ?
+                ORDER BY created_at ASC
+                """,
+                (opportunity_id,),
+            ).fetchall()
+        return [
+            SpendRequest.model_validate_json(str(row["raw_json"]))
+            for row in rows
+        ]
+
     def get_wallet_transaction(self, wallet_transaction_id: str) -> WalletTransactionRecord | None:
         with self._connect() as connection:
             row = connection.execute(
@@ -710,6 +726,25 @@ class LedgerRepository:
                 (wallet_transaction_id,),
             ).fetchone()
         return self._load_model(row, WalletTransactionRecord)
+
+    def list_wallet_transactions_for_opportunity(
+        self, opportunity_id: str
+    ) -> list[WalletTransactionRecord]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT bt.raw_json
+                FROM btc_transactions bt
+                JOIN spend_requests sr ON sr.id = bt.spend_request_id
+                WHERE sr.opportunity_id = ?
+                ORDER BY bt.created_at ASC
+                """,
+                (opportunity_id,),
+            ).fetchall()
+        return [
+            WalletTransactionRecord.model_validate_json(str(row["raw_json"]))
+            for row in rows
+        ]
 
     def get_email_record(self, email_draft_id: str) -> EmailDraftRecord | None:
         with self._connect() as connection:
@@ -719,6 +754,22 @@ class LedgerRepository:
             ).fetchone()
         return self._load_model(row, EmailDraftRecord)
 
+    def list_email_records_for_opportunity(self, opportunity_id: str) -> list[EmailDraftRecord]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT raw_json
+                FROM email_records
+                WHERE opportunity_id = ?
+                ORDER BY created_at ASC
+                """,
+                (opportunity_id,),
+            ).fetchall()
+        return [
+            EmailDraftRecord.model_validate_json(str(row["raw_json"]))
+            for row in rows
+        ]
+
     def get_evidence_record(self, evidence_id: str) -> EvidenceRecord | None:
         with self._connect() as connection:
             row = connection.execute(
@@ -726,6 +777,27 @@ class LedgerRepository:
                 (evidence_id,),
             ).fetchone()
         return self._load_model(row, EvidenceRecord)
+
+    def list_evidence_for_related(
+        self,
+        *,
+        related_type: RecordType,
+        related_id: str,
+    ) -> list[EvidenceRecord]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT raw_json
+                FROM evidence_records
+                WHERE related_type = ? AND related_id = ?
+                ORDER BY created_at ASC
+                """,
+                (related_type.value, related_id),
+            ).fetchall()
+        return [
+            EvidenceRecord.model_validate_json(str(row["raw_json"]))
+            for row in rows
+        ]
 
     def get_experiment_review(self, experiment_review_id: str) -> ExperimentReview | None:
         with self._connect() as connection:

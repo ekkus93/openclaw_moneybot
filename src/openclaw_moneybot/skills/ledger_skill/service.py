@@ -113,14 +113,36 @@ class LedgerService:
     def get_spend_request(self, spend_request_id: str) -> SpendRequest | None:
         return self.repository.get_spend_request(spend_request_id)
 
+    def list_spend_requests_for_opportunity(self, opportunity_id: str) -> list[SpendRequest]:
+        return self.repository.list_spend_requests_for_opportunity(opportunity_id)
+
     def get_wallet_transaction(self, wallet_transaction_id: str) -> WalletTransactionRecord | None:
         return self.repository.get_wallet_transaction(wallet_transaction_id)
+
+    def list_wallet_transactions_for_opportunity(
+        self, opportunity_id: str
+    ) -> list[WalletTransactionRecord]:
+        return self.repository.list_wallet_transactions_for_opportunity(opportunity_id)
 
     def get_email_record(self, email_draft_id: str) -> EmailDraftRecord | None:
         return self.repository.get_email_record(email_draft_id)
 
+    def list_email_records_for_opportunity(self, opportunity_id: str) -> list[EmailDraftRecord]:
+        return self.repository.list_email_records_for_opportunity(opportunity_id)
+
     def get_evidence_record(self, evidence_id: str) -> EvidenceRecord | None:
         return self.repository.get_evidence_record(evidence_id)
+
+    def list_evidence_for_related(
+        self,
+        *,
+        related_type: RecordType,
+        related_id: str,
+    ) -> list[EvidenceRecord]:
+        return self.repository.list_evidence_for_related(
+            related_type=related_type,
+            related_id=related_id,
+        )
 
     def get_experiment_review(self, experiment_review_id: str) -> ExperimentReview | None:
         return self.repository.get_experiment_review(experiment_review_id)

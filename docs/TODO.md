@@ -291,18 +291,18 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
 
 ## Phase 11 - Experiment review and feedback loop
 
-- [ ] Implement `experiment_reviewer`.
-  - [ ] Pull experiment context from ledger and evidence
-  - [ ] Calculate spend, revenue, ROI, time spent, and status
-  - [ ] Produce deterministic `continue`, `stop`, `retry_with_changes`, or `human_review`
-- [ ] Feed lessons back into the system.
-  - [ ] Opportunity scoring feedback
-  - [ ] Policy pattern feedback
-  - [ ] Budget estimation feedback
-- [ ] Archive and ledger the review result.
-- [ ] Add tests for profitable, failed, ambiguous, and unsafe cases.
-- [ ] Track detailed work in:
-  - [ ] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/experiment_reviewer/TODO.md`
+- [x] Implement `experiment_reviewer`.
+  - [x] Pull experiment context from ledger and evidence
+  - [x] Calculate spend, revenue, ROI, time spent, and status
+  - [x] Produce deterministic `continue`, `stop`, `retry_with_changes`, or `human_review`
+- [x] Feed lessons back into the system.
+  - [x] Opportunity scoring feedback
+  - [x] Policy pattern feedback
+  - [x] Budget estimation feedback
+- [x] Archive and ledger the review result.
+- [x] Add tests for profitable, failed, ambiguous, and unsafe cases.
+- [x] Track detailed work in:
+  - [x] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/experiment_reviewer/TODO.md`
 
 ## Phase 12 - Optional local service layer
 
