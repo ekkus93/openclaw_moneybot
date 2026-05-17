@@ -1,0 +1,55 @@
+[project]
+name = "openclaw-moneybot"
+version = "0.1.0"
+description = "OpenClaw MoneyBot: constrained autonomous experiment-runner for legal money-making opportunities."
+requires-python = ">=3.11,<3.12"
+
+dependencies = [
+    "pydantic>=2.0,<3",
+    "httpx>=0.24,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.3.0",
+    "mypy>=1.10.0",
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+]
+
+[tool.uv]
+python = "3.11"
+
+[tool.ruff]
+src = ["src", "skills", "plugins", "shared"]
+line-length = 120
+preview = true
+
+[tool.ruff.lint]
+select = [
+    "F",
+    "E",
+    "W",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "C9",
+    "SIM",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+show_error_codes = true
+show_column_numbers = true
+disallow_any_generics = false
+warn_return_any = true
+warn_unreachable = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
