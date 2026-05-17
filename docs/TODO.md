@@ -306,15 +306,15 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
 
 ## Phase 12 - Optional local service layer
 
-- [ ] Decide whether `ledger_api` is needed for local service boundaries.
-  - [ ] If yes, implement narrow local-only endpoints or module functions
-  - [ ] Restrict writes to known schemas only
-  - [ ] Reject arbitrary SQL
-  - [ ] Preserve idempotency and tamper-evident integrity
-- [ ] Defer optional `email_governor` until draft-only mode is solid.
-- [ ] Defer any browser governor until policy, archive, and workflow controls are proven.
-- [ ] Track detailed work in:
-  - [ ] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/plugins/ledger_api_TODO.md`
+- [x] Decide whether `ledger_api` is needed for local service boundaries.
+  - [x] If yes, implement narrow local-only endpoints or module functions
+  - [x] Restrict writes to known schemas only
+  - [x] Reject arbitrary SQL
+  - [x] Preserve idempotency and tamper-evident integrity
+- [x] Defer optional `email_governor` until draft-only mode is solid.
+- [x] Defer any browser governor until policy, archive, and workflow controls are proven.
+- [x] Track detailed work in:
+  - [x] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/plugins/ledger_api_TODO.md`
 
 ## Phase 13 - Orchestration and end-to-end workflow
 
