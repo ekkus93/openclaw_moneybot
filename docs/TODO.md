@@ -187,22 +187,22 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
 
 ## Phase 6 - Budgeting and bounded experiment design
 
-- [ ] Implement `budget_and_roi_planner`.
-  - [ ] Require policy and TOS/legal prerequisites
-  - [ ] Require explicit spend, max loss, revenue estimate, fees, success metric, stop condition, and timebox
-  - [ ] Calculate net outcome and budget impact deterministically
-- [ ] Add decision logic for:
-  - [ ] `reject`
-  - [ ] `simulate`
-  - [ ] `execute_request`
-  - [ ] `human_review`
-- [ ] Produce downstream records.
-  - [ ] Ledger-ready budget/experiment plan
-  - [ ] Wallet-governor request payload only when all gates pass
-  - [ ] Evidence expectations
-- [ ] Add tests for over-limit, recurring billing, unknown fees, and missing prerequisites.
-- [ ] Track detailed work in:
-  - [ ] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/budget_and_roi_planner/TODO.md`
+- [x] Implement `budget_and_roi_planner`.
+  - [x] Require policy and TOS/legal prerequisites
+  - [x] Require explicit spend, max loss, revenue estimate, fees, success metric, stop condition, and timebox
+  - [x] Calculate net outcome and budget impact deterministically
+- [x] Add decision logic for:
+  - [x] `reject`
+  - [x] `simulate`
+  - [x] `execute_request`
+  - [x] `human_review`
+- [x] Produce downstream records.
+  - [x] Ledger-ready budget/experiment plan
+  - [x] Wallet-governor request payload only when all gates pass
+  - [x] Evidence expectations
+- [x] Add tests for over-limit, recurring billing, unknown fees, and missing prerequisites.
+- [x] Track detailed work in:
+  - [x] `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/budget_and_roi_planner/TODO.md`
 
 ## Phase 7 - Opportunity discovery
 
