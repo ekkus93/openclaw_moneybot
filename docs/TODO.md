@@ -39,9 +39,9 @@ Reference:
     - [x] test
     - [x] format
 - [x] Add shared contracts and error model
-  - [x] Define common Pydantic models (MoneyBotAction, PolicyDecision, Opportunity, BudgetPlan, LedgerRecord, SpendRequest, EvidenceRecord, ExperimentReview, etc.).
-  - [x] Define enums (risk levels, decision states, action categories, blocked categories).
-  - [x] Define error model (error_code, message, recoverable, details, safe_for_user).
+  - [x] Define common Pydantic models.
+  - [x] Define enums.
+  - [x] Define error model.
   - [x] Add unit tests for schema validation using example JSON.
 
 Reference: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/MASTER_IMPLEMENTATION_TODO.md
