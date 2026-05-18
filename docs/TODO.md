@@ -128,13 +128,13 @@ Reference: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/MASTER_IMPLEMENTATION_TODO.md
   - [x] email_drafter drafts required message.
   - [x] receipt_and_evidence_archiver stores evidence.
   - [x] experiment_reviewer reviews simulated outcome.
-- [ ] Implement limited spend workflow with wallet_governor_service
-  - [ ] Require ledger pre-write and policy/budget IDs.
-  - [ ] Add integration tests (fake wallet-governor responses).
-  - [ ] Test allowed tiny payment.
-  - [ ] Test blocked over-limit payment.
-  - [ ] Test blocked prohibited category payment.
-  - [ ] Test missing ledger pre-write.
+- [x] Implement limited spend workflow with wallet_governor_service
+  - [x] Require ledger pre-write and policy/budget IDs.
+  - [x] Add integration tests (fake wallet-governor responses).
+  - [x] Test allowed tiny payment.
+  - [x] Test blocked over-limit payment.
+  - [x] Test blocked prohibited category payment.
+  - [x] Test missing ledger pre-write.
 
 ## Phase 5 — Configuration and deployment
 
@@ -146,19 +146,19 @@ Reference: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/MASTER_IMPLEMENTATION_TODO.md
   - [x] SQLite database path.
   - [x] Wallet-governor URL.
   - [x] Email mode (draft_only by default).
-- [ ] Add safe defaults and startup validation
-  - [ ] Default wallet spending disabled.
-  - [ ] Default email sending disabled.
-  - [ ] Default browser purchasing/form-submit disabled.
-  - [ ] Default unknown action category to needs_review.
-  - [ ] Fail closed if ledger DB unavailable.
-  - [ ] Fail closed if policy config missing.
-  - [ ] Fail closed if wallet-governor limits cannot be fetched.
-- [ ] Add runbook documentation
-  - [ ] How to run tests.
-  - [ ] How to run a dry-run mission.
-  - [ ] How to enable wallet spending.
-  - [ ] How to disable wallet spending immediately.
+- [x] Add safe defaults and startup validation
+  - [x] Default wallet spending disabled.
+  - [x] Default email sending disabled.
+  - [x] Default browser purchasing/form-submit disabled.
+  - [x] Default unknown action category to needs_review.
+  - [x] Fail closed if ledger DB unavailable.
+  - [x] Fail closed if policy config missing.
+  - [x] Fail closed if wallet-governor limits cannot be fetched.
+- [x] Add runbook documentation
+  - [x] How to run tests.
+  - [x] How to run a dry-run mission.
+  - [x] How to enable wallet spending.
+  - [x] How to disable wallet spending immediately.
 
 ## Phase 6 — Acceptance criteria
 
@@ -169,7 +169,7 @@ Reference: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/MASTER_IMPLEMENTATION_TODO.md
 - [x] Every opportunity has an evidence trail.
 - [x] Every external message is either draft-only or rate-limited through a governor.
 - [x] All unit tests pass offline.
-- [ ] Integration tests prove blocked actions fail closed.
-- [ ] The bot can complete a full no-money dry run from opportunity discovery to experiment review.
+- [x] Integration tests prove blocked actions fail closed.
+- [x] The bot can complete a full no-money dry run from opportunity discovery to experiment review.
 
 Reference: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/MASTER_IMPLEMENTATION_TODO.md

@@ -10,3 +10,9 @@ def validate_config(cfg: MoneyBotConfig) -> list[str]:
     if cfg.email_mode not in ("draft_only", "send"):
         errors.append("email_mode must be draft_only or send")
     return errors
+
+
+def ensure_safe_defaults(cfg: MoneyBotConfig) -> MoneyBotConfig:
+    updated = cfg.model_copy()
+    updated.email_mode = "draft_only"
+    return updated
