@@ -55,3 +55,9 @@
 - Fixed the orchestration regression so paid opportunities now use non-executable initial review semantics while real purchase execution still routes through the governed wallet path, restoring the dry-run, fail-closed, and tiny capped payment integration flows.
 - Added the local FastAPI wallet-governor wrapper, the disabled-by-default Bitcoin Core backend skeleton, safety regression fixtures, and the review-fix documentation set; `docs/CODE_REVIEW1_TODO.md` now reflects the completed implementation items.
 - The repository passes full `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 145 passing tests at the end of this pass.
+
+## 2026-05-18T08:46:02Z - GPT-5.4 - Added P3 browser and email governors
+- Implemented disabled-by-default `email_governor` and `browser_governor` plugin services instead of enabling live browser automation or unrestricted email sending.
+- The email governor now enforces bot-owned sender allowlists, daily/domain/thread limits, policy approval, draft prewrite checks, outbound evidence archival, and deterministic inbound reply classification for opt-outs and complaints.
+- The browser governor now enforces bot-owned profile IDs, blocks personal-account/KYC/CAPTCHA/bot-evasion/mass-signup/scraping flows, requires wallet-governor linkage for purchase actions, and records before/after browser evidence around governed actions.
+- The repository passes full `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 157 passing tests after the P3 work.

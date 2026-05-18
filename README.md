@@ -39,6 +39,8 @@ uv run --python 3.11 pytest
 
 - Wallet spending is **disabled by default**.
 - Email stays in **`draft_only`** mode by default.
+- The email governor only allows live send attempts in **`capped_send`** mode with bot-owned sender allowlists, rate limits, policy checks, and archived outbound records.
+- The browser governor is **disabled by default** and only prepares/completes governed actions; it does not provide autonomous browser control.
 - Unknown policy categories default to **`needs_review`**.
 - Missing config fails closed with a structured error.
 - The local wallet governor HTTP API is expected to stay on **localhost only**.
@@ -47,8 +49,8 @@ uv run --python 3.11 pytest
 ## Current limitations
 
 - Real Bitcoin Core integration is present only as a guarded skeleton and remains disabled by default.
-- Email is draft-only; there is no live send path.
-- Browser automation is intentionally out of scope.
+- Email delivery is still opt-in and transport-backed; the default mode remains draft-only.
+- Browser automation is still intentionally out of scope; the browser governor is a policy/evidence boundary, not a browser driver.
 - Real opportunity scouting is still adapter-driven and fixture-first, not broad autonomous browsing.
 
 ## Core safety docs
@@ -89,6 +91,9 @@ wallet_governor:
 email:
   mode: "draft_only"
   max_outbound_per_day: 0
+browser_governor:
+  enabled: false
+  allowed_profile_ids: ["moneybot-default"]
 ```
 
 2. Build the orchestrator from config and run a mission:

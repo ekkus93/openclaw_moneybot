@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import yaml
-from pydantic import Field, ValidationError, field_validator
+from pydantic import Field, ValidationError, ValidationInfo, field_validator
 
 from openclaw_moneybot.shared.base import MoneyBotModel
 from openclaw_moneybot.shared.errors import ErrorCode, MoneyBotError, MoneyBotErrorDetail
@@ -71,6 +71,48 @@ class EmailConfig(MoneyBotModel):
 
     mode: EmailMode = EmailMode.DRAFT_ONLY
     max_outbound_per_day: int = Field(default=0, ge=0)
+    max_per_domain_per_day: int = Field(default=1, ge=0)
+    max_followups_per_thread: int = Field(default=1, ge=0, le=1)
+    allowed_sender_emails: list[str] = Field(default_factory=lambda: ["bot@example.com"])
+    require_opt_out_for_cold_outreach: bool = True
+
+    @field_validator("allowed_sender_emails")
+    @classmethod
+    def validate_allowed_sender_emails(cls, value: list[str]) -> list[str]:
+        """Require at least one dedicated sender address."""
+        if not value:
+            msg = "allowed_sender_emails must contain at least one bot-owned sender."
+            raise ValueError(msg)
+        return value
+
+    @field_validator("max_outbound_per_day")
+    @classmethod
+    def validate_send_mode_limit(cls, value: int, info: ValidationInfo) -> int:
+        """Require a positive daily cap when capped send mode is enabled."""
+        if (
+            isinstance(info.data, dict)
+            and info.data.get("mode") == EmailMode.CAPPED_SEND
+            and value <= 0
+        ):
+            msg = "max_outbound_per_day must be positive when mode is capped_send."
+            raise ValueError(msg)
+        return value
+
+
+class BrowserGovernorConfig(MoneyBotModel):
+    """Browser governor configuration."""
+
+    enabled: bool = False
+    allowed_profile_ids: list[str] = Field(default_factory=lambda: ["moneybot-default"])
+
+    @field_validator("allowed_profile_ids")
+    @classmethod
+    def validate_allowed_profile_ids(cls, value: list[str]) -> list[str]:
+        """Require at least one bot-owned profile identifier."""
+        if not value:
+            msg = "allowed_profile_ids must contain at least one bot-owned profile."
+            raise ValueError(msg)
+        return value
 
 
 class AppConfig(MoneyBotModel):
@@ -81,6 +123,7 @@ class AppConfig(MoneyBotModel):
     archive: ArchiveConfig
     wallet_governor: WalletGovernorConfig
     email: EmailConfig
+    browser_governor: BrowserGovernorConfig = Field(default_factory=BrowserGovernorConfig)
 
 
 def load_app_config(path: Path) -> AppConfig:

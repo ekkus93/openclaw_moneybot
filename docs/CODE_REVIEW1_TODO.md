@@ -1280,17 +1280,17 @@ Do not implement browser automation until wallet/ledger/policy/evidence safety i
 
 Future requirements:
 
-- [ ] Bot-owned browser profile only.
-- [ ] No personal accounts.
-- [ ] No KYC flows without human review.
-- [ ] No CAPTCHA bypass.
-- [ ] No bot-evasion behavior.
-- [ ] No mass signup.
-- [ ] No scraping against terms.
-- [ ] No purchases outside wallet-governor flow.
-- [ ] Ledger record before form submission.
-- [ ] Evidence archive before and after form submission.
-- [ ] Policy check before every submit/post/purchase action.
+- [x] Bot-owned browser profile only.
+- [x] No personal accounts.
+- [x] No KYC flows without human review.
+- [x] No CAPTCHA bypass.
+- [x] No bot-evasion behavior.
+- [x] No mass signup.
+- [x] No scraping against terms.
+- [x] No purchases outside wallet-governor flow.
+- [x] Ledger record before form submission.
+- [x] Evidence archive before and after form submission.
+- [x] Policy check before every submit/post/purchase action.
 
 ---
 
@@ -1300,20 +1300,20 @@ Do not enable sending yet.
 
 Future requirements:
 
-- [ ] Dedicated bot email account only.
-- [ ] No personal email.
-- [ ] No imported personal contacts.
-- [ ] Daily rate limit.
-- [ ] Per-domain rate limit.
-- [ ] Follow-up limit per thread.
-- [ ] Policy approval before send.
-- [ ] Ledger record before send.
-- [ ] Evidence archive after send.
-- [ ] Incoming reply classification.
-- [ ] Opt-out handling if cold commercial outreach is used.
-- [ ] No bulk outreach.
-- [ ] No scraped lists.
-- [ ] No deceptive headers/subjects/body.
+- [x] Dedicated bot email account only.
+- [x] No personal email.
+- [x] No imported personal contacts.
+- [x] Daily rate limit.
+- [x] Per-domain rate limit.
+- [x] Follow-up limit per thread.
+- [x] Policy approval before send.
+- [x] Ledger record before send.
+- [x] Evidence archive after send.
+- [x] Incoming reply classification.
+- [x] Opt-out handling if cold commercial outreach is used.
+- [x] No bulk outreach.
+- [x] No scraped lists.
+- [x] No deceptive headers/subjects/body.
 
 ---
 

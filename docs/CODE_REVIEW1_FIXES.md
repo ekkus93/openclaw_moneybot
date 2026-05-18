@@ -13,5 +13,7 @@ Implemented follow-up work from `tmp/CODE_REVIEW1.md` includes:
 - expanded policy guard taxonomy and prerequisites
 - richer TOS/legal and budget handoff metadata
 - draft-only email hardening
+- disabled-by-default email governor with rate limits, sender allowlists, outbound archiving, and reply classification
+- disabled-by-default browser governor with bot-profile gating, purchase-to-wallet enforcement, and before/after evidence requirements
 - experiment review incident handling
 - opportunity source adapter layer

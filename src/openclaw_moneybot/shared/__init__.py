@@ -3,6 +3,7 @@
 from openclaw_moneybot.shared.config import (
     AppConfig,
     ArchiveConfig,
+    BrowserGovernorConfig,
     EmailConfig,
     LedgerConfig,
     MoneyBotPolicyConfig,
@@ -28,6 +29,7 @@ from openclaw_moneybot.shared.types import SpendRequestStatus, WalletTransaction
 __all__ = [
     "AppConfig",
     "ArchiveConfig",
+    "BrowserGovernorConfig",
     "BudgetPlan",
     "EmailConfig",
     "EmailDraftRecord",

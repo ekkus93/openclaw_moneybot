@@ -8,6 +8,7 @@ import pytest
 
 from openclaw_moneybot.shared.config import (
     AppConfig,
+    BrowserGovernorConfig,
     EmailConfig,
     WalletGovernorConfig,
     load_app_config,
@@ -49,6 +50,7 @@ email:
     assert isinstance(config, AppConfig)
     assert config.policy.max_single_spend_usd == 10
     assert config.email.mode is EmailMode.DRAFT_ONLY
+    assert config.browser_governor.enabled is False
 
 
 def test_load_app_config_missing_file_raises(tmp_path: Path) -> None:
@@ -105,3 +107,10 @@ def test_email_mode_defaults_to_draft_only() -> None:
     config = EmailConfig()
 
     assert config.mode is EmailMode.DRAFT_ONLY
+
+
+def test_browser_governor_defaults_disabled() -> None:
+    config = BrowserGovernorConfig()
+
+    assert config.enabled is False
+    assert config.allowed_profile_ids == ["moneybot-default"]
