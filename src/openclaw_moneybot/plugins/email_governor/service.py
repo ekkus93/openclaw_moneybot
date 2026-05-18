@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -98,6 +99,11 @@ class EmailGovernorService:
 
     def send_draft(self, request: EmailSendRequest) -> EmailSendResult:
         """Send a stored draft if all governor checks pass."""
+        request_fingerprint = self._fingerprint(request.model_dump(mode="json"))
+        existing_send = self._find_send_payload(request.idempotency_key)
+        if existing_send is not None:
+            if existing_send.get("request_fingerprint") == request_fingerprint:
+                return self._result_from_send_payload(existing_send)
         draft = self.ledger_service.get_email_record(request.email_draft_id)
         if draft is None:
             return self._reject(
@@ -105,6 +111,8 @@ class EmailGovernorService:
                 "draft_missing",
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         if self.config.mode.value != "capped_send":
             return self._reject(
@@ -113,6 +121,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         if request.sender_email not in self.config.allowed_sender_emails:
             return self._reject(
@@ -121,6 +131,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         if request.recipient_source == "personal_import":
             return self._reject(
@@ -129,6 +141,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         if request.recipient_source == "scraped_list":
             return self._reject(
@@ -137,6 +151,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         if "," in draft.to:
             return self._reject(
@@ -145,6 +161,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         if draft.opportunity_id is None and draft.related_experiment_id is None:
             return self._reject(
@@ -153,6 +171,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         if (
             request.related_opportunity_id is not None
@@ -164,6 +184,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         if (
             request.related_experiment_id is not None
@@ -175,6 +197,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         policy = self.ledger_service.get_policy_decision(request.policy_decision_id)
         if policy is None:
@@ -184,6 +208,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         if policy.decision is not PolicyDecisionType.ALLOW:
             return self._reject(
@@ -192,6 +218,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         if any(flag in BLOCKED_DRAFT_RISK_FLAGS for flag in draft.risk_flags):
             return self._reject(
@@ -200,6 +228,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         if request.is_cold_outreach and self.config.require_opt_out_for_cold_outreach:
             lowered_body = draft.body.lower()
@@ -210,6 +240,8 @@ class EmailGovernorService:
                     thread_id=request.thread_id,
                     sender_email=request.sender_email,
                     recipient_email=draft.to,
+                    idempotency_key=request.idempotency_key,
+                    request_fingerprint=request_fingerprint,
                 )
         sent_events = list(self._iter_audit_payloads(kind="email_send"))
         same_day_count = sum(
@@ -226,6 +258,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         recipient_domain = draft.to.split("@", 1)[1].lower()
         same_domain_count = sum(
@@ -242,6 +276,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         prior_thread_sends = sum(
             1
@@ -255,6 +291,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
         if self._thread_has_opt_out(request.thread_id, recipient_email=draft.to):
             return self._reject(
@@ -263,6 +301,8 @@ class EmailGovernorService:
                 thread_id=request.thread_id,
                 sender_email=request.sender_email,
                 recipient_email=draft.to,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
             )
 
         message_id = self.transport.send(
@@ -303,6 +343,8 @@ class EmailGovernorService:
                 "is_followup": request.is_followup,
                 "is_cold_outreach": request.is_cold_outreach,
                 "archive_evidence_id": archived.evidence_id,
+                "idempotency_key": request.idempotency_key,
+                "request_fingerprint": request_fingerprint,
             },
         )
         return EmailSendResult(
@@ -381,6 +423,8 @@ class EmailGovernorService:
         thread_id: str,
         sender_email: str,
         recipient_email: str | None = None,
+        idempotency_key: str | None = None,
+        request_fingerprint: str | None = None,
     ) -> EmailSendResult:
         audit_record_id = self._record_audit(
             related_record_id=email_draft_id,
@@ -392,6 +436,8 @@ class EmailGovernorService:
                 "thread_id": thread_id,
                 "sender_email": sender_email,
                 "recipient_email": recipient_email,
+                "idempotency_key": idempotency_key,
+                "request_fingerprint": request_fingerprint,
             },
         )
         return EmailSendResult(
@@ -407,13 +453,14 @@ class EmailGovernorService:
         payload: dict[str, object],
     ) -> str:
         record_id = make_id("audit")
+        audit_payload = {"audit_record_id": record_id, **payload}
         write = self.ledger_service.record_ledger_record(
             LedgerRecord(
                 created_at=utc_now(),
                 record_id=record_id,
                 record_type=RecordType.AUDIT_EVENT,
                 related_record_id=related_record_id,
-                payload=payload,
+                payload=audit_payload,
             )
         )
         return write.record_id
@@ -431,6 +478,31 @@ class EmailGovernorService:
             if kind is not None and payload.get("kind") != kind:
                 continue
             yield event, payload
+
+    def _find_send_payload(self, idempotency_key: str) -> dict[str, object] | None:
+        for _, payload in self._iter_audit_payloads(kind="email_send"):
+            if payload.get("idempotency_key") == idempotency_key:
+                return payload
+        return None
+
+    @staticmethod
+    def _result_from_send_payload(payload: dict[str, object]) -> EmailSendResult:
+        status = str(payload["status"])
+        return EmailSendResult(
+            status=status,
+            reason=None if payload.get("reason") is None else str(payload["reason"]),
+            message_id=(None if payload.get("message_id") is None else str(payload["message_id"])),
+            audit_record_id=str(payload["audit_record_id"]),
+            archive_evidence_id=(
+                None
+                if payload.get("archive_evidence_id") is None
+                else str(payload["archive_evidence_id"])
+            ),
+        )
+
+    @staticmethod
+    def _fingerprint(payload: dict[str, object]) -> str:
+        return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
     def _thread_has_opt_out(self, thread_id: str, *, recipient_email: str) -> bool:
         for _, payload in self._iter_audit_payloads():

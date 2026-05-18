@@ -6,12 +6,20 @@ import json
 from collections.abc import Mapping
 
 from openclaw_moneybot.orchestration.models import DryRunMissionRequest, DryRunMissionResult
-from openclaw_moneybot.shared.types import ActionType, PolicyDecisionType, RecordType
+from openclaw_moneybot.shared.types import (
+    ActionType,
+    BudgetDecisionType,
+    PolicyDecisionType,
+    RecordType,
+)
 from openclaw_moneybot.skills.budget_and_roi_planner import BudgetAndRoiPlanner, BudgetPlanRequest
+from openclaw_moneybot.skills.budget_and_roi_planner.models import BudgetPlanResult
 from openclaw_moneybot.skills.email_drafter import EmailDrafter, EmailDraftRequest
 from openclaw_moneybot.skills.experiment_reviewer import ExperimentReviewer, ExperimentReviewRequest
+from openclaw_moneybot.skills.experiment_reviewer.models import ExperimentReviewResult
 from openclaw_moneybot.skills.ledger_skill.service import LedgerService
 from openclaw_moneybot.skills.moneybot_policy_guard import MoneyBotPolicyGuard, PolicyCheckRequest
+from openclaw_moneybot.skills.moneybot_policy_guard.models import PolicyCheckResult
 from openclaw_moneybot.skills.opportunity_scout import OpportunityScout, OpportunityScoutRequest
 from openclaw_moneybot.skills.opportunity_scout.models import (
     OpportunityCandidate,
@@ -22,10 +30,15 @@ from openclaw_moneybot.skills.receipt_and_evidence_archiver import (
     ReceiptAndEvidenceArchiver,
 )
 from openclaw_moneybot.skills.tos_legal_checker import TosLegalChecker, TosLegalCheckRequest
+from openclaw_moneybot.skills.tos_legal_checker.models import TosLegalCheckResult
 from openclaw_moneybot.skills.wallet_governor_client import (
     WalletGovernorClientSkill,
     WalletQuoteSkillRequest,
     WalletSpendRequest,
+)
+from openclaw_moneybot.skills.wallet_governor_client.models import (
+    WalletQuoteSkillResult,
+    WalletSpendResult,
 )
 from openclaw_moneybot.utils.ids import make_id
 
@@ -97,6 +110,20 @@ class MoneyBotOrchestrator:
             initial_policy.ledger_record,
             idempotency_key=f"policy:{initial_policy.ledger_record.policy_decision_id}",
         )
+        if initial_policy.decision is not PolicyDecisionType.ALLOW:
+            return self._finalize_result(
+                request=request,
+                candidate=candidate,
+                evidence_ids=evidence_ids,
+                initial_policy=initial_policy,
+                status=initial_policy.decision.value,
+                stop_stage="initial_policy",
+                stop_reason=(
+                    initial_policy.human_review_reason
+                    or initial_policy.notes
+                    or next(iter(initial_policy.blocked_reasons), None)
+                ),
+            )
 
         tos_result = self.tos_checker.evaluate(
             TosLegalCheckRequest.model_validate(
@@ -106,6 +133,17 @@ class MoneyBotOrchestrator:
                 }
             )
         )
+        if tos_result.decision != "proceed":
+            return self._finalize_result(
+                request=request,
+                candidate=candidate,
+                evidence_ids=evidence_ids,
+                initial_policy=initial_policy,
+                tos_result=tos_result,
+                status=tos_result.decision,
+                stop_stage="tos_legal",
+                stop_reason=tos_result.tos_risk_summary,
+            )
         budget_result = self.budget_planner.evaluate(
             BudgetPlanRequest(
                 opportunity_id=candidate.opportunity_id,
@@ -132,6 +170,19 @@ class MoneyBotOrchestrator:
                 timebox_hours=max(candidate.estimated_time_hours, 1.0),
             )
         )
+        if budget_result.budget_plan.decision is not BudgetDecisionType.EXECUTE_REQUEST:
+            return self._finalize_result(
+                request=request,
+                candidate=candidate,
+                evidence_ids=evidence_ids,
+                initial_policy=initial_policy,
+                tos_result=tos_result,
+                budget_result=budget_result,
+                status=budget_result.budget_plan.decision.value,
+                stop_stage="budget",
+                stop_reason=next(iter(budget_result.budget_plan.reasons), None),
+                review_enabled=True,
+            )
 
         execution_policy = self.policy_guard.evaluate(
             self._make_execution_policy_request(
@@ -147,6 +198,24 @@ class MoneyBotOrchestrator:
             execution_policy.ledger_record,
             idempotency_key=f"policy:{execution_policy.ledger_record.policy_decision_id}",
         )
+        if execution_policy.decision is not PolicyDecisionType.ALLOW:
+            return self._finalize_result(
+                request=request,
+                candidate=candidate,
+                evidence_ids=evidence_ids,
+                initial_policy=initial_policy,
+                tos_result=tos_result,
+                budget_result=budget_result,
+                execution_policy=execution_policy,
+                status=execution_policy.decision.value,
+                stop_stage="execution_policy",
+                stop_reason=(
+                    execution_policy.human_review_reason
+                    or execution_policy.notes
+                    or next(iter(execution_policy.blocked_reasons), None)
+                ),
+                review_enabled=True,
+            )
 
         email_draft_id: str | None = None
         if request.draft_recipient_email is not None:
@@ -212,7 +281,39 @@ class MoneyBotOrchestrator:
                 )
                 if wallet_result.raw_response_evidence_id is not None:
                     evidence_ids.append(wallet_result.raw_response_evidence_id)
+        return self._finalize_result(
+            request=request,
+            candidate=candidate,
+            evidence_ids=evidence_ids,
+            initial_policy=initial_policy,
+            tos_result=tos_result,
+            budget_result=budget_result,
+            execution_policy=execution_policy,
+            email_draft_id=email_draft_id,
+            wallet_quote=wallet_quote,
+            wallet_result=wallet_result,
+            status="completed",
+            review_enabled=True,
+        )
 
+    def _finalize_result(
+        self,
+        *,
+        request: DryRunMissionRequest,
+        candidate: OpportunityCandidate,
+        evidence_ids: list[str],
+        initial_policy: PolicyCheckResult,
+        tos_result: TosLegalCheckResult | None = None,
+        budget_result: BudgetPlanResult | None = None,
+        execution_policy: PolicyCheckResult | None = None,
+        email_draft_id: str | None = None,
+        wallet_quote: WalletQuoteSkillResult | None = None,
+        wallet_result: WalletSpendResult | None = None,
+        status: str,
+        stop_stage: str | None = None,
+        stop_reason: str | None = None,
+        review_enabled: bool = False,
+    ) -> DryRunMissionResult:
         workflow_evidence = self.archiver.archive(
             EvidenceArchiveRequest(
                 related_type=RecordType.OPPORTUNITY,
@@ -223,6 +324,21 @@ class MoneyBotOrchestrator:
                         "mission": request.mission,
                         "candidate": candidate.name,
                         "dry_run": not request.enable_wallet_payment,
+                        "status": status,
+                        "stop_stage": stop_stage,
+                        "stop_reason": stop_reason,
+                        "initial_policy_decision": initial_policy.decision.value,
+                        "tos_decision": None if tos_result is None else tos_result.decision,
+                        "budget_decision": (
+                            None
+                            if budget_result is None
+                            else budget_result.budget_plan.decision.value
+                        ),
+                        "execution_policy_decision": (
+                            None
+                            if execution_policy is None
+                            else execution_policy.decision.value
+                        ),
                         "wallet_quote_status": (
                             None if wallet_quote is None else wallet_quote.status
                         ),
@@ -236,36 +352,51 @@ class MoneyBotOrchestrator:
                 notes="Dry-run workflow summary",
             )
         )
-        evidence_ids.append(workflow_evidence.evidence_id)
-
-        review_result = self.reviewer.review(
-            ExperimentReviewRequest(
-                opportunity_id=candidate.opportunity_id,
-                budget_plan_id=budget_result.budget_plan.budget_plan_id,
-                review_reason="dry_run",
-                current_date=request.current_date,
-                revenue_usd=request.observed_revenue_usd,
-                time_spent_hours=request.time_spent_hours,
-                success_metric_met=request.observed_revenue_usd > 0,
-                stop_condition_triggered=False,
-                evidence_archive_ids=evidence_ids,
-                manual_notes="Automated workflow dry run",
+        final_evidence_ids = [*evidence_ids, workflow_evidence.evidence_id]
+        review_result: ExperimentReviewResult | None = None
+        if review_enabled and budget_result is not None:
+            review_result = self.reviewer.review(
+                ExperimentReviewRequest(
+                    opportunity_id=candidate.opportunity_id,
+                    budget_plan_id=budget_result.budget_plan.budget_plan_id,
+                    review_reason="dry_run",
+                    current_date=request.current_date,
+                    revenue_usd=request.observed_revenue_usd,
+                    time_spent_hours=request.time_spent_hours,
+                    success_metric_met=request.observed_revenue_usd > 0,
+                    stop_condition_triggered=status != "completed",
+                    evidence_archive_ids=final_evidence_ids,
+                    manual_notes="Automated workflow dry run",
+                )
             )
-        )
+            final_evidence_ids = review_result.evidence_archive_ids
         timeline = self.ledger_service.get_opportunity_timeline(candidate.opportunity_id)
         return DryRunMissionResult(
             mission=request.mission,
             selected_opportunity_id=candidate.opportunity_id,
             initial_policy_decision_id=initial_policy.ledger_record.policy_decision_id,
-            tos_legal_check_id=tos_result.ledger_record.tos_legal_check_id,
-            budget_plan_id=budget_result.budget_plan.budget_plan_id,
-            execution_policy_decision_id=execution_policy.ledger_record.policy_decision_id,
+            tos_legal_check_id=(
+                None if tos_result is None else tos_result.ledger_record.tos_legal_check_id
+            ),
+            budget_plan_id=(
+                None if budget_result is None else budget_result.budget_plan.budget_plan_id
+            ),
+            execution_policy_decision_id=(
+                None
+                if execution_policy is None
+                else execution_policy.ledger_record.policy_decision_id
+            ),
             email_draft_id=email_draft_id,
             wallet_quote=wallet_quote,
             wallet_result=wallet_result,
-            experiment_review_id=review_result.experiment_review_id,
-            evidence_archive_ids=evidence_ids,
+            experiment_review_id=(
+                None if review_result is None else review_result.experiment_review_id
+            ),
+            evidence_archive_ids=final_evidence_ids,
             timeline=timeline,
+            status=status,
+            stop_stage=stop_stage,
+            stop_reason=stop_reason,
             dry_run=not request.enable_wallet_payment,
         )
 

@@ -40,13 +40,16 @@ class DryRunMissionResult(MoneyBotModel):
     mission: str
     selected_opportunity_id: str
     initial_policy_decision_id: str
-    tos_legal_check_id: str
-    budget_plan_id: str
-    execution_policy_decision_id: str
+    tos_legal_check_id: str | None = None
+    budget_plan_id: str | None = None
+    execution_policy_decision_id: str | None = None
     email_draft_id: str | None = None
     wallet_quote: WalletQuoteSkillResult | None = None
     wallet_result: WalletSpendResult | None = None
-    experiment_review_id: str
+    experiment_review_id: str | None = None
     evidence_archive_ids: list[str] = Field(default_factory=list)
     timeline: list[LedgerTimelineEntry] = Field(default_factory=list)
+    status: str = "completed"
+    stop_stage: str | None = None
+    stop_reason: str | None = None
     dry_run: bool = True

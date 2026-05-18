@@ -71,3 +71,13 @@
 - Implemented the planned UNIT_TEST1 coverage expansion across wallet governor service/backend, email governor, email drafter templates/compliance/models, experiment reviewer decisions, wallet HTTP/client validation, browser governor, config/base validators, and orchestration factory wiring.
 - Added 43 new passing tests, bringing the suite to 235 passing tests and raising total repository coverage to 95%, with the targeted safety-critical modules now mostly at 94-99% coverage.
 - Updated `docs/UNIT_TEST1_TODO.md` to mark the planned P0/P1/P2 targets complete and explicitly deferred only the lower-priority secondary backlog and broad shared-fixture refactor items to avoid unnecessary churn.
+
+## 2026-05-18T09:30:10Z - GPT-5.4 - Added integration test follow-up tracker
+- Created `docs/INT_TEST1_TODO.md` as the next integration-test planning document.
+- The new tracker prioritizes fail-closed workflow gate coverage, wallet client-to-local-HTTP-wrapper integration, and governed email send/reply integration before secondary browser, review-feedback, linkage, and idempotency scenarios.
+- The plan keeps the integration scope aligned with the project’s safety model by requiring offline, deterministic tests that exercise real local boundaries without live email, live Bitcoin Core, or browser automation.
+
+## 2026-05-18T09:56:57Z - GPT-5.4 - Completed INT_TEST1 integration pass
+- Finished the INT_TEST1 integration-test implementation across workflow fail-closed gates, the real wallet HTTP wrapper boundary, governed email flows, browser governor prepare/complete flows, review-feedback scenarios, ledger/evidence linkage checks, replay behavior, and local-only boundary regressions.
+- Added offline integration helpers under `tests/integration/helpers.py`, new browser/email/wallet/workflow integration coverage, and deterministic replay behavior for governed email sends and browser actions so repeated requests do not create duplicate success artifacts.
+- The repository now passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 272 passing tests, and `docs/INT_TEST1_TODO.md` is complete.

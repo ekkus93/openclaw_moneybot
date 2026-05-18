@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
 
 from openclaw_moneybot.plugins.browser_governor.models import (
@@ -36,6 +37,16 @@ class BrowserGovernorService:
 
     def prepare_action(self, request: BrowserActionRequest) -> BrowserActionResult:
         """Validate a browser action, archive pre-submit evidence, and record audit state."""
+        request_fingerprint = self._fingerprint(request.model_dump(mode="json"))
+        existing_prepare = self._find_prepare_payload(request.action_id)
+        if existing_prepare is not None:
+            if existing_prepare.get("request_fingerprint") != request_fingerprint:
+                return self._reject(request.action_id, "action_id_conflict")
+            return BrowserActionResult(
+                status=str(existing_prepare.get("status", "approved")),
+                audit_record_id=str(existing_prepare["audit_record_id"]),
+                before_evidence_id=str(existing_prepare.get("before_evidence_id")),
+            )
         if not self.config.enabled:
             return self._reject(request.action_id, "browser_disabled")
         if request.profile_id not in self.config.allowed_profile_ids:
@@ -90,6 +101,7 @@ class BrowserGovernorService:
                 "purpose": request.purpose,
                 "before_evidence_id": archived.evidence_id,
                 "spend_request_id": request.spend_request_id,
+                "request_fingerprint": request_fingerprint,
             },
         )
         return BrowserActionResult(
@@ -100,6 +112,17 @@ class BrowserGovernorService:
 
     def complete_action(self, request: BrowserActionCompletionRequest) -> BrowserActionResult:
         """Archive post-submit evidence and write the completion audit record."""
+        request_fingerprint = self._fingerprint(request.model_dump(mode="json"))
+        existing_complete = self._find_completion_payload(request.action_id)
+        if existing_complete is not None:
+            if existing_complete.get("request_fingerprint") != request_fingerprint:
+                return self._reject(request.action_id, "action_id_conflict")
+            return BrowserActionResult(
+                status=str(existing_complete.get("status", "completed")),
+                audit_record_id=str(existing_complete["audit_record_id"]),
+                before_evidence_id=str(existing_complete.get("before_evidence_id")),
+                after_evidence_id=str(existing_complete.get("after_evidence_id")),
+            )
         if not self.config.enabled:
             return self._reject(request.action_id, "browser_disabled")
         prepared = self._find_prepare_payload(request.action_id)
@@ -126,6 +149,7 @@ class BrowserGovernorService:
                 "success": request.success,
                 "before_evidence_id": prepared.get("before_evidence_id"),
                 "after_evidence_id": archived.evidence_id,
+                "request_fingerprint": request_fingerprint,
             },
         )
         return BrowserActionResult(
@@ -158,13 +182,14 @@ class BrowserGovernorService:
         payload: dict[str, object],
     ) -> str:
         record_id = make_id("audit")
+        audit_payload = {"audit_record_id": record_id, **payload}
         write = self.ledger_service.record_ledger_record(
             LedgerRecord(
                 created_at=utc_now(),
                 record_id=record_id,
                 record_type=RecordType.AUDIT_EVENT,
                 related_record_id=related_record_id,
-                payload=payload,
+                payload=audit_payload,
             )
         )
         return write.record_id
@@ -181,6 +206,21 @@ class BrowserGovernorService:
             if (
                 payload.get("kind") == "browser_action_prepare"
                 and payload.get("action_id") == action_id
+                and payload.get("status") == "approved"
             ):
                 return payload
         return None
+
+    def _find_completion_payload(self, action_id: str) -> dict[str, object] | None:
+        for _, payload in self._iter_audit_payloads():
+            if (
+                payload.get("kind") == "browser_action_complete"
+                and payload.get("action_id") == action_id
+                and payload.get("status") == "completed"
+            ):
+                return payload
+        return None
+
+    @staticmethod
+    def _fingerprint(payload: dict[str, object]) -> str:
+        return json.dumps(payload, sort_keys=True, separators=(",", ":"))
