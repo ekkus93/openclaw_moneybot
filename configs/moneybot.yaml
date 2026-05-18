@@ -1,0 +1,9 @@
+max_spend_usd: 100
+blocked_categories:
+  - gambling
+  - betting
+  - prediction_market
+evidence_archive_path: /tmp/moneybot_evidence
+sqlite_database_path: /tmp/moneybot.db
+wallet_governor_url: "http://localhost:8080"
+email_mode: draft_only

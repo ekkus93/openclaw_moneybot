@@ -69,65 +69,65 @@ Reference: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/MASTER_IMPLEMENTATION_TODO.md
 
 ## Phase 2 — Research and decision skills
 
-- [ ] Implement tos_legal_checker
-  - [ ] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/tos_legal_checker/TODO.md
-  - [ ] Implement rules/TOS extraction from fixtures.
-  - [ ] Implement deterministic risk checks.
-  - [ ] Implement legal-risk heuristics.
-  - [ ] Integrate with moneybot_policy_guard and ledger_skill.
-  - [ ] Add unit and integration tests.
-- [ ] Implement budget_and_roi_planner
-  - [ ] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/budget_and_roi_planner/TODO.md
-  - [ ] Implement experiment budget and ROI calculations.
-  - [ ] Implement decision rules (reject/simulate/execute_request/human_review).
-  - [ ] Integrate with ledger_skill and wallet_governor_client.
-  - [ ] Add unit and integration tests.
-- [ ] Implement opportunity_scout
-  - [ ] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/opportunity_scout/TODO.md
-  - [ ] Define source categories and risk pre-filters.
-  - [ ] Implement opportunity extraction, deduplication, and scoring.
-  - [ ] Integrate with tos_legal_checker and ledger_skill.
-  - [ ] Add unit and integration tests.
+- [x] Implement tos_legal_checker
+  - [x] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/tos_legal_checker/TODO.md
+  - [x] Implement rules/TOS extraction from fixtures.
+  - [x] Implement deterministic risk checks.
+  - [x] Implement legal-risk heuristics.
+  - [x] Integrate with moneybot_policy_guard and ledger_skill.
+  - [x] Add unit and integration tests.
+- [x] Implement budget_and_roi_planner
+  - [x] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/budget_and_roi_planner/TODO.md
+  - [x] Implement experiment budget and ROI calculations.
+  - [x] Implement decision rules (reject/simulate/execute_request/human_review).
+  - [x] Integrate with ledger_skill and wallet_governor_client.
+  - [x] Add unit and integration tests.
+- [x] Implement opportunity_scout
+  - [x] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/opportunity_scout/TODO.md
+  - [x] Define source categories and risk pre-filters.
+  - [x] Implement opportunity extraction, deduplication, and scoring.
+  - [x] Integrate with tos_legal_checker and ledger_skill.
+  - [x] Add unit and integration tests.
 
 ## Phase 3 — Execution-adjacent skills
 
-- [ ] Implement email_drafter
-  - [ ] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/email_drafter/TODO.md
-  - [ ] Implement draft-only templates.
-  - [ ] Implement anti-spam/deception checks.
-  - [ ] Integrate with ledger_skill and receipt_and_evidence_archiver.
-  - [ ] Add unit and integration tests.
-- [ ] Implement wallet_governor_service
-  - [ ] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/plugins/wallet_governor_service_TODO.md
-  - [ ] Implement HTTP API endpoints (health, balance, quote-spend, send-small-payment, daily-limits).
-  - [ ] Integrate with Bitcoin Core wallet locally.
-  - [ ] Enforce spend limits, policy IDs, budget IDs, ledger pre-write.
-  - [ ] Add unit and integration tests.
-- [ ] Implement wallet_governor_client
-  - [ ] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/wallet_governor_client/TODO.md
-  - [ ] Implement HTTP client calls to wallet_governor_service.
-  - [ ] Enforce client-side preflight checks.
-  - [ ] Integrate with ledger_skill and receipt_and_evidence_archiver.
-  - [ ] Add unit and integration tests.
-- [ ] Implement experiment_reviewer
-  - [ ] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/experiment_reviewer/TODO.md
-  - [ ] Implement metrics calculation and decision rules.
-  - [ ] Implement feedback loop for opportunity_scout, policy_guard, budget_and_roi_planner.
-  - [ ] Integrate with ledger_skill and receipt_and_evidence_archiver.
-  - [ ] Add unit and integration tests.
+- [x] Implement email_drafter
+  - [x] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/email_drafter/TODO.md
+  - [x] Implement draft-only templates.
+  - [x] Implement anti-spam/deception checks.
+  - [x] Integrate with ledger_skill and receipt_and_evidence_archiver.
+  - [x] Add unit and integration tests.
+- [x] Implement wallet_governor_service
+  - [x] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/plugins/wallet_governor_service_TODO.md
+  - [x] Implement HTTP API endpoints (health, balance, quote-spend, send-small-payment, daily-limits).
+  - [x] Integrate with Bitcoin Core wallet locally.
+  - [x] Enforce spend limits, policy IDs, budget IDs, ledger pre-write.
+  - [x] Add unit and integration tests.
+- [x] Implement wallet_governor_client
+  - [x] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/wallet_governor_client/TODO.md
+  - [x] Implement HTTP client calls to wallet_governor_service.
+  - [x] Enforce client-side preflight checks.
+  - [x] Integrate with ledger_skill and receipt_and_evidence_archiver.
+  - [x] Add unit and integration tests.
+- [x] Implement experiment_reviewer
+  - [x] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/skills/experiment_reviewer/TODO.md
+  - [x] Implement metrics calculation and decision rules.
+  - [x] Implement feedback loop for opportunity_scout, policy_guard, budget_and_roi_planner.
+  - [x] Integrate with ledger_skill and receipt_and_evidence_archiver.
+  - [x] Add unit and integration tests.
 
 ## Phase 4 — Integration pipeline
 
-- [ ] Implement end-to-end dry-run workflow
-  - [ ] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/MASTER_IMPLEMENTATION_TODO.md
-  - [ ] opportunity_scout finds candidates.
-  - [ ] tos_legal_checker evaluates candidate.
-  - [ ] moneybot_policy_guard approves/blocks.
-  - [ ] budget_and_roi_planner creates experiment plan.
-  - [ ] ledger_skill records plan.
-  - [ ] email_drafter drafts required message.
-  - [ ] receipt_and_evidence_archiver stores evidence.
-  - [ ] experiment_reviewer reviews simulated outcome.
+- [x] Implement end-to-end dry-run workflow
+  - [x] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/MASTER_IMPLEMENTATION_TODO.md
+  - [x] opportunity_scout finds candidates.
+  - [x] tos_legal_checker evaluates candidate.
+  - [x] moneybot_policy_guard approves/blocks.
+  - [x] budget_and_roi_planner creates experiment plan.
+  - [x] ledger_skill records plan.
+  - [x] email_drafter drafts required message.
+  - [x] receipt_and_evidence_archiver stores evidence.
+  - [x] experiment_reviewer reviews simulated outcome.
 - [ ] Implement limited spend workflow with wallet_governor_service
   - [ ] Require ledger pre-write and policy/budget IDs.
   - [ ] Add integration tests (fake wallet-governor responses).
@@ -138,14 +138,14 @@ Reference: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/MASTER_IMPLEMENTATION_TODO.md
 
 ## Phase 5 — Configuration and deployment
 
-- [ ] Add moneybot.yaml configuration
-  - [ ] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/MASTER_IMPLEMENTATION_TODO.md
-  - [ ] Max spend limits.
-  - [ ] Blocked categories.
-  - [ ] Evidence archive path.
-  - [ ] SQLite database path.
-  - [ ] Wallet-governor URL.
-  - [ ] Email mode (draft_only by default).
+- [x] Add moneybot.yaml configuration
+  - [x] See: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/MASTER_IMPLEMENTATION_TODO.md
+  - [x] Max spend limits.
+  - [x] Blocked categories.
+  - [x] Evidence archive path.
+  - [x] SQLite database path.
+  - [x] Wallet-governor URL.
+  - [x] Email mode (draft_only by default).
 - [ ] Add safe defaults and startup validation
   - [ ] Default wallet spending disabled.
   - [ ] Default email sending disabled.
@@ -162,13 +162,13 @@ Reference: docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/MASTER_IMPLEMENTATION_TODO.md
 
 ## Phase 6 — Acceptance criteria
 
-- [ ] No skill can send money directly.
-- [ ] No skill can access private keys, seed phrases, wallet backups, or wallet passphrases.
-- [ ] No skill can approve its own prohibited-category action.
-- [ ] Every spend requires a policy decision, budget plan, ledger entry, and wallet-governor approval.
-- [ ] Every opportunity has an evidence trail.
-- [ ] Every external message is either draft-only or rate-limited through a governor.
-- [ ] All unit tests pass offline.
+- [x] No skill can send money directly.
+- [x] No skill can access private keys, seed phrases, wallet backups, or wallet passphrases.
+- [x] No skill can approve its own prohibited-category action.
+- [x] Every spend requires a policy decision, budget plan, ledger entry, and wallet-governor approval.
+- [x] Every opportunity has an evidence trail.
+- [x] Every external message is either draft-only or rate-limited through a governor.
+- [x] All unit tests pass offline.
 - [ ] Integration tests prove blocked actions fail closed.
 - [ ] The bot can complete a full no-money dry run from opportunity discovery to experiment review.
 
