@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi.testclient import TestClient
+from pytest import MonkeyPatch
 
 from openclaw_moneybot.plugins.wallet_governor_service import (
     FakeWalletBackend,
@@ -14,6 +16,7 @@ from openclaw_moneybot.plugins.wallet_governor_service import (
     WalletGovernorService,
     create_wallet_governor_app,
 )
+from openclaw_moneybot.plugins.wallet_governor_service.backend import WalletBackendError
 from openclaw_moneybot.shared import (
     BudgetPlan,
     EvidenceRecord,
@@ -219,6 +222,7 @@ def test_balance_endpoint_returns_local_state(tmp_path: Path) -> None:
     payload = response.json()
     assert payload["asset"] == "BTC"
     assert payload["spend_enabled"] is True
+    assert payload["network"] == "local"
 
 
 def test_limits_endpoint_returns_categories(tmp_path: Path) -> None:
@@ -281,3 +285,85 @@ def test_http_wrapper_rejects_non_local_bind() -> None:
             assert "localhost" in str(error)
         else:
             raise AssertionError("Expected non-local bind host to be rejected")
+
+
+def test_health_endpoint_includes_version(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    with TestClient(create_wallet_governor_app(service, service_version="9.9.9")) as client:
+        response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json()["version"] == "9.9.9"
+
+
+def test_timeout_middleware_returns_http_504(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    service = make_service(tmp_path)
+
+    def slow_quote(payload: dict[str, object]) -> dict[str, object]:
+        del payload
+        time.sleep(0.05)
+        return {"status": "ok"}
+
+    monkeypatch.setattr(service, "quote_json", slow_quote)
+    with TestClient(
+        create_wallet_governor_app(service, request_timeout_seconds=0.01)
+    ) as client:
+        response = client.post(
+            "/quote-spend",
+            json={
+                "asset": "BTC",
+                "amount_usd": 5.0,
+                "btc_usd_rate": 50_000.0,
+                "destination": "bcrt1qmoneybotdest123",
+            },
+        )
+
+    assert response.status_code == 504
+    assert response.json() == {"detail": "request timed out"}
+
+
+def test_value_error_handler_returns_http_400(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    service = make_service(tmp_path)
+
+    def raise_value_error(payload: dict[str, object]) -> dict[str, object]:
+        del payload
+        raise ValueError("bad request")
+
+    monkeypatch.setattr(service, "quote_json", raise_value_error)
+    with TestClient(create_wallet_governor_app(service)) as client:
+        response = client.post("/quote-spend", json={})
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "bad request"}
+
+
+def test_backend_error_handler_returns_http_502(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    service = make_service(tmp_path)
+
+    def raise_backend_error(asset: str) -> object:
+        del asset
+        raise WalletBackendError("backend unavailable")
+
+    monkeypatch.setattr(service, "balance", raise_backend_error)
+    with TestClient(create_wallet_governor_app(service)) as client:
+        response = client.get("/balance", params={"asset": "BTC"})
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "backend unavailable"}
+
+
+def test_validation_error_handler_returns_http_422(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        response = client.post("/quote-spend", json={"asset": "BTC"})
+
+    assert response.status_code == 422
+    assert response.json()["detail"]

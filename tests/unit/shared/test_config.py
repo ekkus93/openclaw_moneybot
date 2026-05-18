@@ -114,3 +114,70 @@ def test_browser_governor_defaults_disabled() -> None:
 
     assert config.enabled is False
     assert config.allowed_profile_ids == ["moneybot-default"]
+
+
+def test_wallet_config_rejects_unsupported_url_scheme() -> None:
+    with pytest.raises(ValueError, match="http or https"):
+        WalletGovernorConfig(base_url="ftp://127.0.0.1:8080")
+
+
+def test_email_config_rejects_empty_sender_list() -> None:
+    with pytest.raises(ValueError, match="allowed_sender_emails"):
+        EmailConfig(allowed_sender_emails=[])
+
+
+def test_email_config_rejects_non_positive_daily_cap_for_capped_send() -> None:
+    with pytest.raises(ValueError, match="max_outbound_per_day"):
+        EmailConfig(mode=EmailMode.CAPPED_SEND, max_outbound_per_day=0)
+
+
+def test_browser_governor_config_rejects_empty_profile_list() -> None:
+    with pytest.raises(ValueError, match="allowed_profile_ids"):
+        BrowserGovernorConfig(allowed_profile_ids=[])
+
+
+def test_load_app_config_rejects_non_mapping_root(tmp_path: Path) -> None:
+    config_path = tmp_path / "moneybot.yaml"
+    config_path.write_text("- not-a-mapping\n", encoding="utf-8")
+
+    with pytest.raises(MoneyBotError) as error:
+        load_app_config(config_path)
+
+    assert error.value.detail.error_code is ErrorCode.INVALID_CONFIG
+    assert error.value.detail.message == "Config root must be a mapping"
+
+
+def test_load_app_config_reports_nested_validation_errors(tmp_path: Path) -> None:
+    config_path = tmp_path / "moneybot.yaml"
+    config_path.write_text(
+        """
+policy:
+  policy_version: "v1"
+  blocked_categories: []
+  review_required_categories: []
+  max_single_spend_usd: 10
+  max_daily_spend_usd: 20
+  max_weekly_spend_usd: 40
+ledger:
+  database_path: "data/moneybot.sqlite3"
+archive:
+  base_directory: "archive"
+wallet_governor:
+  base_url: "http://127.0.0.1:8080"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(MoneyBotError) as error:
+        load_app_config(config_path)
+
+    assert error.value.detail.error_code is ErrorCode.INVALID_CONFIG
+    assert error.value.detail.message == "Config validation failed"
+    details = error.value.detail.details
+    assert isinstance(details, dict)
+    errors = details.get("errors")
+    assert isinstance(errors, list)
+    assert any(
+        isinstance(item, dict) and item.get("loc") == ["email"]
+        for item in errors
+    )

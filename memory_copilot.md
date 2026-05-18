@@ -61,3 +61,13 @@
 - The email governor now enforces bot-owned sender allowlists, daily/domain/thread limits, policy approval, draft prewrite checks, outbound evidence archival, and deterministic inbound reply classification for opt-outs and complaints.
 - The browser governor now enforces bot-owned profile IDs, blocks personal-account/KYC/CAPTCHA/bot-evasion/mass-signup/scraping flows, requires wallet-governor linkage for purchase actions, and records before/after browser evidence around governed actions.
 - The repository passes full `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 157 passing tests after the P3 work.
+
+## 2026-05-18T08:54:23Z - GPT-5.4 - Added unit test coverage follow-up tracker
+- Created `docs/UNIT_TEST1_TODO.md` as the next unit-test planning document after reviewing current coverage gaps.
+- The follow-up plan prioritizes safety-critical coverage for `wallet_governor_service`, `wallet_governor_service` backend failures, `email_governor`, and deterministic branching in email templates/compliance and experiment review decisions.
+- The new TODO also captures secondary coverage work for browser governor, wallet HTTP/client edge cases, config/factory validators, shared fixtures, and final acceptance criteria for the next testing pass.
+
+## 2026-05-18T09:13:25Z - GPT-5.4 - Completed UNIT_TEST1 targeted coverage pass
+- Implemented the planned UNIT_TEST1 coverage expansion across wallet governor service/backend, email governor, email drafter templates/compliance/models, experiment reviewer decisions, wallet HTTP/client validation, browser governor, config/base validators, and orchestration factory wiring.
+- Added 43 new passing tests, bringing the suite to 235 passing tests and raising total repository coverage to 95%, with the targeted safety-critical modules now mostly at 94-99% coverage.
+- Updated `docs/UNIT_TEST1_TODO.md` to mark the planned P0/P1/P2 targets complete and explicitly deferred only the lower-priority secondary backlog and broad shared-fixture refactor items to avoid unnecessary churn.

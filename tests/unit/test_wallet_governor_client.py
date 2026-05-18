@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+import pytest
+from pytest import MonkeyPatch
 
 from openclaw_moneybot.shared import (
     ArchiveConfig,
@@ -31,6 +33,11 @@ from openclaw_moneybot.skills.wallet_governor_client import (
     WalletQuoteSkillRequest,
     WalletSpendRequest,
 )
+from openclaw_moneybot.skills.wallet_governor_client.client import (
+    WalletGovernorClientError,
+    WalletGovernorHttpClient,
+)
+from openclaw_moneybot.skills.wallet_governor_client.validation import validate_spend_request
 
 
 def make_skill(
@@ -370,3 +377,132 @@ def test_quote_serialization(tmp_path: Path) -> None:
 
     assert result.status == "ok"
     assert result.amount_asset_estimate == "0.00010000"
+
+
+def test_http_client_retries_retryable_timeout_and_succeeds() -> None:
+    attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        if request.url.path == "/balance" and attempts == 1:
+            raise httpx.ConnectTimeout("slow")
+        return httpx.Response(200, json={"balance_btc": "0.01000000"})
+
+    client = WalletGovernorHttpClient(
+        WalletGovernorConfig(base_url="http://127.0.0.1:8080"),
+        transport=httpx.MockTransport(handler),
+    )
+
+    try:
+        payload = client.balance("BTC")
+    finally:
+        client.close()
+
+    assert attempts == 2
+    assert payload == {"balance_btc": "0.01000000"}
+
+
+def test_http_client_rejects_non_object_json() -> None:
+    client = WalletGovernorHttpClient(
+        WalletGovernorConfig(base_url="http://127.0.0.1:8080"),
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=["bad"])),
+    )
+
+    try:
+        with pytest.raises(WalletGovernorClientError, match="JSON object"):
+            client.health()
+    finally:
+        client.close()
+
+
+def test_http_client_wraps_http_status_error() -> None:
+    client = WalletGovernorHttpClient(
+        WalletGovernorConfig(base_url="http://127.0.0.1:8080"),
+        transport=httpx.MockTransport(lambda request: httpx.Response(500, json={"detail": "boom"})),
+    )
+
+    try:
+        with pytest.raises(WalletGovernorClientError, match="request failed"):
+            client.quote_spend({})
+    finally:
+        client.close()
+
+
+def test_http_client_reports_unavailable_after_retry_exhaustion() -> None:
+    def failing_handler(request: httpx.Request) -> httpx.Response:
+        del request
+        raise httpx.ConnectError("boom")
+
+    client = WalletGovernorHttpClient(
+        WalletGovernorConfig(base_url="http://127.0.0.1:8080"),
+        transport=httpx.MockTransport(failing_handler),
+    )
+
+    try:
+        with pytest.raises(WalletGovernorClientError, match="wallet governor unavailable"):
+            client.health()
+    finally:
+        client.close()
+
+
+def test_http_client_close_closes_underlying_client() -> None:
+    client = WalletGovernorHttpClient(WalletGovernorConfig(base_url="http://127.0.0.1:8080"))
+
+    client.close()
+
+    assert client._client.is_closed is True
+
+
+def test_validate_spend_request_reports_local_rejection_reasons(tmp_path: Path) -> None:
+    skill = make_skill(tmp_path)
+    request = make_spend_request(asset="DOGE", category="mystery", purpose="Send all funds")
+    request.destination = "   "
+    request.evidence_archive_ids = []
+
+    reasons = validate_spend_request(
+        request,
+        skill.config,
+        skill.policy_config,
+        skill.ledger_service,
+    )
+
+    assert {
+        "unsupported asset",
+        "unsupported spend category",
+        "invalid destination",
+        "missing evidence reference",
+        "send-all language is prohibited",
+    }.issubset(reasons)
+
+
+def test_validate_spend_request_reports_blocked_category(tmp_path: Path) -> None:
+    skill = make_skill(tmp_path)
+
+    reasons = validate_spend_request(
+        make_spend_request(category="gambling"),
+        skill.config,
+        skill.policy_config,
+        skill.ledger_service,
+    )
+
+    assert "blocked spend category" in reasons
+
+
+def test_validate_spend_request_reports_daily_and_weekly_overflow(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    skill = make_skill(tmp_path)
+    monkeypatch.setattr(skill.ledger_service, "get_daily_spend_total", lambda day: 19.0)
+    monkeypatch.setattr(skill.ledger_service, "get_weekly_spend_total", lambda day: 39.0)
+
+    reasons = validate_spend_request(
+        make_spend_request(amount_usd=2.0),
+        skill.config,
+        skill.policy_config,
+        skill.ledger_service,
+    )
+
+    assert "amount exceeds daily spend cap" in reasons
+    assert "amount exceeds weekly spend cap" in reasons

@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
 from openclaw_moneybot.shared import (
     ArchiveConfig,
     BudgetPlan,
@@ -24,6 +26,8 @@ from openclaw_moneybot.shared.types import (
     TosDecisionType,
 )
 from openclaw_moneybot.skills.experiment_reviewer import ExperimentReviewer, ExperimentReviewRequest
+from openclaw_moneybot.skills.experiment_reviewer.decision import decide_review
+from openclaw_moneybot.skills.experiment_reviewer.metrics import ReviewMetrics
 from openclaw_moneybot.skills.ledger_skill.service import LedgerService
 from openclaw_moneybot.skills.receipt_and_evidence_archiver import (
     EvidenceArchiveRequest,
@@ -265,3 +269,73 @@ def test_ledger_output_written(tmp_path: Path) -> None:
     result = reviewer.review(make_request(evidence_archive_ids=[evidence_id]))
 
     assert ledger_service.get_experiment_review(result.experiment_review_id) is not None
+
+
+def make_metrics(
+    *,
+    spent_usd: float = 2.0,
+    fee_usd: float = 0.1,
+    revenue_usd: float = 0.0,
+    net_usd: float = -2.1,
+    roi_percent: float = -105.0,
+    evidence_quality: str = "good",
+    budget_exceeded: bool = False,
+) -> ReviewMetrics:
+    return ReviewMetrics(
+        spent_usd=spent_usd,
+        fee_usd=fee_usd,
+        revenue_usd=revenue_usd,
+        net_usd=net_usd,
+        roi_percent=roi_percent,
+        evidence_quality=evidence_quality,
+        budget_exceeded=budget_exceeded,
+    )
+
+
+def test_decision_repeated_failures_blocks_category() -> None:
+    status, decision, lessons, next_actions, blocklist, feedback = decide_review(
+        metrics=make_metrics(),
+        incident_flags=["repeated_failures"],
+        success_metric_met=False,
+        stop_condition_triggered=False,
+    )
+
+    assert status == "reviewed"
+    assert decision is ReviewDecisionType.BLOCK_CATEGORY
+    assert lessons == ["Repeated failed or rejected spends suggest the category should be blocked."]
+    assert next_actions == ["Block this category until a human reviews the spend failures."]
+    assert blocklist == ["Block categories with repeated failed wallet execution."]
+    assert feedback == ["Escalate repeated failed spends to a category block."]
+
+
+@pytest.mark.parametrize("flag", ["complaint", "payment_dispute", "privacy_issue"])
+def test_decision_human_review_flags_escalate(flag: str) -> None:
+    status, decision, lessons, next_actions, blocklist, feedback = decide_review(
+        metrics=make_metrics(),
+        incident_flags=[flag],
+        success_metric_met=False,
+        stop_condition_triggered=False,
+    )
+
+    assert status == "reviewed"
+    assert decision is ReviewDecisionType.HUMAN_REVIEW
+    assert lessons == ["The outcome triggered a complaint, dispute, or privacy-sensitive issue."]
+    assert next_actions == ["Escalate to human review before any follow-up action."]
+    assert blocklist == []
+    assert feedback == []
+
+
+def test_decision_ambiguous_high_cost_path_requires_human_review() -> None:
+    status, decision, lessons, next_actions, blocklist, feedback = decide_review(
+        metrics=make_metrics(spent_usd=8.0, net_usd=-8.0),
+        incident_flags=[],
+        success_metric_met=False,
+        stop_condition_triggered=False,
+    )
+
+    assert status == "insufficient_data"
+    assert decision is ReviewDecisionType.HUMAN_REVIEW
+    assert lessons == ["The outcome remains ambiguous and needs a human decision."]
+    assert next_actions == ["Pause the experiment until a human reviews the current evidence."]
+    assert blocklist == []
+    assert feedback == []
