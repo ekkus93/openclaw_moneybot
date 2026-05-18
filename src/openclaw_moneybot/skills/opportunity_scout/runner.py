@@ -104,7 +104,7 @@ def _candidate_from_document(
     legitimacy = (
         "The source includes a named opportunity, a payout model, and a reviewable source URL."
     )
-    next_step = "run_tos_check" if has_rules else "research_more"
+    next_step = "run_tos_check" if has_rules and money_values else "research_more"
     score_breakdown = score_candidate(
         estimated_revenue_high_usd=estimated_revenue_high,
         required_spend_usd=required_spend,
@@ -151,8 +151,11 @@ def _candidate_from_document(
         opportunity_id=opportunity_id,
         name=document.source_name,
         category=category,
+        source_type=document.source_type,
         source_url=document.source_url,
         rules_url=document.rules_url,
+        deadline=document.deadline,
+        eligibility_requirements=document.eligibility_requirements,
         payment_or_revenue_mechanism=document.payment_method,
         required_spend_usd=required_spend,
         estimated_revenue_low_usd=estimated_revenue_low,
@@ -168,8 +171,9 @@ def _candidate_from_document(
         red_flags=document.known_risk_notes,
         why_this_is_legitimate=legitimacy,
         recommended_next_step=next_step,
-        confidence=ConfidenceLevel.MEDIUM if has_rules else ConfidenceLevel.LOW,
+        confidence=ConfidenceLevel.MEDIUM if has_rules and money_values else ConfidenceLevel.LOW,
         evidence_links=[str(document.source_url)],
+        evidence_archive_ids=document.evidence_archive_ids,
         score_breakdown=score_breakdown,
         tos_handoff=tos_handoff,
         ledger_record=ledger_record,

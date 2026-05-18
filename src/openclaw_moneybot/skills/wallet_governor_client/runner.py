@@ -72,6 +72,20 @@ class WalletGovernorClientSkill:
     def _json_string_list(values: list[str]) -> list[JsonValue]:
         return [value for value in values]
 
+    @staticmethod
+    def _json_string(value: JsonValue | None) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value
+        return str(value)
+
+    @staticmethod
+    def _btc_to_usd(amount_btc: str | None, btc_usd_rate: float) -> float:
+        if amount_btc is None:
+            return 0.0
+        return round(float(amount_btc) * btc_usd_rate, 2)
+
     def get_balance(self, request: WalletBalanceRequest) -> WalletBalanceResult:
         """Read balance and current spend headroom."""
         balance = self.http_client.balance(request.asset)
@@ -96,16 +110,22 @@ class WalletGovernorClientSkill:
         balance = self.http_client.balance(request.asset)
         balance_btc = float(str(balance["balance_btc"]))
         balance_usd = balance_btc * request.btc_usd_rate
+        total_usd_estimate = self._as_float(
+            raw_quote.get("total_usd_estimate", raw_quote.get("total_usd", request.amount_usd))
+        )
         limit_check = WalletLimitCheck(
-            single_spend_ok=request.amount_usd <= self._as_float(limits["max_single_usd"]),
-            daily_spend_ok=request.amount_usd <= self._as_float(limits["remaining_daily_usd"]),
-            wallet_balance_ok=request.amount_usd <= balance_usd,
+            single_spend_ok=total_usd_estimate <= self._as_float(limits["max_single_usd"]),
+            daily_spend_ok=total_usd_estimate <= self._as_float(limits["remaining_daily_usd"]),
+            weekly_spend_ok=total_usd_estimate <= self._as_float(limits["remaining_weekly_usd"]),
+            wallet_balance_ok=total_usd_estimate <= balance_usd,
         )
         rejection_reasons: list[str] = []
         if not limit_check.single_spend_ok:
             rejection_reasons.append("single-spend limit exceeded")
         if not limit_check.daily_spend_ok:
             rejection_reasons.append("daily spend limit exceeded")
+        if not limit_check.weekly_spend_ok:
+            rejection_reasons.append("weekly spend limit exceeded")
         if not limit_check.wallet_balance_ok:
             rejection_reasons.append("insufficient wallet balance")
         return WalletQuoteSkillResult(
@@ -114,7 +134,7 @@ class WalletGovernorClientSkill:
             amount_usd_estimate=request.amount_usd,
             amount_asset_estimate=str(raw_quote["amount_btc"]),
             estimated_fee_asset=str(raw_quote["fee_btc"]),
-            estimated_fee_usd=0.0,
+            estimated_fee_usd=self._as_float(raw_quote.get("estimated_fee_usd", 0.0)),
             limit_check=limit_check,
             rejection_reasons=rejection_reasons,
             raw_response=raw_quote,
@@ -151,6 +171,7 @@ class WalletGovernorClientSkill:
             purpose=request.purpose,
             category=request.category,
             evidence_archive_ids=request.evidence_archive_ids,
+            status="proposed",
         )
         self.ledger_service.record_spend_request(
             spend_request,
@@ -210,7 +231,10 @@ class WalletGovernorClientSkill:
                 amount_asset=str(raw_response.get("amount_btc")),
                 amount_usd_estimate=request.amount_usd,
                 fee_asset=str(raw_response.get("fee_btc")),
-                fee_usd_estimate=0.0,
+                fee_usd_estimate=self._btc_to_usd(
+                    self._json_string(raw_response.get("fee_btc")),
+                    request.btc_usd_rate,
+                ),
                 destination=request.destination,
                 txid_or_signature=str(raw_response.get("txid")),
                 receipt_required=request.receipt_expected,
@@ -239,7 +263,10 @@ class WalletGovernorClientSkill:
                 asset=request.asset,
                 amount_usd_estimate=request.amount_usd,
                 destination=request.destination,
-                fee_usd_estimate=0.0,
+                fee_usd_estimate=self._btc_to_usd(
+                    self._json_string(raw_response.get("fee_btc")),
+                    request.btc_usd_rate,
+                ),
                 rejection_reasons=rejection_reasons,
                 receipt_required=request.receipt_expected,
                 ledger_recorded=True,
@@ -312,7 +339,10 @@ class WalletGovernorClientSkill:
             asset=request.asset,
             amount_usd_estimate=request.amount_usd,
             destination=request.destination,
-            fee_usd_estimate=0.0,
+            fee_usd_estimate=self._btc_to_usd(
+                self._json_string(raw_response.get("fee_btc")),
+                request.btc_usd_rate,
+            ),
             rejection_reasons=reasons,
             receipt_required=request.receipt_expected,
             ledger_recorded=True,

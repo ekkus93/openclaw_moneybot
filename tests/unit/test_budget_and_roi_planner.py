@@ -89,14 +89,17 @@ def make_request(**overrides: object) -> BudgetPlanRequest:
         "policy_decision": "allow",
         "proposed_action": "Submit to the bounty.",
         "required_spend_usd": 5,
+        "max_loss_usd": 8,
         "estimated_revenue_usd": 25,
         "estimated_time_hours": 2,
         "fees_usd": 1,
         "recurring_costs_usd": 0,
+        "recurring_cost_cap_usd": 0,
         "asset": "BTC",
         "wallet_balance_usd": 100,
         "daily_spend_remaining_usd": 20,
         "evidence_archive_ids": ["artifact_001"],
+        "approved_spend_categories": ["purchase"],
         "success_metric": "Accepted submission",
         "stop_condition": "Stop after rejection",
         "timebox_hours": 24,
@@ -141,9 +144,9 @@ def test_spend_over_max_single_limit_rejects(tmp_path: Path) -> None:
 def test_recurring_billing_requires_review(tmp_path: Path) -> None:
     planner = make_planner(tmp_path)
 
-    result = planner.evaluate(make_request(recurring_costs_usd=2))
+    result = planner.evaluate(make_request(recurring_costs_usd=2, recurring_cost_cap_usd=None))
 
-    assert result.budget_plan.decision.value == "human_review"
+    assert result.budget_plan.decision.value == "reject"
 
 
 def test_unknown_fees_require_review(tmp_path: Path) -> None:
@@ -178,3 +181,17 @@ def test_wallet_handoff_object_shape(tmp_path: Path) -> None:
 
     assert result.wallet_handoff is not None
     assert result.wallet_handoff["budget_plan_id"] == result.budget_plan.budget_plan_id
+    assert result.wallet_handoff["approved_spend_categories"] == ["purchase"]
+
+
+def test_uncertain_revenue_returns_simulate(tmp_path: Path) -> None:
+    planner = make_planner(tmp_path)
+
+    result = planner.evaluate(
+        make_request(
+            estimated_revenue_usd=None,
+            expected_revenue_unknown=True,
+        )
+    )
+
+    assert result.budget_plan.decision.value == "simulate"

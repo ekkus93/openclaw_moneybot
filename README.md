@@ -2,6 +2,8 @@
 
 OpenClaw MoneyBot is a bounded, auditable local experiment runner for small money-making workflows. It is intentionally **not** a general autonomous finance agent: policy, ledger, evidence, and wallet boundaries are all explicit and testable.
 
+The project assumes a **local LLM/orchestrator environment**. Model output is treated as untrusted input and is always expected to flow through deterministic policy, schema, ledger, evidence, and wallet controls.
+
 ## Requirements
 
 - Python **3.11**
@@ -39,6 +41,29 @@ uv run --python 3.11 pytest
 - Email stays in **`draft_only`** mode by default.
 - Unknown policy categories default to **`needs_review`**.
 - Missing config fails closed with a structured error.
+- The local wallet governor HTTP API is expected to stay on **localhost only**.
+- The Bitcoin Core backend exists only as a disabled-by-default skeleton.
+
+## Current limitations
+
+- Real Bitcoin Core integration is present only as a guarded skeleton and remains disabled by default.
+- Email is draft-only; there is no live send path.
+- Browser automation is intentionally out of scope.
+- Real opportunity scouting is still adapter-driven and fixture-first, not broad autonomous browsing.
+
+## Core safety docs
+
+- `docs/SAFETY_INVARIANTS.md`
+- `docs/WALLET_GOVERNOR_DESIGN.md`
+- `docs/LEDGER_SCHEMA.md`
+- `docs/EVIDENCE_ARCHIVE.md`
+- `docs/LOCAL_DEPLOYMENT.md`
+- `docs/TESTING.md`
+- `docs/CODE_REVIEW1_FIXES.md`
+
+## Review branch assumption
+
+This fix pass assumes **Copilot's branch is the authoritative base**. Any comparison or follow-on work should start from the current Copilot branch head instead of reviving older alternate scaffolds.
 
 ## Running a dry-run mission
 
@@ -124,3 +149,5 @@ wallet_governor:
 ```
 
 Set `spend_enabled: true` only when the local wallet governor service is available and you explicitly want governed payment calls to be allowed.
+
+Do **not** connect a real Bitcoin Core wallet until the full guarded path, evidence rules, and operator review process are in the state you want for your own environment.

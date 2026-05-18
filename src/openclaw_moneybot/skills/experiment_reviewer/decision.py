@@ -37,6 +37,19 @@ def decide_review(
             new_blocklist_patterns,
             policy_feedback,
         )
+    if "repeated_failures" in flag_set:
+        lessons.append("Repeated failed or rejected spends suggest the category should be blocked.")
+        next_actions.append("Block this category until a human reviews the spend failures.")
+        new_blocklist_patterns.append("Block categories with repeated failed wallet execution.")
+        policy_feedback.append("Escalate repeated failed spends to a category block.")
+        return (
+            "reviewed",
+            ReviewDecisionType.BLOCK_CATEGORY,
+            lessons,
+            next_actions,
+            new_blocklist_patterns,
+            policy_feedback,
+        )
     if metrics.evidence_quality == "poor" and (metrics.spent_usd > 0 or metrics.revenue_usd > 0):
         lessons.append("Financial activity exists without enough review evidence.")
         next_actions.append(

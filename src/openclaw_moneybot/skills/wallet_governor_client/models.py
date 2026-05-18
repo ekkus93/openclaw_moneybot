@@ -30,6 +30,7 @@ class WalletLimitCheck(MoneyBotModel):
 
     single_spend_ok: bool
     daily_spend_ok: bool
+    weekly_spend_ok: bool
     wallet_balance_ok: bool
 
 

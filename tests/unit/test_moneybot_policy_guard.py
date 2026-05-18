@@ -78,6 +78,28 @@ def test_wallet_action_without_budget_plan_blocks() -> None:
     assert "missing_budget_plan" in result.matched_rules
 
 
+def test_wallet_action_without_tos_or_ledger_reference_blocks() -> None:
+    guard = MoneyBotPolicyGuard(make_config())
+
+    result = guard.evaluate(
+        make_request(
+            action_type=ActionType.PURCHASE,
+            category="research",
+            amount_usd=5,
+            counterparty="Example registrar",
+            requires_wallet_action=True,
+            metadata={
+                "policy_decision_id": "policy_001",
+                "budget_plan_id": "budget_001",
+            },
+        )
+    )
+
+    assert result.decision is PolicyDecisionType.BLOCK
+    assert "missing_tos_legal_reference" in result.matched_rules
+    assert "missing_ledger_reference" in result.matched_rules
+
+
 def test_wallet_action_above_spend_limit_blocks() -> None:
     guard = MoneyBotPolicyGuard(make_config())
 
@@ -115,6 +137,22 @@ def test_email_send_without_approval_needs_review() -> None:
     assert result.human_review_required is True
 
 
+def test_browser_submit_without_reference_needs_review() -> None:
+    guard = MoneyBotPolicyGuard(make_config())
+
+    result = guard.evaluate(
+        make_request(
+            action_type=ActionType.BROWSER_SUBMIT,
+            category="research",
+            requires_public_claims=True,
+            metadata={},
+        )
+    )
+
+    assert result.decision is PolicyDecisionType.NEEDS_REVIEW
+    assert "missing_browser_reference" in result.matched_rules
+
+
 def test_unknown_category_defaults_to_review() -> None:
     guard = MoneyBotPolicyGuard(make_config())
 
@@ -142,6 +180,31 @@ def test_missing_counterparty_on_spend_blocks() -> None:
 
     assert result.decision is PolicyDecisionType.BLOCK
     assert "missing_counterparty" in result.matched_rules
+
+
+def test_blocked_spam_category_is_hard_blocked() -> None:
+    guard = MoneyBotPolicyGuard(make_config())
+
+    result = guard.evaluate(make_request(category="spam"))
+
+    assert result.decision is PolicyDecisionType.BLOCK
+    assert "blocked_category" in result.matched_rules
+
+
+def test_account_creation_requires_bot_owned_context() -> None:
+    guard = MoneyBotPolicyGuard(make_config())
+
+    result = guard.evaluate(
+        make_request(
+            action_type=ActionType.ACCOUNT_CREATE,
+            category="research",
+            requires_new_account=True,
+            metadata={"opportunity_id": "opp_001"},
+        )
+    )
+
+    assert result.decision is PolicyDecisionType.BLOCK
+    assert "missing_bot_owned_account_context" in result.matched_rules
 
 
 def test_deterministic_output_for_identical_inputs() -> None:

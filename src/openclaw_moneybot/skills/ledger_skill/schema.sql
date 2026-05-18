@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS spend_requests (
     counterparty TEXT NOT NULL,
     purpose TEXT NOT NULL,
     category TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'proposed',
     evidence_archive_ids_json TEXT NOT NULL,
     raw_json TEXT NOT NULL
 );
@@ -104,6 +105,8 @@ CREATE TABLE IF NOT EXISTS btc_transactions (
     amount_btc TEXT NOT NULL,
     fee_btc TEXT NOT NULL,
     amount_usd_estimate REAL NOT NULL,
+    fee_usd_estimate REAL NOT NULL DEFAULT 0,
+    total_usd_estimate REAL NOT NULL DEFAULT 0,
     status TEXT NOT NULL,
     destination TEXT NOT NULL,
     purpose TEXT NOT NULL,

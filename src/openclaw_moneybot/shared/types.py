@@ -48,6 +48,7 @@ class ReviewDecisionType(StrEnum):
     STOP = "stop"
     RETRY_WITH_CHANGES = "retry_with_changes"
     HUMAN_REVIEW = "human_review"
+    BLOCK_CATEGORY = "block_category"
 
 
 class RiskLevel(StrEnum):
@@ -72,6 +73,29 @@ class EmailMode(StrEnum):
 
     DRAFT_ONLY = "draft_only"
     CAPPED_SEND = "capped_send"
+
+
+class SpendRequestStatus(StrEnum):
+    """Canonical spend-request lifecycle states."""
+
+    PROPOSED = "proposed"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    SENDING = "sending"
+    SENT = "sent"
+    CONFIRMED = "confirmed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class WalletTransactionStatus(StrEnum):
+    """Wallet transaction lifecycle states."""
+
+    SENDING = "sending"
+    SENT = "sent"
+    CONFIRMED = "confirmed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class RecordType(StrEnum):

@@ -162,7 +162,9 @@ def default_handler(request: httpx.Request) -> httpx.Response:
                 "fee_btc": "0.00000250",
                 "fee_sats": 250,
                 "amount_usd": 5.0,
-                "total_usd": 5.0,
+                "estimated_fee_usd": 0.12,
+                "total_usd_estimate": 5.12,
+                "total_usd": 5.12,
             },
         )
     if request.url.path == "/send-small-payment":
@@ -192,7 +194,7 @@ def make_spend_request(**overrides: object) -> WalletSpendRequest:
         "ledger_event_id": "2026-01-01T00:00:00Z",
         "amount_usd": 5.0,
         "asset": "BTC",
-        "destination": "bcrt1qexampleaddress",
+        "destination": "bcrt1qmoneybotdest123",
         "counterparty": "Example Vendor",
         "purpose": "Pay approved listing fee",
         "category": "listing_fee",
@@ -361,7 +363,7 @@ def test_quote_serialization(tmp_path: Path) -> None:
         WalletQuoteSkillRequest(
             asset="BTC",
             amount_usd=5.0,
-            destination="bcrt1qexampleaddress",
+            destination="bcrt1qmoneybotdest123",
             btc_usd_rate=50_000.0,
         )
     )

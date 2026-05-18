@@ -40,6 +40,8 @@ class ArchiveConfig(MoneyBotModel):
 
     base_directory: Path
     redact_secrets: bool = True
+    allowed_source_roots: list[Path] = Field(default_factory=list)
+    max_artifact_bytes: int = Field(default=1_000_000, gt=0)
 
 
 class WalletGovernorConfig(MoneyBotModel):

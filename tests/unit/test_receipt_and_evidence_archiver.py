@@ -20,7 +20,12 @@ from openclaw_moneybot.skills.receipt_and_evidence_archiver.storage import store
 
 @pytest.fixture()
 def archive_env(tmp_path: Path) -> tuple[ArchiveConfig, LedgerService]:
-    config = ArchiveConfig(base_directory=tmp_path / "archive", redact_secrets=True)
+    config = ArchiveConfig(
+        base_directory=tmp_path / "archive",
+        redact_secrets=True,
+        allowed_source_roots=[tmp_path],
+        max_artifact_bytes=128,
+    )
     ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
     return config, ledger_service
 
@@ -115,13 +120,21 @@ def test_metadata_correctness(archive_env: tuple[ArchiveConfig, LedgerService]) 
     assert metadata["related_id"] == "policy_001"
 
 
-def test_unsafe_path_rejection() -> None:
+def test_unsafe_path_rejection(archive_env: tuple[ArchiveConfig, LedgerService]) -> None:
+    config, _ledger_service = archive_env
+    request = EvidenceArchiveRequest(
+        related_type=RecordType.EVIDENCE,
+        related_id="artifact_001",
+        evidence_type="snapshot",
+        content_bytes_path=Path("/etc/passwd"),
+    )
+
     with pytest.raises(ValueError):
-        EvidenceArchiveRequest(
-            related_type=RecordType.EVIDENCE,
-            related_id="artifact_001",
-            evidence_type="snapshot",
-            content_bytes_path=Path("../escape.txt"),
+        store_artifact(
+            config,
+            request,
+            evidence_id="artifact_outside_root",
+            captured_at="2026-01-04T12:00:00Z",
         )
 
 
@@ -163,3 +176,75 @@ def test_ledger_ready_output(archive_env: tuple[ArchiveConfig, LedgerService]) -
     timeline = ledger_service.get_opportunity_timeline("budget_001")
     assert result.ledger_record.evidence_id.startswith("artifact_")
     assert timeline == []
+
+
+def test_symlink_escape_rejection(
+    archive_env: tuple[ArchiveConfig, LedgerService],
+    tmp_path: Path,
+) -> None:
+    config, _ledger_service = archive_env
+    outside_file = tmp_path.parent / "outside.txt"
+    outside_file.write_text("escape", encoding="utf-8")
+    symlink_path = tmp_path / "outside-link.txt"
+    symlink_path.symlink_to(outside_file)
+
+    request = EvidenceArchiveRequest(
+        related_type=RecordType.EVIDENCE,
+        related_id="artifact_001",
+        evidence_type="snapshot",
+        content_bytes_path=symlink_path,
+    )
+
+    with pytest.raises(ValueError):
+        store_artifact(
+            config,
+            request,
+            evidence_id="artifact_symlink",
+            captured_at="2026-01-07T12:00:00Z",
+        )
+
+
+def test_directory_rejection(
+    archive_env: tuple[ArchiveConfig, LedgerService],
+    tmp_path: Path,
+) -> None:
+    config, _ledger_service = archive_env
+    source_dir = tmp_path / "directory"
+    source_dir.mkdir()
+    request = EvidenceArchiveRequest(
+        related_type=RecordType.EVIDENCE,
+        related_id="artifact_001",
+        evidence_type="snapshot",
+        content_bytes_path=source_dir,
+    )
+
+    with pytest.raises(ValueError):
+        store_artifact(
+            config,
+            request,
+            evidence_id="artifact_directory",
+            captured_at="2026-01-08T12:00:00Z",
+        )
+
+
+def test_max_file_size_rejection(
+    archive_env: tuple[ArchiveConfig, LedgerService],
+    tmp_path: Path,
+) -> None:
+    config, _ledger_service = archive_env
+    source_path = tmp_path / "oversized.txt"
+    source_path.write_text("x" * 129, encoding="utf-8")
+    request = EvidenceArchiveRequest(
+        related_type=RecordType.EVIDENCE,
+        related_id="artifact_001",
+        evidence_type="snapshot",
+        content_bytes_path=source_path,
+    )
+
+    with pytest.raises(ValueError):
+        store_artifact(
+            config,
+            request,
+            evidence_id="artifact_oversized",
+            captured_at="2026-01-09T12:00:00Z",
+        )

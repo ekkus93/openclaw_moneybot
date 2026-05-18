@@ -1,5 +1,13 @@
 """Opportunity scout package."""
 
+from openclaw_moneybot.skills.opportunity_scout.adapters import (
+    GitHubIssueFixtureAdapter,
+    HackathonListingAdapter,
+    LocalFixtureDocumentAdapter,
+    ManualUrlIngestionAdapter,
+    OpportunitySourceAdapter,
+    PublicBountyPageAdapter,
+)
 from openclaw_moneybot.skills.opportunity_scout.models import (
     OpportunityCandidate,
     OpportunityScoutRequest,
@@ -10,10 +18,16 @@ from openclaw_moneybot.skills.opportunity_scout.models import (
 from openclaw_moneybot.skills.opportunity_scout.runner import OpportunityScout
 
 __all__ = [
+    "GitHubIssueFixtureAdapter",
+    "HackathonListingAdapter",
+    "LocalFixtureDocumentAdapter",
+    "ManualUrlIngestionAdapter",
     "OpportunityCandidate",
     "OpportunityScout",
     "OpportunityScoutRequest",
     "OpportunityScoutResult",
+    "OpportunitySourceAdapter",
+    "PublicBountyPageAdapter",
     "RejectedCandidate",
     "ScoutSourceDocument",
 ]

@@ -116,14 +116,17 @@ class MoneyBotOrchestrator:
                 policy_decision=initial_policy.decision.value,
                 proposed_action=f"Pursue {candidate.name} within the approved plan.",
                 required_spend_usd=candidate.required_spend_usd,
+                max_loss_usd=max(candidate.max_loss_usd, candidate.required_spend_usd),
                 estimated_revenue_usd=candidate.estimated_revenue_high_usd,
                 estimated_time_hours=candidate.estimated_time_hours,
                 fees_usd=0.0,
                 recurring_costs_usd=0.0,
+                recurring_cost_cap_usd=0.0,
                 asset="BTC",
                 wallet_balance_usd=request.wallet_balance_usd,
                 daily_spend_remaining_usd=request.daily_spend_remaining_usd,
                 evidence_archive_ids=evidence_ids,
+                approved_spend_categories=["purchase"],
                 success_metric=f"Receive the expected outcome from {candidate.name}.",
                 stop_condition="Stop if dry-run validation fails or platform requirements change.",
                 timebox_hours=max(candidate.estimated_time_hours, 1.0),
@@ -135,6 +138,7 @@ class MoneyBotOrchestrator:
                 candidate=candidate,
                 budget_plan_id=budget_result.budget_plan.budget_plan_id,
                 initial_policy_decision_id=initial_policy.ledger_record.policy_decision_id,
+                tos_legal_check_id=tos_result.ledger_record.tos_legal_check_id,
                 send_email=request.draft_recipient_email is not None,
                 enable_wallet_payment=request.enable_wallet_payment,
             )
@@ -295,12 +299,9 @@ class MoneyBotOrchestrator:
 
     @staticmethod
     def _make_initial_policy_request(candidate: OpportunityCandidate) -> PolicyCheckRequest:
-        action_type = (
-            ActionType.RESEARCH if candidate.required_spend_usd == 0 else ActionType.PURCHASE
-        )
         return PolicyCheckRequest(
             action_id=make_id("action"),
-            action_type=action_type,
+            action_type=ActionType.RESEARCH,
             title=f"Initial review for {candidate.name}",
             description=f"Review the {candidate.category} opportunity before planning execution.",
             category="opportunity_analysis",
@@ -310,8 +311,8 @@ class MoneyBotOrchestrator:
             source_urls=[candidate.source_url],
             planned_tools=["ledger_skill", "tos_legal_checker"],
             user_approval_present=True,
-            requires_payment=candidate.required_spend_usd > 0,
-            requires_wallet_action=candidate.required_spend_usd > 0,
+            requires_payment=False,
+            requires_wallet_action=False,
             metadata={
                 "opportunity_id": candidate.opportunity_id,
                 "original_opportunity_category": candidate.category,
@@ -324,11 +325,12 @@ class MoneyBotOrchestrator:
         candidate: OpportunityCandidate,
         budget_plan_id: str,
         initial_policy_decision_id: str,
+        tos_legal_check_id: str,
         send_email: bool,
         enable_wallet_payment: bool,
     ) -> PolicyCheckRequest:
         if enable_wallet_payment and candidate.required_spend_usd > 0:
-            action_type = ActionType.SPEND
+            action_type = ActionType.PURCHASE
             category = "research"
         elif send_email:
             action_type = ActionType.EMAIL
@@ -356,8 +358,11 @@ class MoneyBotOrchestrator:
             requires_email_send=send_email,
             requires_wallet_action=enable_wallet_payment and candidate.required_spend_usd > 0,
             metadata={
+                "opportunity_id": candidate.opportunity_id,
                 "budget_plan_id": budget_plan_id,
                 "policy_decision_id": initial_policy_decision_id,
+                "tos_legal_check_id": tos_legal_check_id,
+                "ledger_record_id": budget_plan_id,
                 "original_opportunity_category": candidate.category,
             },
         )

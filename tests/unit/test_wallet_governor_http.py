@@ -1,18 +1,18 @@
-"""Tests for the wallet governor service."""
+"""Tests for the wallet governor HTTP wrapper."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from pydantic import ValidationError
+from fastapi.testclient import TestClient
 
 from openclaw_moneybot.plugins.wallet_governor_service import (
     FakeWalletBackend,
     FakeWalletBackendState,
     WalletGovernorService,
-    WalletQuoteRequest,
-    WalletSendRequest,
+    create_wallet_governor_app,
 )
 from openclaw_moneybot.shared import (
     BudgetPlan,
@@ -33,6 +33,7 @@ from openclaw_moneybot.shared.types import (
     TosDecisionType,
 )
 from openclaw_moneybot.skills.ledger_skill.service import LedgerService
+from openclaw_moneybot.skills.wallet_governor_client.models import WalletSpendRequest
 from openclaw_moneybot.utils.time import utc_now
 
 
@@ -134,144 +135,149 @@ def make_service(tmp_path: Path, *, spend_enabled: bool = True) -> WalletGoverno
     return WalletGovernorService(config, policy, ledger_service, backend)
 
 
-def make_request(**overrides: object) -> WalletSendRequest:
-    payload: dict[str, object] = {
-        "spend_request_id": "spend_001",
-        "opportunity_id": "opp_001",
-        "budget_plan_id": "budget_001",
-        "policy_decision_id": "policy_001",
-        "ledger_record_id": "ledger_001",
-        "amount_usd": 5.0,
-        "asset": "BTC",
-        "destination": "bcrt1qmoneybotdest123",
-        "counterparty": "Example Vendor",
-        "purpose": "Pay a small approved invoice",
-        "category": "purchase",
-        "btc_usd_rate": 50_000.0,
-        "evidence_archive_ids": ["artifact_001"],
-        "idempotency_key": "send_001",
-    }
-    payload.update(overrides)
-    return WalletSendRequest.model_validate(payload)
-
-
-def seed_spend_request(
-    service: WalletGovernorService,
-    **overrides: object,
-) -> WalletSendRequest:
-    request = make_request(**overrides)
+def seed_spend_request(service: WalletGovernorService) -> WalletSpendRequest:
     prewrite = service.ledger_service.record_ledger_record(
         LedgerRecord(
             created_at=utc_now(),
-            record_id="audit_prewrite_001",
+            record_id="audit_prewrite_http_001",
             record_type=RecordType.AUDIT_EVENT,
-            related_record_id=request.spend_request_id,
+            related_record_id="spend_001",
             payload={"event_name": "wallet_prewrite"},
         ),
-        idempotency_key=f"prewrite:{request.spend_request_id}",
+        idempotency_key="prewrite:http:spend_001",
     )
     service.ledger_service.record_spend_request(
         SpendRequest(
             created_at=utc_now(),
-            spend_request_id=request.spend_request_id,
-            opportunity_id=request.opportunity_id,
-            budget_plan_id=request.budget_plan_id,
-            policy_decision_id=request.policy_decision_id,
+            spend_request_id="spend_001",
+            opportunity_id="opp_001",
+            budget_plan_id="budget_001",
+            policy_decision_id="policy_001",
             ledger_record_id=prewrite.ledger_event_id,
-            amount_usd=request.amount_usd,
-            asset=request.asset,
-            destination=request.destination,
-            counterparty=request.counterparty,
-            purpose=request.purpose,
-            category=request.category,
-            evidence_archive_ids=request.evidence_archive_ids,
+            amount_usd=5.0,
+            asset="BTC",
+            destination="bcrt1qmoneybotdest123",
+            counterparty="Example Vendor",
+            purpose="Pay a small approved invoice",
+            category="purchase",
+            evidence_archive_ids=["artifact_001"],
             status="proposed",
         ),
-        idempotency_key=f"spend:{request.spend_request_id}",
+        idempotency_key="spend:http:001",
     )
-    return request.model_copy(update={"ledger_record_id": prewrite.ledger_event_id})
+    return WalletSpendRequest.model_validate(
+        {
+            "spend_request_id": "spend_001",
+            "opportunity_id": "opp_001",
+            "policy_decision_id": "policy_001",
+            "budget_plan_id": "budget_001",
+            "tos_legal_check_id": "tos_001",
+            "ledger_event_id": prewrite.ledger_event_id,
+            "amount_usd": 5.0,
+            "asset": "BTC",
+            "destination": "bcrt1qmoneybotdest123",
+            "counterparty": "Example Vendor",
+            "purpose": "Pay a small approved invoice",
+            "category": "purchase",
+            "evidence_archive_ids": ["artifact_001"],
+            "btc_usd_rate": 50_000.0,
+            "idempotency_key": "client_send_http_001",
+        }
+    )
 
 
-def test_health_reports_local_state(tmp_path: Path) -> None:
-    result = make_service(tmp_path).health()
+def service_payload(request: WalletSpendRequest) -> dict[str, object]:
+    payload = request.model_dump(mode="json")
+    payload.pop("tos_legal_check_id", None)
+    payload.pop("source_url", None)
+    payload.pop("receipt_expected", None)
+    payload["ledger_record_id"] = payload.pop("ledger_event_id")
+    return payload
 
-    assert result.status == "ok"
-    assert result.backend == "fake"
+
+def make_client(tmp_path: Path, *, spend_enabled: bool = True) -> TestClient:
+    service = make_service(tmp_path, spend_enabled=spend_enabled)
+    app = create_wallet_governor_app(service)
+    return TestClient(app)
 
 
-def test_quote_returns_btc_and_fee(tmp_path: Path) -> None:
-    service = make_service(tmp_path)
+def test_health_endpoint_reports_service_metadata(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        response = client.get("/health")
 
-    result = service.quote(
-        WalletQuoteRequest(
-            asset="BTC",
-            amount_usd=5.0,
-            btc_usd_rate=50_000.0,
-            destination="bcrt1qmoneybotdest123",
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["backend_mode"] == "fake"
+
+
+def test_balance_endpoint_returns_local_state(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        response = client.get("/balance", params={"asset": "BTC"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["asset"] == "BTC"
+    assert payload["spend_enabled"] is True
+
+
+def test_limits_endpoint_returns_categories(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        response = client.get("/limits", params={"asset": "BTC"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "allowed_categories" in payload
+    assert "blocked_categories" in payload
+
+
+def test_quote_endpoint_returns_fee_estimates(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        response = client.post(
+            "/quote-spend",
+            json={
+                "asset": "BTC",
+                "amount_usd": 5.0,
+                "btc_usd_rate": 50_000.0,
+                "destination": "bcrt1qmoneybotdest123",
+            },
         )
-    )
 
-    assert result.amount_sats > 0
-    assert result.fee_sats > 0
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["fee_btc"] != "0"
+    assert payload["estimated_fee_usd"] > 0
+    assert payload["total_usd_estimate"] > payload["amount_usd"]
 
 
-def test_send_rejects_when_spend_disabled(tmp_path: Path) -> None:
+def test_send_endpoint_rejects_when_spend_disabled(tmp_path: Path) -> None:
     service = make_service(tmp_path, spend_enabled=False)
+    request = seed_spend_request(service)
+    with TestClient(create_wallet_governor_app(service)) as client:
+        response = client.post("/send-small-payment", json=service_payload(request))
 
-    result = service.capped_send(seed_spend_request(service))
-
-    assert result.status == "rejected"
-    assert result.reason == "spend_disabled"
-
-
-def test_send_rejects_over_single_limit(tmp_path: Path) -> None:
-    service = make_service(tmp_path)
-
-    result = service.capped_send(seed_spend_request(service, amount_usd=50.0))
-
-    assert result.status == "rejected"
-    assert result.reason == "budget_amount_exceeded"
+    assert response.status_code == 200
+    assert response.json()["reason"] == "spend_disabled"
 
 
-def test_send_requires_references() -> None:
-    try:
-        make_request(ledger_record_id="")
-    except ValidationError as error:
-        assert "ledger_record_id" in str(error)
-    else:
-        raise AssertionError("Expected missing ledger reference validation failure")
-
-
-def test_duplicate_idempotency_returns_same_response(tmp_path: Path) -> None:
+def test_send_endpoint_succeeds_with_valid_prewrite(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     request = seed_spend_request(service)
+    with TestClient(create_wallet_governor_app(service)) as client:
+        response = client.post("/send-small-payment", json=service_payload(request))
 
-    first = service.capped_send(request)
-    second = service.capped_send(request)
-
-    assert first.txid == second.txid
-    assert second.status == "sent"
-
-
-def test_successful_send_records_ledger_and_locks_wallet(tmp_path: Path) -> None:
-    service = make_service(tmp_path)
-    request = seed_spend_request(service)
-
-    result = service.capped_send(request)
-
-    assert result.status == "sent"
-    assert result.spend_request_id is not None
-    assert result.wallet_transaction_id is not None
-    backend = service.backend
-    assert isinstance(backend, FakeWalletBackend)
-    assert backend.state.lock_count == 1
-    assert backend.state.send_count == 1
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "sent"
+    assert payload["txid"]
 
 
-def test_send_rejects_send_all_request() -> None:
-    try:
-        make_request(send_all=True)
-    except ValidationError as error:
-        assert "send_all" in str(error)
-    else:
-        raise AssertionError("Expected send_all validation failure")
+def test_http_wrapper_rejects_non_local_bind() -> None:
+    with TemporaryDirectory() as tmp:
+        service = make_service(Path(tmp))
+        try:
+            create_wallet_governor_app(service, bind_host="0.0.0.0")
+        except ValueError as error:
+            assert "localhost" in str(error)
+        else:
+            raise AssertionError("Expected non-local bind host to be rejected")

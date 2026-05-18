@@ -21,6 +21,17 @@ SECRET_PATTERNS = {
 
 TEXTUAL_MIME_PREFIXES = ("text/", "application/json", "message/")
 TEXTUAL_SUFFIXES = {".txt", ".json", ".html", ".md", ".eml", ".csv", ".xml"}
+SENSITIVE_PATH_MARKERS = (
+    "/etc/",
+    "/root/",
+    "/.ssh/",
+    "/bitcoin/",
+    "/wallet.dat",
+    "/cookies",
+    "/browser",
+    "/secrets",
+    ".env",
+)
 
 
 def normalize_evidence_type(value: str) -> str:
@@ -79,6 +90,35 @@ def build_archive_paths(
     return content_path, metadata_path
 
 
+def resolve_source_path(config: ArchiveConfig, source_path: Path) -> Path:
+    """Resolve and validate a local source path against the archive allowlist."""
+    resolved_source = source_path.expanduser().resolve(strict=True)
+    if resolved_source.is_dir():
+        msg = "Directories cannot be archived as evidence artifacts."
+        raise ValueError(msg)
+    if not resolved_source.is_file():
+        msg = "Only regular files can be archived as evidence artifacts."
+        raise ValueError(msg)
+    path_string = resolved_source.as_posix().lower()
+    if any(marker in path_string for marker in SENSITIVE_PATH_MARKERS):
+        msg = "Sensitive paths cannot be archived as evidence artifacts."
+        raise ValueError(msg)
+    if not config.allowed_source_roots:
+        msg = "File-based evidence archival requires an allowed_source_roots configuration."
+        raise ValueError(msg)
+    resolved_roots = [
+        root.expanduser().resolve(strict=False)
+        for root in config.allowed_source_roots
+    ]
+    if not any(
+        root == resolved_source or root in resolved_source.parents
+        for root in resolved_roots
+    ):
+        msg = "Evidence file source is outside the configured workspace allowlist."
+        raise ValueError(msg)
+    return resolved_source
+
+
 def store_artifact(
     config: ArchiveConfig,
     request: EvidenceArchiveRequest,
@@ -109,7 +149,11 @@ def store_artifact(
         content_bytes = content_text.encode("utf-8")
     else:
         assert request.content_bytes_path is not None
-        content_bytes = request.content_bytes_path.read_bytes()
+        resolved_source = resolve_source_path(config, request.content_bytes_path)
+        if resolved_source.stat().st_size > config.max_artifact_bytes:
+            msg = "Evidence artifact exceeds the configured max_artifact_bytes limit."
+            raise ValueError(msg)
+        content_bytes = resolved_source.read_bytes()
         if config.redact_secrets and is_textual(request, extension):
             decoded = content_bytes.decode("utf-8")
             redacted_text, redactions = redact_text(decoded)

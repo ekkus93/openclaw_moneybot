@@ -54,6 +54,8 @@ class WalletQuoteResponse(MoneyBotModel):
     fee_btc: str
     fee_sats: int
     amount_usd: float
+    estimated_fee_usd: float
+    total_usd_estimate: float
     total_usd: float
 
 
@@ -111,3 +113,4 @@ class WalletSendResponse(MoneyBotModel):
     fee_btc: str | None = None
     amount_usd: float | None = None
     reason: str | None = None
+    rejection_reasons: list[str] = Field(default_factory=list)

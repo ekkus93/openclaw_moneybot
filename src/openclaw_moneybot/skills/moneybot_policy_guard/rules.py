@@ -95,7 +95,11 @@ def evaluate_policy(
             )
             matched_rules.append(rule_name)
 
-    if request.action_type in {request.action_type.SPEND, request.action_type.WALLET_TRANSFER}:
+    if request.action_type in {
+        request.action_type.SPEND,
+        request.action_type.WALLET_TRANSFER,
+        request.action_type.PURCHASE,
+    }:
         if request.amount_usd is None:
             blocked_reasons.append("Spend and wallet actions require amount_usd.")
             matched_rules.append("missing_amount")
@@ -111,18 +115,47 @@ def evaluate_policy(
         if "policy_decision_id" not in request.metadata:
             blocked_reasons.append("Wallet actions require a policy_decision_id.")
             matched_rules.append("missing_policy_reference")
+        if "tos_legal_check_id" not in request.metadata:
+            blocked_reasons.append("Wallet actions require a tos_legal_check_id.")
+            matched_rules.append("missing_tos_legal_reference")
+        if "ledger_record_id" not in request.metadata:
+            blocked_reasons.append("Wallet actions require a ledger_record_id.")
+            matched_rules.append("missing_ledger_reference")
+
+    if request.requires_wallet_action and request.action_type not in {
+        request.action_type.SPEND,
+        request.action_type.WALLET_TRANSFER,
+        request.action_type.PURCHASE,
+    }:
+        blocked_reasons.append("Unknown executable wallet actions are blocked by default.")
+        matched_rules.append("unknown_executable_wallet_action")
 
     if request.requires_email_send and not request.user_approval_present:
         human_review_reason = "Outbound email sending requires explicit approval."
         mitigations.append("Provide explicit approval before send-ready email workflows.")
         matched_rules.append("email_send_requires_approval")
         followup_skills.append("ledger_skill")
+    if request.requires_email_send and opportunity_id is None:
+        human_review_reason = (
+            "Outbound email actions require an opportunity or experiment reference."
+        )
+        mitigations.append("Attach an approved opportunity or experiment reference before send.")
+        matched_rules.append("missing_email_reference")
+    if request.action_type is request.action_type.BROWSER_SUBMIT and opportunity_id is None:
+        human_review_reason = "Browser submissions require an approved opportunity reference."
+        mitigations.append("Attach an approved opportunity or experiment reference before submit.")
+        matched_rules.append("missing_browser_reference")
 
     if request.requires_new_account:
         human_review_reason = "Account creation requires review."
         mitigations.append("Review platform rules before creating accounts.")
         matched_rules.append("new_account_requires_review")
         followup_skills.append("tos_legal_checker")
+        if not bool(request.metadata.get("bot_owned_account_context")):
+            blocked_reasons.append(
+                "Account creation requires an explicit bot-owned account context."
+            )
+            matched_rules.append("missing_bot_owned_account_context")
 
     if request.requires_user_data_collection:
         human_review_reason = "Collecting user data requires review."

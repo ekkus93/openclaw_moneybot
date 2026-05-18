@@ -6,6 +6,15 @@ from pathlib import Path
 
 from pydantic import Field
 
+from openclaw_moneybot.shared import (
+    BudgetPlan,
+    EvidenceRecord,
+    Opportunity,
+    PolicyDecision,
+    SpendRequest,
+    TosLegalCheck,
+    WalletTransactionRecord,
+)
 from openclaw_moneybot.shared.base import MoneyBotModel
 from openclaw_moneybot.shared.types import RecordType
 
@@ -44,3 +53,16 @@ class TaxExportResult(MoneyBotModel):
 
     output_path: Path
     row_count: int = Field(ge=0)
+
+
+class SpendAuthorizationBundle(MoneyBotModel):
+    """Ledger-backed authorization context for a spend request."""
+
+    spend_request: SpendRequest
+    opportunity: Opportunity | None = None
+    policy_decision: PolicyDecision | None = None
+    budget_plan: BudgetPlan | None = None
+    tos_legal_check: TosLegalCheck | None = None
+    evidence_records: list[EvidenceRecord] = Field(default_factory=list)
+    prior_wallet_transactions: list[WalletTransactionRecord] = Field(default_factory=list)
+    ledger_record_exists: bool = False

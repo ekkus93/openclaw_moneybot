@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import AwareDatetime, Field, HttpUrl, JsonValue, field_validator
+from pydantic import AwareDatetime, Field, HttpUrl, JsonValue, field_validator, model_validator
 
 from openclaw_moneybot.shared.base import MoneyBotModel, TimestampedModel
 from openclaw_moneybot.shared.types import (
@@ -15,7 +15,9 @@ from openclaw_moneybot.shared.types import (
     RecordType,
     ReviewDecisionType,
     RiskLevel,
+    SpendRequestStatus,
     TosDecisionType,
+    WalletTransactionStatus,
 )
 
 
@@ -85,6 +87,7 @@ class TosLegalCheck(TimestampedModel):
 
     tos_legal_check_id: str
     opportunity_id: str
+    source_url: HttpUrl | None = None
     decision: TosDecisionType
     confidence: ConfidenceLevel
     platform_terms_summary: str
@@ -95,6 +98,15 @@ class TosLegalCheck(TimestampedModel):
     required_records: list[str] = Field(default_factory=list)
     source_quotes_or_snippets: list[str] = Field(default_factory=list)
     evidence_archive_ids: list[str] = Field(default_factory=list)
+    automation_policy: str = "unknown"
+    bot_account_policy: str = "unknown"
+    payment_policy: str = "unknown"
+    eligibility_policy: str = "unknown"
+    identity_policy: str = "unknown"
+    recurring_billing_policy: str = "unknown"
+    refund_policy: str = "unknown"
+    outreach_policy: str = "unknown"
+    third_party_funds_policy: str = "unknown"
 
 
 class BudgetPlan(TimestampedModel):
@@ -113,8 +125,10 @@ class BudgetPlan(TimestampedModel):
     success_metric: str
     stop_condition: str
     required_records: list[str] = Field(default_factory=list)
+    required_evidence_ids: list[str] = Field(default_factory=list)
     risk_level: RiskLevel
     wallet_spend_request_allowed: bool = False
+    approved_spend_categories: list[str] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
 
 
@@ -143,6 +157,7 @@ class SpendRequest(TimestampedModel):
     purpose: str
     category: str
     evidence_archive_ids: list[str] = Field(default_factory=list)
+    status: SpendRequestStatus = SpendRequestStatus.PROPOSED
 
 
 class WalletTransactionRecord(TimestampedModel):
@@ -154,9 +169,30 @@ class WalletTransactionRecord(TimestampedModel):
     amount_btc: str
     fee_btc: str
     amount_usd_estimate: float = Field(ge=0)
-    status: str
+    fee_usd_estimate: float = Field(default=0, ge=0)
+    total_usd_estimate: float = Field(default=0, ge=0)
+    status: WalletTransactionStatus = WalletTransactionStatus.SENT
     destination: str
     purpose: str
+
+    @model_validator(mode="after")
+    def set_total_usd_estimate(self) -> WalletTransactionRecord:
+        """Default the total USD estimate to amount plus fee."""
+        if self.total_usd_estimate == 0:
+            self.total_usd_estimate = round(
+                self.amount_usd_estimate + self.fee_usd_estimate,
+                2,
+            )
+        return self
+
+    @field_validator("total_usd_estimate", mode="after")
+    @classmethod
+    def validate_total_usd_estimate(cls, value: float) -> float:
+        """Reject negative totals."""
+        if value < 0:
+            msg = "total_usd_estimate must be non-negative"
+            raise ValueError(msg)
+        return value
 
 
 class EvidenceRecord(TimestampedModel):

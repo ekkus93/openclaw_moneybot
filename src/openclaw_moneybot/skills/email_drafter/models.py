@@ -12,6 +12,7 @@ class EmailDraftRequest(MoneyBotModel):
     """Request for a draft email."""
 
     opportunity_id: str | None = None
+    related_experiment_id: str | None = None
     purpose: str
     recipient_name: str | None = None
     recipient_email: str
@@ -42,6 +43,9 @@ class EmailDraftRequest(MoneyBotModel):
             raise ValueError(msg)
         if not self.context_summary:
             msg = "context_summary is required."
+            raise ValueError(msg)
+        if self.opportunity_id is None and self.related_experiment_id is None:
+            msg = "An opportunity_id or related_experiment_id is required."
             raise ValueError(msg)
         outbound_purposes = {"proposal", "bounty_application", "vendor_question"}
         if self.purpose in outbound_purposes and self.policy_decision_id is None:

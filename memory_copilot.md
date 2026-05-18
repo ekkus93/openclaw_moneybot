@@ -44,3 +44,14 @@
 - Implemented `experiment_reviewer`, a narrow `ledger_api`, and the default orchestrated workflow under `src/openclaw_moneybot/orchestration/`, including a dry-run mission path and a tiny capped payment path backed by the fake wallet backend.
 - Added integration coverage for one full dry-run workflow, one fail-closed wallet path, and one tiny capped payment path, plus extra config-default tests for disabled wallet spending and draft-only email mode.
 - Updated `README.md` with operator instructions for `uv` setup, Ruff, mypy, pytest, config defaults, dry-run mission wiring, and wallet spending toggles. The repository now passes full `ruff`, `mypy`, and `pytest` with 104 passing tests.
+
+## 2026-05-18T07:35:07Z - GPT-5.4 - External review follow-up notes
+- Read `tmp/CODE_REVIEW1.md`, which compared this implementation against an OpenCode version and strongly recommended continuing from the Copilot codebase.
+- The most important follow-up issues called out were wallet-path hardening items: make `wallet_governor_service` verify policy/budget/TOS/ledger/evidence independently, require TOS `proceed` instead of allowing `human_review` for autonomous spend, fix weekly spend SQL date arithmetic, and clarify client/service ownership of spend-request creation.
+- Secondary follow-ups noted in the review were adding workspace allowlisting for archived file paths, tightening `PURCHASE` semantics in policy/orchestration, and eventually adding a real wallet backend and local HTTP wrapper only after the service boundary is hardened.
+
+## 2026-05-18T08:28:12Z - GPT-5.4 - Completed CODE_REVIEW1 implementation pass
+- Implemented the CODE_REVIEW1 hardening pass across wallet authorization, ledger accounting, policy/TOS/budget handoffs, evidence restrictions, email/reviewer safety, opportunity source adapters, and supporting docs.
+- Fixed the orchestration regression so paid opportunities now use non-executable initial review semantics while real purchase execution still routes through the governed wallet path, restoring the dry-run, fail-closed, and tiny capped payment integration flows.
+- Added the local FastAPI wallet-governor wrapper, the disabled-by-default Bitcoin Core backend skeleton, safety regression fixtures, and the review-fix documentation set; `docs/CODE_REVIEW1_TODO.md` now reflects the completed implementation items.
+- The repository passes full `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 145 passing tests at the end of this pass.

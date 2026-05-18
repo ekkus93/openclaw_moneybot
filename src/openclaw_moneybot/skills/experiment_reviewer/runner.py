@@ -39,6 +39,14 @@ class ExperimentReviewer:
         wallet_transactions = self.ledger_service.list_wallet_transactions_for_opportunity(
             request.opportunity_id
         )
+        spend_requests = self.ledger_service.list_spend_requests_for_opportunity(
+            request.opportunity_id
+        )
+        email_records = self.ledger_service.list_email_records_for_opportunity(
+            request.opportunity_id
+        )
+        policy_decision = self.ledger_service.get_policy_decision(budget_plan.policy_decision_id)
+        tos_legal_check = self.ledger_service.get_tos_legal_check(budget_plan.tos_legal_check_id)
         evidence_records = [
             record
             for evidence_id in request.evidence_archive_ids
@@ -58,6 +66,19 @@ class ExperimentReviewer:
             fees_usd=request.fees_usd,
             evidence_records=evidence_records,
         )
+        incident_flags = list(request.incident_flags)
+        failed_spends = [item for item in spend_requests if item.status.value == "failed"]
+        rejected_spends = [item for item in spend_requests if item.status.value == "rejected"]
+        if failed_spends:
+            incident_flags.append("failed_wallet_spend")
+        if rejected_spends:
+            incident_flags.append("rejected_wallet_spend")
+        if not evidence_records:
+            incident_flags.append("missing_evidence")
+        if not email_records and request.revenue_usd == 0:
+            incident_flags.append("no_response_outcome")
+        if len(failed_spends) + len(rejected_spends) >= 2:
+            incident_flags.append("repeated_failures")
         (
             status,
             decision,
@@ -67,7 +88,7 @@ class ExperimentReviewer:
             policy_feedback,
         ) = decide_review(
             metrics=metrics,
-            incident_flags=request.incident_flags,
+            incident_flags=incident_flags,
             success_metric_met=request.success_metric_met,
             stop_condition_triggered=request.stop_condition_triggered,
         )
@@ -79,6 +100,7 @@ class ExperimentReviewer:
                 2,
             ),
             "time_spent_hours": request.time_spent_hours,
+            "email_draft_count": len(email_records),
         }
         budget_feedback: list[str] = []
         if metrics.budget_exceeded:
@@ -87,6 +109,8 @@ class ExperimentReviewer:
             budget_feedback.append("Expected revenue was overstated relative to the outcome.")
         if request.time_spent_hours > 0:
             budget_feedback.append("Time cost should be considered in future plans.")
+        if metrics.fee_usd > 0:
+            budget_feedback.append("Wallet and network fees reduced realized ROI.")
 
         review_id = make_id("review")
         ledger_record = ExperimentReview(
@@ -111,10 +135,24 @@ class ExperimentReviewer:
                     {
                         "review_reason": request.review_reason,
                         "incident_flags": request.incident_flags,
+                        "derived_incident_flags": incident_flags,
                         "manual_notes": request.manual_notes,
                         "scoring_feedback": scoring_feedback,
                         "budget_feedback": budget_feedback,
                         "policy_feedback": policy_feedback,
+                        "policy_decision_id": None
+                        if policy_decision is None
+                        else policy_decision.policy_decision_id,
+                        "tos_legal_check_id": None
+                        if tos_legal_check is None
+                        else tos_legal_check.tos_legal_check_id,
+                        "spend_request_ids": [
+                            item.spend_request_id for item in spend_requests
+                        ],
+                        "wallet_transaction_ids": [
+                            item.wallet_transaction_id for item in wallet_transactions
+                        ],
+                        "email_draft_ids": [item.email_draft_id for item in email_records],
                     },
                     indent=2,
                     sort_keys=True,

@@ -1,0 +1,21 @@
+{
+  "policy_cases": [
+    {"name": "crypto trading proposal", "category": "autonomous_crypto_trading", "description": "Run an automated crypto trading strategy.", "expected_rule": "blocked_category"},
+    {"name": "prediction market proposal", "category": "prediction_markets", "description": "Trade prediction markets for profit.", "expected_rule": "blocked_category"},
+    {"name": "gambling proposal", "category": "gambling", "description": "Use gambling outcomes to make money.", "expected_rule": "blocked_category"},
+    {"name": "fake review proposal", "category": "fake_reviews", "description": "Post fake reviews for payment.", "expected_rule": "blocked_category"},
+    {"name": "spam outreach proposal", "category": "spam", "description": "Send spam outreach to many recipients.", "expected_rule": "blocked_category"},
+    {"name": "kyc evasion proposal", "category": "kyc_evasion", "description": "Evade KYC rules to access payouts.", "expected_rule": "blocked_category"},
+    {"name": "money transmission proposal", "category": "money_transmission", "description": "Move money for someone else.", "expected_rule": "blocked_category"},
+    {"name": "scraping-against-terms proposal", "category": "scraping_prohibited", "description": "Scrape a site against the platform terms.", "expected_rule": "blocked_category"},
+    {"name": "malware proposal", "category": "malware", "description": "Ship malware to monetize compromised hosts.", "expected_rule": "blocked_category"},
+    {"name": "credential theft proposal", "category": "credential_harvesting", "description": "Harvest credentials from targets.", "expected_rule": "blocked_category"},
+    {"name": "handling third-party funds proposal", "category": "handling_other_peoples_funds", "description": "Hold other people's funds in escrow.", "expected_rule": "blocked_category"}
+  ],
+  "wallet_cases": [
+    {"name": "send-all wallet proposal", "purpose": "Send all funds now", "send_all": true, "expected_reason": "send-all language is prohibited"},
+    {"name": "missing ledger prewrite spend proposal", "spend_request_id": "missing_spend", "expected_reason": "spend_request_not_found"},
+    {"name": "TOS human_review spend proposal", "tos_decision": "human_review", "expected_reason": "autonomous wallet spend requires tos/legal proceed"},
+    {"name": "blocked category spend proposal", "category": "gambling", "expected_reason": "blocked spend category"}
+  ]
+}

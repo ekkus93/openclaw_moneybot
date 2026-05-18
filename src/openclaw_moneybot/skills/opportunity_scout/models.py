@@ -13,11 +13,15 @@ class ScoutSourceDocument(MoneyBotModel):
     """A local source document used for fixture-driven scouting."""
 
     source_name: str
+    source_type: str = "fixture"
     category_hint: str
     source_url: HttpUrl
     rules_url: HttpUrl | None = None
     payment_method: str
     content_text: str
+    deadline: str | None = None
+    eligibility_requirements: list[str] = Field(default_factory=list)
+    evidence_archive_ids: list[str] = Field(default_factory=list)
     known_risk_notes: list[str] = Field(default_factory=list)
 
 
@@ -41,8 +45,11 @@ class OpportunityCandidate(MoneyBotModel):
     opportunity_id: str
     name: str
     category: str
+    source_type: str = "fixture"
     source_url: HttpUrl
     rules_url: HttpUrl | None = None
+    deadline: str | None = None
+    eligibility_requirements: list[str] = Field(default_factory=list)
     payment_or_revenue_mechanism: str
     required_spend_usd: float = Field(ge=0)
     estimated_revenue_low_usd: float = Field(ge=0)
@@ -60,6 +67,7 @@ class OpportunityCandidate(MoneyBotModel):
     recommended_next_step: str
     confidence: ConfidenceLevel
     evidence_links: list[str] = Field(default_factory=list)
+    evidence_archive_ids: list[str] = Field(default_factory=list)
     score_breakdown: dict[str, float] = Field(default_factory=dict)
     tos_handoff: dict[str, JsonValue]
     ledger_record: Opportunity

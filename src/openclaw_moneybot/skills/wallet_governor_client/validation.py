@@ -9,12 +9,15 @@ from openclaw_moneybot.skills.wallet_governor_client.models import WalletSpendRe
 from openclaw_moneybot.utils.time import utc_now
 
 ALLOWED_SPEND_CATEGORIES = {
+    "purchase",
+    "infrastructure",
     "domain",
     "hosting",
     "listing_fee",
+    "software_tool",
     "software_credit",
-    "purchase",
-    "other",
+    "bounty_submission_fee",
+    "experiment_material",
 }
 BTC_ADDRESS_PREFIXES = ("bc1", "tb1", "bcrt1", "1", "3")
 
@@ -71,8 +74,8 @@ def validate_spend_request(
         tos_check = ledger_service.get_tos_legal_check(tos_check_id)
         if tos_check is None:
             reasons.append("missing tos approval")
-        elif tos_check.decision not in {TosDecisionType.PROCEED, TosDecisionType.HUMAN_REVIEW}:
-            reasons.append("tos decision does not allow spend")
+        elif tos_check.decision is not TosDecisionType.PROCEED:
+            reasons.append("autonomous wallet spend requires tos/legal proceed")
     today = utc_now().date().isoformat()
     daily_total = ledger_service.get_daily_spend_total(today)
     weekly_total = ledger_service.get_weekly_spend_total(today)

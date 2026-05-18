@@ -36,6 +36,22 @@ REVIEW_PATTERNS = {
 }
 
 
+def _classify_policy(
+    lowered_text: str,
+    *,
+    allow_terms: tuple[str, ...] = (),
+    prohibit_terms: tuple[str, ...] = (),
+    unclear_terms: tuple[str, ...] = (),
+) -> str:
+    if any(term in lowered_text for term in prohibit_terms):
+        return "prohibited"
+    if any(term in lowered_text for term in allow_terms):
+        return "allowed"
+    if any(term in lowered_text for term in unclear_terms):
+        return "unclear"
+    return "unknown"
+
+
 def analyze_tos_legal_request(request: TosLegalCheckRequest) -> TosLegalCheckResult:
     """Return a deterministic TOS/legal assessment."""
     normalized_text = normalize_text(request.evidence_text or "")
@@ -63,6 +79,52 @@ def analyze_tos_legal_request(request: TosLegalCheckRequest) -> TosLegalCheckRes
         mitigations.append("Collect readable rules or terms evidence.")
 
     lowered_text = normalized_text.lower()
+    automation_policy = _classify_policy(
+        lowered_text,
+        allow_terms=("automation allowed", "bots allowed", "automation permitted"),
+        prohibit_terms=("automation prohibited", "no bots", "bot use prohibited"),
+        unclear_terms=("automation unclear",),
+    )
+    bot_account_policy = _classify_policy(
+        lowered_text,
+        allow_terms=("bot accounts allowed",),
+        prohibit_terms=("fake account", "no fake accounts", "account sharing prohibited"),
+    )
+    payment_policy = _classify_policy(
+        lowered_text,
+        allow_terms=("payment after acceptance", "paid after approval", "payout within"),
+        unclear_terms=("payment unclear", "payment terms unavailable", "unclear payment"),
+    )
+    eligibility_policy = _classify_policy(
+        lowered_text,
+        allow_terms=("open to individual developers", "eligible participants"),
+        unclear_terms=("eligibility unclear", "eligibility may change"),
+    )
+    identity_policy = _classify_policy(
+        lowered_text,
+        prohibit_terms=("kyc required",),
+        unclear_terms=("identity verification", "government id"),
+    )
+    recurring_billing_policy = _classify_policy(
+        lowered_text,
+        prohibit_terms=("automatic renewal",),
+        unclear_terms=("recurring billing", "subscription renews"),
+    )
+    refund_policy = _classify_policy(
+        lowered_text,
+        allow_terms=("refundable", "refund available"),
+        unclear_terms=("chargeback", "refund policy unclear"),
+    )
+    outreach_policy = _classify_policy(
+        lowered_text,
+        prohibit_terms=("scraping prohibited", "no mass outreach", "no cold outreach"),
+        unclear_terms=("contact restrictions", "outreach may be limited"),
+    )
+    third_party_funds_policy = _classify_policy(
+        lowered_text,
+        prohibit_terms=("handling other people's funds", "hold funds on behalf"),
+    )
+
     for pattern, reason in REJECT_PATTERNS.items():
         if pattern in lowered_text:
             decision = TosDecisionType.REJECT
@@ -85,6 +147,44 @@ def analyze_tos_legal_request(request: TosLegalCheckRequest) -> TosLegalCheckRes
         decision = TosDecisionType.HUMAN_REVIEW
         confidence = ConfidenceLevel.MEDIUM
         mitigations.append("Clarify payout and payment rules before execution.")
+    if any(
+        policy == "prohibited"
+        for policy in (
+            automation_policy,
+            bot_account_policy,
+            third_party_funds_policy,
+        )
+    ):
+        decision = TosDecisionType.REJECT
+        confidence = ConfidenceLevel.HIGH
+    elif any(
+        policy == "unclear"
+        for policy in (
+            payment_policy,
+            eligibility_policy,
+            identity_policy,
+            recurring_billing_policy,
+            refund_policy,
+            outreach_policy,
+        )
+    ) and decision is not TosDecisionType.REJECT:
+        decision = TosDecisionType.HUMAN_REVIEW
+        confidence = ConfidenceLevel.MEDIUM
+
+    labeled_snippets = list(snippets)
+    for label, policy in {
+        "automation": automation_policy,
+        "bot_accounts": bot_account_policy,
+        "payment": payment_policy,
+        "eligibility": eligibility_policy,
+        "identity": identity_policy,
+        "recurring_billing": recurring_billing_policy,
+        "refund": refund_policy,
+        "outreach": outreach_policy,
+        "third_party_funds": third_party_funds_policy,
+    }.items():
+        if policy != "unknown":
+            labeled_snippets.append(f"[{label}] {policy}")
 
     if red_flags:
         legal_summary = "; ".join(red_flags)
@@ -99,6 +199,7 @@ def analyze_tos_legal_request(request: TosLegalCheckRequest) -> TosLegalCheckRes
         created_at=utc_now(),
         tos_legal_check_id=make_id("tos"),
         opportunity_id=request.opportunity_id,
+        source_url=request.source_url,
         decision=decision,
         confidence=confidence,
         platform_terms_summary=tos_summary,
@@ -107,8 +208,17 @@ def analyze_tos_legal_request(request: TosLegalCheckRequest) -> TosLegalCheckRes
         red_flags=red_flags,
         required_mitigations=mitigations,
         required_records=required_records,
-        source_quotes_or_snippets=snippets,
+        source_quotes_or_snippets=labeled_snippets,
         evidence_archive_ids=request.evidence_archive_ids,
+        automation_policy=automation_policy,
+        bot_account_policy=bot_account_policy,
+        payment_policy=payment_policy,
+        eligibility_policy=eligibility_policy,
+        identity_policy=identity_policy,
+        recurring_billing_policy=recurring_billing_policy,
+        refund_policy=refund_policy,
+        outreach_policy=outreach_policy,
+        third_party_funds_policy=third_party_funds_policy,
     )
     handoff = PolicyCheckRequest(
         action_id=make_id("policy_request"),
@@ -135,7 +245,7 @@ def analyze_tos_legal_request(request: TosLegalCheckRequest) -> TosLegalCheckRes
         red_flags=red_flags,
         required_mitigations=mitigations,
         required_records=required_records,
-        source_quotes_or_snippets=snippets,
+        source_quotes_or_snippets=labeled_snippets,
         evidence_archive_ids=request.evidence_archive_ids,
         checker_version="v1",
         handoff_to_policy_guard=handoff,

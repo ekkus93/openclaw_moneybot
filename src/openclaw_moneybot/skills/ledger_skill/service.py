@@ -21,6 +21,7 @@ from openclaw_moneybot.skills.ledger_skill.models import (
     LedgerEventEntry,
     LedgerTimelineEntry,
     LedgerWriteResult,
+    SpendAuthorizationBundle,
     TaxExportResult,
 )
 from openclaw_moneybot.skills.ledger_skill.repository import LedgerRepository
@@ -95,6 +96,12 @@ class LedgerService:
     def get_weekly_spend_total(self, day: str) -> float:
         return self.repository.get_weekly_spend_total(day)
 
+    def get_remaining_daily_limit(self, day: str, limit_usd: float) -> float:
+        return self.repository.get_remaining_daily_limit(day, limit_usd)
+
+    def get_remaining_weekly_limit(self, day: str, limit_usd: float) -> float:
+        return self.repository.get_remaining_weekly_limit(day, limit_usd)
+
     def get_opportunity_timeline(self, opportunity_id: str) -> list[LedgerTimelineEntry]:
         return self.repository.get_opportunity_timeline(opportunity_id)
 
@@ -113,6 +120,19 @@ class LedgerService:
     def get_spend_request(self, spend_request_id: str) -> SpendRequest | None:
         return self.repository.get_spend_request(spend_request_id)
 
+    def update_spend_request_status(
+        self,
+        spend_request_id: str,
+        status: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> LedgerWriteResult:
+        return self.repository.update_spend_request_status(
+            spend_request_id,
+            status,
+            idempotency_key=idempotency_key,
+        )
+
     def list_spend_requests_for_opportunity(self, opportunity_id: str) -> list[SpendRequest]:
         return self.repository.list_spend_requests_for_opportunity(opportunity_id)
 
@@ -123,6 +143,24 @@ class LedgerService:
         self, opportunity_id: str
     ) -> list[WalletTransactionRecord]:
         return self.repository.list_wallet_transactions_for_opportunity(opportunity_id)
+
+    def list_wallet_transactions_for_spend_request(
+        self, spend_request_id: str
+    ) -> list[WalletTransactionRecord]:
+        return self.repository.list_wallet_transactions_for_spend_request(spend_request_id)
+
+    def update_wallet_transaction_status(
+        self,
+        wallet_transaction_id: str,
+        status: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> LedgerWriteResult:
+        return self.repository.update_wallet_transaction_status(
+            wallet_transaction_id,
+            status,
+            idempotency_key=idempotency_key,
+        )
 
     def get_email_record(self, email_draft_id: str) -> EmailDraftRecord | None:
         return self.repository.get_email_record(email_draft_id)
@@ -146,6 +184,14 @@ class LedgerService:
 
     def get_experiment_review(self, experiment_review_id: str) -> ExperimentReview | None:
         return self.repository.get_experiment_review(experiment_review_id)
+
+    def ledger_event_exists(self, ledger_event_id: str) -> bool:
+        return self.repository.ledger_event_exists(ledger_event_id)
+
+    def get_spend_authorization_bundle(
+        self, spend_request_id: str
+    ) -> SpendAuthorizationBundle | None:
+        return self.repository.get_spend_authorization_bundle(spend_request_id)
 
     def get_related_events(
         self,

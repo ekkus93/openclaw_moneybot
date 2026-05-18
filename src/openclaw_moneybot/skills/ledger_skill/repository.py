@@ -22,7 +22,7 @@ from openclaw_moneybot.shared import (
     TosLegalCheck,
     WalletTransactionRecord,
 )
-from openclaw_moneybot.shared.types import RecordType
+from openclaw_moneybot.shared.types import RecordType, SpendRequestStatus, WalletTransactionStatus
 from openclaw_moneybot.skills.ledger_skill.hashing import (
     canonical_json,
     compute_event_hash,
@@ -32,11 +32,13 @@ from openclaw_moneybot.skills.ledger_skill.models import (
     LedgerEventEntry,
     LedgerTimelineEntry,
     LedgerWriteResult,
+    SpendAuthorizationBundle,
     TaxExportResult,
 )
 from openclaw_moneybot.utils.ids import make_id
+from openclaw_moneybot.utils.time import utc_now
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class LedgerRepository:
@@ -66,6 +68,31 @@ class LedgerRepository:
         schema_sql = schema_path.read_text(encoding="utf-8")
         with self._connect() as connection:
             connection.executescript(schema_sql)
+            self._ensure_column(
+                connection,
+                "spend_requests",
+                "status",
+                "TEXT NOT NULL DEFAULT 'proposed'",
+            )
+            self._ensure_column(
+                connection,
+                "btc_transactions",
+                "fee_usd_estimate",
+                "REAL NOT NULL DEFAULT 0",
+            )
+            self._ensure_column(
+                connection,
+                "btc_transactions",
+                "total_usd_estimate",
+                "REAL NOT NULL DEFAULT 0",
+            )
+            connection.execute(
+                """
+                UPDATE btc_transactions
+                SET total_usd_estimate = amount_usd_estimate + fee_usd_estimate
+                WHERE total_usd_estimate = 0
+                """
+            )
             connection.execute(
                 """
                 INSERT OR IGNORE INTO schema_version (version, applied_at)
@@ -73,6 +100,19 @@ class LedgerRepository:
                 """,
                 (SCHEMA_VERSION,),
             )
+
+    def _ensure_column(
+        self,
+        connection: sqlite3.Connection,
+        table_name: str,
+        column_name: str,
+        definition: str,
+    ) -> None:
+        columns = connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+        existing = {str(row["name"]) for row in columns}
+        if column_name in existing:
+            return
+        connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
 
     def _row_to_dict(self, row: sqlite3.Row) -> dict[str, str | None]:
         return {key: row[key] for key in row.keys()}
@@ -388,8 +428,8 @@ class LedgerRepository:
                 INSERT INTO spend_requests (
                     id, created_at, opportunity_id, budget_plan_id, policy_decision_id,
                     ledger_record_id, amount_usd, asset, destination, counterparty, purpose,
-                    category, evidence_archive_ids_json, raw_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    category, status, evidence_archive_ids_json, raw_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     spend_request.spend_request_id,
@@ -404,6 +444,7 @@ class LedgerRepository:
                     spend_request.counterparty,
                     spend_request.purpose,
                     spend_request.category,
+                    spend_request.status.value,
                     canonical_json({"items": spend_request.evidence_archive_ids}),
                     payload_json,
                 ),
@@ -433,8 +474,9 @@ class LedgerRepository:
                 """
                 INSERT INTO btc_transactions (
                     id, created_at, spend_request_id, txid, amount_btc, fee_btc,
-                    amount_usd_estimate, status, destination, purpose, raw_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    amount_usd_estimate, fee_usd_estimate, total_usd_estimate,
+                    status, destination, purpose, raw_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     transaction.wallet_transaction_id,
@@ -444,7 +486,9 @@ class LedgerRepository:
                     transaction.amount_btc,
                     transaction.fee_btc,
                     transaction.amount_usd_estimate,
-                    transaction.status,
+                    transaction.fee_usd_estimate,
+                    transaction.total_usd_estimate,
+                    transaction.status.value,
                     transaction.destination,
                     transaction.purpose,
                     payload_json,
@@ -590,11 +634,12 @@ class LedgerRepository:
         with self._connect() as connection:
             row = connection.execute(
                 """
-                SELECT COALESCE(SUM(amount_usd_estimate), 0.0) AS total
+                SELECT COALESCE(SUM(total_usd_estimate), 0.0) AS total
                 FROM btc_transactions
                 WHERE substr(created_at, 1, 10) = ?
+                  AND status IN (?, ?)
                 """,
-                (day,),
+                (day, WalletTransactionStatus.SENT.value, WalletTransactionStatus.CONFIRMED.value),
             ).fetchone()
         return float(row["total"]) if row is not None else 0.0
 
@@ -603,13 +648,25 @@ class LedgerRepository:
         with self._connect() as connection:
             row = connection.execute(
                 """
-                SELECT COALESCE(SUM(amount_usd_estimate), 0.0) AS total
+                SELECT COALESCE(SUM(total_usd_estimate), 0.0) AS total
                 FROM btc_transactions
-                WHERE date(substr(created_at, 1, 10)) BETWEEN date(?) - 6 AND date(?)
+                WHERE date(substr(created_at, 1, 10)) BETWEEN date(?, '-6 days') AND date(?)
+                  AND status IN (?, ?)
                 """,
-                (day, day),
+                (
+                    day,
+                    day,
+                    WalletTransactionStatus.SENT.value,
+                    WalletTransactionStatus.CONFIRMED.value,
+                ),
             ).fetchone()
         return float(row["total"]) if row is not None else 0.0
+
+    def get_remaining_daily_limit(self, day: str, limit_usd: float) -> float:
+        return max(limit_usd - self.get_daily_spend_total(day), 0.0)
+
+    def get_remaining_weekly_limit(self, day: str, limit_usd: float) -> float:
+        return max(limit_usd - self.get_weekly_spend_total(day), 0.0)
 
     def get_opportunity_timeline(self, opportunity_id: str) -> list[LedgerTimelineEntry]:
         """Collect ledger-linked records for a single opportunity."""
@@ -709,6 +766,44 @@ class LedgerRepository:
             ).fetchone()
         return self._load_model(row, SpendRequest)
 
+    def update_spend_request_status(
+        self,
+        spend_request_id: str,
+        status: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> LedgerWriteResult:
+        with self._connect() as connection:
+            spend_request_row = connection.execute(
+                "SELECT raw_json FROM spend_requests WHERE id = ?",
+                (spend_request_id,),
+            ).fetchone()
+            if spend_request_row is None:
+                msg = f"Unknown spend request: {spend_request_id}"
+                raise ValueError(msg)
+            spend_request = SpendRequest.model_validate_json(str(spend_request_row["raw_json"]))
+            updated = spend_request.model_copy(
+                update={"status": SpendRequestStatus(status)}
+            )
+            payload_json = self._serialize_model(updated)
+            connection.execute(
+                """
+                UPDATE spend_requests
+                SET status = ?, raw_json = ?
+                WHERE id = ?
+                """,
+                (updated.status.value, payload_json, spend_request_id),
+            )
+            return self._insert_event(
+                connection,
+                event_type="update_spend_request_status",
+                related_type=RecordType.SPEND_REQUEST,
+                related_id=spend_request_id,
+                payload_json=payload_json,
+                created_at=utc_now().isoformat(),
+                idempotency_key=idempotency_key,
+            )
+
     def list_spend_requests_for_opportunity(self, opportunity_id: str) -> list[SpendRequest]:
         with self._connect() as connection:
             rows = connection.execute(
@@ -733,6 +828,44 @@ class LedgerRepository:
             ).fetchone()
         return self._load_model(row, WalletTransactionRecord)
 
+    def update_wallet_transaction_status(
+        self,
+        wallet_transaction_id: str,
+        status: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> LedgerWriteResult:
+        with self._connect() as connection:
+            transaction_row = connection.execute(
+                "SELECT raw_json FROM btc_transactions WHERE id = ?",
+                (wallet_transaction_id,),
+            ).fetchone()
+            if transaction_row is None:
+                msg = f"Unknown wallet transaction: {wallet_transaction_id}"
+                raise ValueError(msg)
+            transaction = WalletTransactionRecord.model_validate_json(
+                str(transaction_row["raw_json"])
+            )
+            updated = transaction.model_copy(update={"status": WalletTransactionStatus(status)})
+            payload_json = self._serialize_model(updated)
+            connection.execute(
+                """
+                UPDATE btc_transactions
+                SET status = ?, raw_json = ?
+                WHERE id = ?
+                """,
+                (updated.status.value, payload_json, wallet_transaction_id),
+            )
+            return self._insert_event(
+                connection,
+                event_type="update_wallet_transaction_status",
+                related_type=RecordType.WALLET_TRANSACTION,
+                related_id=wallet_transaction_id,
+                payload_json=payload_json,
+                created_at=utc_now().isoformat(),
+                idempotency_key=idempotency_key,
+            )
+
     def list_wallet_transactions_for_opportunity(
         self, opportunity_id: str
     ) -> list[WalletTransactionRecord]:
@@ -746,6 +879,24 @@ class LedgerRepository:
                 ORDER BY bt.created_at ASC
                 """,
                 (opportunity_id,),
+            ).fetchall()
+        return [
+            WalletTransactionRecord.model_validate_json(str(row["raw_json"]))
+            for row in rows
+        ]
+
+    def list_wallet_transactions_for_spend_request(
+        self, spend_request_id: str
+    ) -> list[WalletTransactionRecord]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT raw_json
+                FROM btc_transactions
+                WHERE spend_request_id = ?
+                ORDER BY created_at ASC
+                """,
+                (spend_request_id,),
             ).fetchall()
         return [
             WalletTransactionRecord.model_validate_json(str(row["raw_json"]))
@@ -813,6 +964,57 @@ class LedgerRepository:
             ).fetchone()
         return self._load_model(row, ExperimentReview)
 
+    def ledger_event_exists(self, ledger_event_id: str) -> bool:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM ledger_events WHERE id = ?",
+                (ledger_event_id,),
+            ).fetchone()
+        return row is not None
+
+    def get_spend_authorization_bundle(
+        self, spend_request_id: str
+    ) -> SpendAuthorizationBundle | None:
+        spend_request = self.get_spend_request(spend_request_id)
+        if spend_request is None:
+            return None
+        budget_plan = self.get_budget_plan(spend_request.budget_plan_id)
+        policy_decision = self.get_policy_decision(spend_request.policy_decision_id)
+        opportunity = (
+            None
+            if spend_request.opportunity_id is None
+            else self.get_opportunity(spend_request.opportunity_id)
+        )
+        tos_legal_check = (
+            None
+            if budget_plan is None
+            else self.get_tos_legal_check(budget_plan.tos_legal_check_id)
+        )
+        evidence_ids = list(spend_request.evidence_archive_ids)
+        if tos_legal_check is not None:
+            evidence_ids.extend(tos_legal_check.evidence_archive_ids)
+        seen: set[str] = set()
+        evidence_records = []
+        for evidence_id in evidence_ids:
+            if evidence_id in seen:
+                continue
+            seen.add(evidence_id)
+            evidence = self.get_evidence_record(evidence_id)
+            if evidence is not None:
+                evidence_records.append(evidence)
+        return SpendAuthorizationBundle(
+            spend_request=spend_request,
+            opportunity=opportunity,
+            policy_decision=policy_decision,
+            budget_plan=budget_plan,
+            tos_legal_check=tos_legal_check,
+            evidence_records=evidence_records,
+            prior_wallet_transactions=self.list_wallet_transactions_for_spend_request(
+                spend_request_id
+            ),
+            ledger_record_exists=self.ledger_event_exists(spend_request.ledger_record_id),
+        )
+
     def get_related_events(
         self,
         *,
@@ -866,7 +1068,7 @@ class LedgerRepository:
                     bt.txid,
                     bt.amount_btc,
                     bt.fee_btc,
-                    bt.amount_usd_estimate,
+                    bt.total_usd_estimate AS amount_usd_estimate,
                     sr.counterparty,
                     sr.purpose
                 FROM btc_transactions bt

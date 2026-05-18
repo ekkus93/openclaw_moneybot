@@ -12,6 +12,7 @@ class ReviewMetrics:
     """Calculated experiment metrics."""
 
     spent_usd: float
+    fee_usd: float
     revenue_usd: float
     net_usd: float
     roi_percent: float
@@ -29,7 +30,8 @@ def calculate_review_metrics(
     evidence_records: list[EvidenceRecord],
 ) -> ReviewMetrics:
     """Summarize financial and evidence metrics."""
-    spent_usd = round(sum(item.amount_usd_estimate for item in wallet_transactions), 2)
+    spent_usd = round(sum(item.total_usd_estimate for item in wallet_transactions), 2)
+    fee_usd_total = round(sum(item.fee_usd_estimate for item in wallet_transactions), 2)
     net_usd = round(revenue_usd + unrealized_value_usd - spent_usd - fees_usd, 2)
     roi_percent = 0.0 if spent_usd <= 0 else round((net_usd / spent_usd) * 100, 2)
     budget_exceeded = spent_usd > budget_plan.recommended_budget_usd
@@ -40,6 +42,7 @@ def calculate_review_metrics(
         evidence_quality = "good"
     return ReviewMetrics(
         spent_usd=spent_usd,
+        fee_usd=fee_usd_total,
         revenue_usd=revenue_usd,
         net_usd=net_usd,
         roi_percent=roi_percent,

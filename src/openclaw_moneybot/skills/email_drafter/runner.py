@@ -31,6 +31,7 @@ class EmailDrafter:
             created_at=utc_now(),
             email_draft_id=draft_id,
             opportunity_id=request.opportunity_id,
+            related_experiment_id=request.related_experiment_id,
             to=str(request.recipient_email),
             subject=subject,
             body=body,
@@ -42,7 +43,7 @@ class EmailDrafter:
                 related_type="email_draft",
                 related_id=draft_id,
                 evidence_type="email_draft",
-                content_text=body,
+                content_text=f"Subject: {subject}\n\n{body}",
                 source_url=request.source_url,
                 notes=f"Draft email for purpose {request.purpose}",
             )

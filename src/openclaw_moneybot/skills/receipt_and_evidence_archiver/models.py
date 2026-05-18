@@ -33,7 +33,7 @@ class EvidenceArchiveRequest(MoneyBotModel):
         if self.content_text is None and self.content_bytes_path is None:
             msg = "Either content_text or content_bytes_path is required."
             raise ValueError(msg)
-        if self.content_bytes_path is not None and ".." in self.content_bytes_path.parts:
+        if self.content_bytes_path is not None and "\x00" in str(self.content_bytes_path):
             msg = "Unsafe content_bytes_path is not allowed."
             raise ValueError(msg)
         return self
