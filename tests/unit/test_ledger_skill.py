@@ -117,7 +117,7 @@ def make_spend_request(created_at: datetime) -> SpendRequest:
         ledger_record_id="ledger_prewrite_001",
         amount_usd=5,
         asset="BTC",
-        destination="bc1testdestination",
+        destination="bc1qqqgjyv6y24n80zye42aueh0wluqpzg3ndy2ehs",
         counterparty="Example registrar",
         purpose="Buy domain",
         category="infrastructure",
@@ -135,7 +135,7 @@ def make_wallet_transaction(created_at: datetime) -> WalletTransactionRecord:
         fee_btc="0.00000100",
         amount_usd_estimate=5,
         status="sent",
-        destination="bc1testdestination",
+        destination="bc1qqqgjyv6y24n80zye42aueh0wluqpzg3ndy2ehs",
         purpose="Buy domain",
     )
 
@@ -261,7 +261,7 @@ def test_duplicate_txid_rejected(repository: LedgerRepository) -> None:
                 fee_btc="0.00000100",
                 amount_usd_estimate=6,
                 status="sent",
-                destination="bc1testdestination",
+                destination="bc1qqqgjyv6y24n80zye42aueh0wluqpzg3ndy2ehs",
                 purpose="Duplicate",
             )
         )
@@ -356,8 +356,105 @@ def test_experiment_spend_total_and_category_summaries(repository: LedgerReposit
     assert experiment_total.amount_usd == pytest.approx(8.0)
     assert experiment_total.fee_usd == pytest.approx(0.5)
     assert experiment_total.total_usd == pytest.approx(8.5)
+    assert experiment_total.amount_sats == 20_000
+    assert experiment_total.fee_sats == 200
     assert {entry.category for entry in by_category} == {"hosting", "infrastructure"}
     assert sum(entry.total_usd for entry in by_category) == pytest.approx(8.5)
+
+
+def test_wallet_transaction_defaults_exact_satoshi_fields(repository: LedgerRepository) -> None:
+    base_time = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    repository.create_opportunity(make_opportunity(base_time))
+    repository.record_policy_decision(make_policy(base_time + timedelta(minutes=1)))
+    repository.record_tos_legal_check(make_tos_check(base_time + timedelta(minutes=2)))
+    repository.record_budget_plan(make_budget_plan(base_time + timedelta(minutes=3)))
+    repository.record_spend_request(make_spend_request(base_time + timedelta(minutes=4)))
+    repository.record_btc_transaction(make_wallet_transaction(base_time + timedelta(minutes=5)))
+
+    transaction = repository.get_wallet_transaction("wallet_tx_001")
+
+    assert transaction is not None
+    assert transaction.amount_sats == 10_000
+    assert transaction.fee_sats == 100
+
+
+def test_wallet_transaction_rejects_mismatched_satoshi_fields() -> None:
+    with pytest.raises(ValidationError, match="amount_sats must match amount_btc"):
+        WalletTransactionRecord(
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            wallet_transaction_id="wallet_tx_bad",
+            spend_request_id="spend_001",
+            txid="txid_bad",
+            amount_btc="0.00010000",
+            fee_btc="0.00000100",
+            amount_sats=9_999,
+            fee_sats=100,
+            amount_usd_estimate=5.0,
+            status="sent",
+            destination="bc1qqqgjyv6y24n80zye42aueh0wluqpzg3ndy2ehs",
+            purpose="Mismatch",
+        )
+
+
+def test_satoshi_aggregation_is_exact_for_tiny_values(repository: LedgerRepository) -> None:
+    base_time = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    repository.create_opportunity(make_opportunity(base_time))
+    repository.record_policy_decision(make_policy(base_time + timedelta(minutes=1)))
+    repository.record_tos_legal_check(make_tos_check(base_time + timedelta(minutes=2)))
+    repository.record_budget_plan(make_budget_plan(base_time + timedelta(minutes=3)))
+    repository.record_spend_request(make_spend_request(base_time + timedelta(minutes=4)))
+    repository.record_btc_transaction(
+        WalletTransactionRecord(
+            created_at=base_time + timedelta(minutes=5),
+            wallet_transaction_id="wallet_tx_tiny_1",
+            spend_request_id="spend_001",
+            txid="txid_tiny_1",
+            amount_btc="0.00000001",
+            fee_btc="0.00000002",
+            amount_usd_estimate=0.01,
+            fee_usd_estimate=0.02,
+            total_usd_estimate=0.03,
+            status=WalletTransactionStatus.SENT,
+            destination="bc1qqqgjyv6y24n80zye42aueh0wluqpzg3ndy2ehs",
+            purpose="Tiny 1",
+        )
+    )
+    repository.record_spend_request(
+        make_spend_request(base_time + timedelta(minutes=6)).model_copy(
+            update={
+                "spend_request_id": "spend_002",
+                "experiment_id": "exp_001",
+                "category": "hosting",
+                "ledger_record_id": "ledger_prewrite_002",
+            }
+        )
+    )
+    repository.record_btc_transaction(
+        WalletTransactionRecord(
+            created_at=base_time + timedelta(minutes=7),
+            wallet_transaction_id="wallet_tx_tiny_2",
+            spend_request_id="spend_002",
+            txid="txid_tiny_2",
+            amount_btc="0.00000002",
+            fee_btc="0.00000003",
+            amount_usd_estimate=0.02,
+            fee_usd_estimate=0.03,
+            total_usd_estimate=0.05,
+            status=WalletTransactionStatus.CONFIRMED,
+            destination="bc1qqqgjyv6y24n80zye42aueh0wluqpzg3ndy2ehs",
+            purpose="Tiny 2",
+        )
+    )
+
+    total = repository.get_experiment_spend_total("exp_001")
+    by_category = repository.get_spend_by_category(experiment_id="exp_001")
+
+    assert total.amount_sats == 3
+    assert total.fee_sats == 5
+    assert total.amount_btc == "0.00000003"
+    assert total.fee_btc == "0.00000005"
+    assert by_category[0].amount_sats == 2
+    assert by_category[0].fee_sats == 3
 
 
 def test_hash_chain_verification_detects_tampering(repository: LedgerRepository) -> None:

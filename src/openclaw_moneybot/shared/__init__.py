@@ -1,5 +1,10 @@
 """Shared contracts and support code."""
 
+from openclaw_moneybot.shared.bitcoin import (
+    AddressValidationResult,
+    normalize_btc_address_for_comparison,
+    validate_btc_address,
+)
 from openclaw_moneybot.shared.config import (
     AppConfig,
     ArchiveConfig,
@@ -24,11 +29,17 @@ from openclaw_moneybot.shared.contracts import (
     WalletTransactionRecord,
 )
 from openclaw_moneybot.shared.errors import ErrorCode, MoneyBotError, MoneyBotErrorDetail
-from openclaw_moneybot.shared.types import SpendRequestStatus, WalletTransactionStatus
+from openclaw_moneybot.shared.types import (
+    BitcoinNetwork,
+    SpendRequestStatus,
+    WalletTransactionStatus,
+)
 
 __all__ = [
     "AppConfig",
     "ArchiveConfig",
+    "AddressValidationResult",
+    "BitcoinNetwork",
     "BrowserGovernorConfig",
     "BudgetPlan",
     "EmailConfig",
@@ -42,6 +53,7 @@ __all__ = [
     "MoneyBotError",
     "MoneyBotErrorDetail",
     "MoneyBotPolicyConfig",
+    "normalize_btc_address_for_comparison",
     "Opportunity",
     "PolicyDecision",
     "SpendRequest",
@@ -50,5 +62,6 @@ __all__ = [
     "WalletGovernorConfig",
     "WalletTransactionRecord",
     "WalletTransactionStatus",
+    "validate_btc_address",
     "load_app_config",
 ]

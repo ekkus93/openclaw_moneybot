@@ -61,7 +61,7 @@ def test_successful_send_uses_expected_rpc_call() -> None:
 
     backend = make_backend(httpx.MockTransport(handler))
 
-    txid = backend.send_to_address("bcrt1qmoneybotdest123", 10_000)
+    txid = backend.send_to_address("bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2", 10_000)
 
     assert txid == "txid_001"
     assert methods == ["sendtoaddress"]
@@ -151,7 +151,7 @@ def test_send_rejects_empty_txid() -> None:
     )
 
     with pytest.raises(WalletBackendError):
-        backend.send_to_address("bcrt1qmoneybotdest123", 10_000)
+        backend.send_to_address("bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2", 10_000)
 
 
 def test_get_transaction_rejects_non_dict_result() -> None:
@@ -233,3 +233,43 @@ def test_fake_backend_fee_floor_and_helpers() -> None:
     assert backend.estimate_fee_sats(1) == 250
     assert backend.health_check() == {"backend": "fake", "ok": True}
     assert backend.get_transaction("tx_123") == {"txid": "tx_123", "backend": "fake"}
+
+
+def test_send_rejects_invalid_destination_before_rpc() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={"result": "txid_001", "error": None})
+
+    backend = make_backend(httpx.MockTransport(handler))
+
+    with pytest.raises(WalletBackendError, match="invalid destination"):
+        backend.send_to_address("bc1notvalid!!!!", 10_000)
+
+    assert calls == 0
+
+
+def test_send_rejects_network_mismatch_before_rpc() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={"result": "txid_001", "error": None})
+
+    config = BitcoinCoreRpcConfig(
+        rpc_url="http://127.0.0.1:18443",
+        rpc_user="user",
+        rpc_password="pass",
+        wallet_name="moneybot",
+        network="mainnet",
+        enabled=True,
+    )
+    backend = BitcoinCoreWalletBackend(config, transport=httpx.MockTransport(handler))
+
+    with pytest.raises(WalletBackendError, match="invalid destination"):
+        backend.send_to_address("bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2", 10_000)
+
+    assert calls == 0

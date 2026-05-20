@@ -41,7 +41,7 @@ from openclaw_moneybot.skills.ledger_skill.models import (
 from openclaw_moneybot.utils.ids import make_id
 from openclaw_moneybot.utils.time import utc_now
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 ACTUAL_TRANSACTION_STATUSES = (
     WalletTransactionStatus.SENT.value,
     WalletTransactionStatus.CONFIRMED.value,
@@ -150,6 +150,19 @@ class LedgerRepository:
             self._ensure_column(
                 connection,
                 "btc_transactions",
+                "amount_sats",
+                "INTEGER NOT NULL DEFAULT 0",
+            )
+            self._ensure_column(
+                connection,
+                "btc_transactions",
+                "fee_sats",
+                "INTEGER NOT NULL DEFAULT 0",
+            )
+            self._backfill_btc_transaction_sats(connection)
+            self._ensure_column(
+                connection,
+                "btc_transactions",
                 "fee_usd_estimate",
                 "REAL NOT NULL DEFAULT 0",
             )
@@ -186,6 +199,26 @@ class LedgerRepository:
         if column_name in existing:
             return
         connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
+
+    def _backfill_btc_transaction_sats(self, connection: sqlite3.Connection) -> None:
+        rows = connection.execute(
+            """
+            SELECT id, amount_btc, fee_btc, amount_sats, fee_sats
+            FROM btc_transactions
+            WHERE amount_sats = 0 OR fee_sats = 0
+            """
+        ).fetchall()
+        for row in rows:
+            amount_sats = self._btc_to_sats(str(row["amount_btc"]))
+            fee_sats = self._btc_to_sats(str(row["fee_btc"]))
+            connection.execute(
+                """
+                UPDATE btc_transactions
+                SET amount_sats = ?, fee_sats = ?
+                WHERE id = ?
+                """,
+                (amount_sats, fee_sats, str(row["id"])),
+            )
 
     def _row_to_dict(self, row: sqlite3.Row) -> dict[str, str | None]:
         return {key: row[key] for key in row.keys()}
@@ -561,9 +594,10 @@ class LedgerRepository:
                 """
                 INSERT INTO btc_transactions (
                     id, created_at, spend_request_id, txid, amount_btc, fee_btc,
+                    amount_sats, fee_sats,
                     amount_usd_estimate, fee_usd_estimate, total_usd_estimate,
                     status, destination, purpose, raw_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     transaction.wallet_transaction_id,
@@ -572,6 +606,8 @@ class LedgerRepository:
                     transaction.txid,
                     transaction.amount_btc,
                     transaction.fee_btc,
+                    transaction.amount_sats,
+                    transaction.fee_sats,
                     transaction.amount_usd_estimate,
                     transaction.fee_usd_estimate,
                     transaction.total_usd_estimate,
@@ -752,7 +788,17 @@ class LedgerRepository:
     @staticmethod
     def _format_btc_total(value: object) -> str:
         amount = Decimal(str(value if value is not None else 0))
-        return str(amount.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP))
+        return format(amount.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP), "f")
+
+    @staticmethod
+    def _format_btc_total_from_sats(value: int) -> str:
+        amount = Decimal(value) / Decimal("100000000")
+        return format(amount.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP), "f")
+
+    @staticmethod
+    def _btc_to_sats(value: str) -> int:
+        amount = Decimal(value) * Decimal("100000000")
+        return int(amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
     @classmethod
     def _totals_from_row(cls, row: sqlite3.Row | None) -> SpendTotals:
@@ -765,8 +811,10 @@ class LedgerRepository:
             amount_usd=amount_usd,
             fee_usd=fee_usd,
             total_usd=total_usd,
-            amount_btc=cls._format_btc_total(row["amount_btc"]),
-            fee_btc=cls._format_btc_total(row["fee_btc"]),
+            amount_sats=int(row["amount_sats"] or 0),
+            fee_sats=int(row["fee_sats"] or 0),
+            amount_btc=cls._format_btc_total_from_sats(int(row["amount_sats"] or 0)),
+            fee_btc=cls._format_btc_total_from_sats(int(row["fee_sats"] or 0)),
         )
 
     def get_experiment_spend_total(self, experiment_id: str) -> SpendTotals:
@@ -778,8 +826,8 @@ class LedgerRepository:
                     COALESCE(SUM(bt.amount_usd_estimate), 0.0) AS amount_usd,
                     COALESCE(SUM(bt.fee_usd_estimate), 0.0) AS fee_usd,
                     COALESCE(SUM(bt.total_usd_estimate), 0.0) AS total_usd,
-                    COALESCE(SUM(CAST(bt.amount_btc AS REAL)), 0.0) AS amount_btc,
-                    COALESCE(SUM(CAST(bt.fee_btc AS REAL)), 0.0) AS fee_btc
+                    COALESCE(SUM(bt.amount_sats), 0) AS amount_sats,
+                    COALESCE(SUM(bt.fee_sats), 0) AS fee_sats
                 FROM btc_transactions bt
                 JOIN spend_requests sr ON sr.id = bt.spend_request_id
                 WHERE sr.experiment_id = ?
@@ -821,8 +869,8 @@ class LedgerRepository:
                     COALESCE(SUM(bt.amount_usd_estimate), 0.0) AS amount_usd,
                     COALESCE(SUM(bt.fee_usd_estimate), 0.0) AS fee_usd,
                     COALESCE(SUM(bt.total_usd_estimate), 0.0) AS total_usd,
-                    COALESCE(SUM(CAST(bt.amount_btc AS REAL)), 0.0) AS amount_btc,
-                    COALESCE(SUM(CAST(bt.fee_btc AS REAL)), 0.0) AS fee_btc
+                    COALESCE(SUM(bt.amount_sats), 0) AS amount_sats,
+                    COALESCE(SUM(bt.fee_sats), 0) AS fee_sats
                 FROM btc_transactions bt
                 JOIN spend_requests sr ON sr.id = bt.spend_request_id
                 WHERE {where_clause}
@@ -837,8 +885,10 @@ class LedgerRepository:
                 amount_usd=float(row["amount_usd"] or 0.0),
                 fee_usd=float(row["fee_usd"] or 0.0),
                 total_usd=float(row["total_usd"] or 0.0),
-                amount_btc=self._format_btc_total(row["amount_btc"]),
-                fee_btc=self._format_btc_total(row["fee_btc"]),
+                amount_sats=int(row["amount_sats"] or 0),
+                fee_sats=int(row["fee_sats"] or 0),
+                amount_btc=self._format_btc_total_from_sats(int(row["amount_sats"] or 0)),
+                fee_btc=self._format_btc_total_from_sats(int(row["fee_sats"] or 0)),
             )
             for row in rows
         ]

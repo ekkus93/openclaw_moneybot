@@ -74,6 +74,8 @@ class SpendTotals(MoneyBotModel):
     amount_usd: float = Field(default=0, ge=0)
     fee_usd: float = Field(default=0, ge=0)
     total_usd: float = Field(default=0, ge=0)
+    amount_sats: int = Field(default=0, ge=0)
+    fee_sats: int = Field(default=0, ge=0)
     amount_btc: str = "0.00000000"
     fee_btc: str = "0.00000000"
 
@@ -85,5 +87,7 @@ class SpendByCategoryEntry(MoneyBotModel):
     amount_usd: float = Field(default=0, ge=0)
     fee_usd: float = Field(default=0, ge=0)
     total_usd: float = Field(default=0, ge=0)
+    amount_sats: int = Field(default=0, ge=0)
+    fee_sats: int = Field(default=0, ge=0)
     amount_btc: str = "0.00000000"
     fee_btc: str = "0.00000000"

@@ -56,10 +56,12 @@ class WalletQuoteSkillResult(MoneyBotModel):
     operation: str = "quote-spend"
     status: str
     asset: str
+    reason: str | None = None
     amount_usd_estimate: float
     amount_asset_estimate: str | None = None
     estimated_fee_asset: str | None = None
     estimated_fee_usd: float = Field(ge=0)
+    total_usd_estimate: float | None = Field(default=None, ge=0)
     limit_check: WalletLimitCheck
     rejection_reasons: list[str] = Field(default_factory=list)
     raw_response: dict[str, JsonValue] = Field(default_factory=dict)

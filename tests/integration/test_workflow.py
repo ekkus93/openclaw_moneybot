@@ -20,6 +20,13 @@ from openclaw_moneybot.skills.moneybot_policy_guard.models import (
     PolicyCheckRequest,
     PolicyCheckResult,
 )
+from openclaw_moneybot.skills.wallet_governor_client.models import (
+    WalletLimitCheck,
+    WalletQuoteSkillRequest,
+    WalletQuoteSkillResult,
+    WalletSpendRequest,
+    WalletSpendResult,
+)
 
 from .helpers import make_orchestrator, make_policy_config, make_source_document
 
@@ -261,6 +268,54 @@ def test_budget_human_review_without_wallet_handoff_allows_non_wallet_review(
     assert result.wallet_result is None
     assert result.experiment_review_id is not None
     assert ledger_service.get_experiment_review(result.experiment_review_id) is not None
+
+
+def test_rejected_wallet_quote_prevents_wallet_send(tmp_path: Path) -> None:
+    orchestrator, ledger_service = make_orchestrator(tmp_path, spend_enabled=True)
+    spend_called = False
+
+    def reject_quote(request: WalletQuoteSkillRequest) -> WalletQuoteSkillResult:
+        del request
+        return WalletQuoteSkillResult(
+            status="rejected",
+            asset="BTC",
+            reason="destination_invalid",
+            amount_usd_estimate=5.0,
+            estimated_fee_usd=0.0,
+            limit_check=WalletLimitCheck(
+                single_spend_ok=False,
+                daily_spend_ok=False,
+                weekly_spend_ok=False,
+                wallet_balance_ok=False,
+            ),
+            rejection_reasons=["destination_invalid"],
+            raw_response={"status": "rejected", "reason": "destination_invalid"},
+        )
+
+    def mark_spend(request: WalletSpendRequest) -> WalletSpendResult:
+        nonlocal spend_called
+        del request
+        spend_called = True
+        raise AssertionError("wallet send should not be called after a rejected quote")
+
+    orchestrator.wallet_client.quote = reject_quote  # type: ignore[method-assign]
+    orchestrator.wallet_client.spend = mark_spend  # type: ignore[method-assign]
+
+    result = orchestrator.run_dry_run(
+        make_request(
+            mission="Attempt a payment with a rejected quote.",
+            enable_wallet_payment=True,
+        )
+    )
+
+    assert result.wallet_quote is not None
+    assert result.wallet_quote.status == "rejected"
+    assert result.wallet_result is None
+    assert spend_called is False
+    assert (
+        ledger_service.list_wallet_transactions_for_opportunity(result.selected_opportunity_id)
+        == []
+    )
 
 
 def test_execution_policy_block_stops_email_and_wallet(tmp_path: Path) -> None:

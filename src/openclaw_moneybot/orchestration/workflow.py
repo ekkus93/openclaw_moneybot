@@ -261,6 +261,7 @@ class MoneyBotOrchestrator:
             if (
                 request.enable_wallet_payment
                 and execution_policy.decision is PolicyDecisionType.ALLOW
+                and wallet_quote.status == "ok"
             ):
                 wallet_result = self.wallet_client.spend(
                     WalletSpendRequest(

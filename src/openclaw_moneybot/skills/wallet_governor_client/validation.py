@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from openclaw_moneybot.shared import MoneyBotPolicyConfig, WalletGovernorConfig
+from openclaw_moneybot.shared import (
+    MoneyBotPolicyConfig,
+    WalletGovernorConfig,
+    normalize_btc_address_for_comparison,
+    validate_btc_address,
+)
 from openclaw_moneybot.shared.types import BudgetDecisionType, PolicyDecisionType, TosDecisionType
 from openclaw_moneybot.skills.ledger_skill.service import LedgerService
 from openclaw_moneybot.skills.wallet_governor_client.models import WalletSpendRequest
@@ -19,14 +24,6 @@ ALLOWED_SPEND_CATEGORIES = {
     "bounty_submission_fee",
     "experiment_material",
 }
-BTC_ADDRESS_PREFIXES = ("bc1", "tb1", "bcrt1", "1", "3")
-
-
-def validate_destination(asset: str, destination: str) -> bool:
-    """Perform a minimal destination plausibility check."""
-    if asset == "BTC":
-        return destination.startswith(BTC_ADDRESS_PREFIXES) and len(destination) >= 14
-    return bool(destination.strip())
 
 
 def validate_spend_request(
@@ -47,7 +44,17 @@ def validate_spend_request(
         reasons.append("blocked spend category")
     if request.amount_usd > policy_config.max_single_spend_usd:
         reasons.append("amount exceeds single-spend cap")
-    if not validate_destination(request.asset, request.destination):
+    if request.asset == "BTC":
+        destination_check = validate_btc_address(request.destination, config.bitcoin_network)
+        if not destination_check.is_valid:
+            reasons.append("invalid destination")
+        elif (
+            destination_check.normalized_address is not None
+            and destination_check.normalized_address
+            in {normalize_btc_address_for_comparison(item) for item in config.blocked_destinations}
+        ):
+            reasons.append("blocked destination")
+    elif not request.destination.strip():
         reasons.append("invalid destination")
     if not request.evidence_archive_ids:
         reasons.append("missing evidence reference")

@@ -25,7 +25,7 @@ class DryRunMissionRequest(MoneyBotModel):
     btc_usd_rate: float = Field(default=50_000, gt=0)
     draft_recipient_email: str | None = None
     draft_recipient_name: str | None = None
-    payment_destination: str = "bcrt1qmoneybotdryrunaddress"
+    payment_destination: str = "bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2"
     payment_counterparty: str = "Example Counterparty"
     payment_purpose: str = "Approved small payment"
     enable_wallet_payment: bool = False

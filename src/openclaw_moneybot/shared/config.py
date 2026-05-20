@@ -10,8 +10,9 @@ import yaml
 from pydantic import Field, ValidationError, ValidationInfo, field_validator
 
 from openclaw_moneybot.shared.base import MoneyBotModel
+from openclaw_moneybot.shared.bitcoin import normalize_btc_address_for_comparison
 from openclaw_moneybot.shared.errors import ErrorCode, MoneyBotError, MoneyBotErrorDetail
-from openclaw_moneybot.shared.types import ActionType, EmailMode
+from openclaw_moneybot.shared.types import ActionType, BitcoinNetwork, EmailMode
 
 
 class MoneyBotPolicyConfig(MoneyBotModel):
@@ -51,6 +52,9 @@ class WalletGovernorConfig(MoneyBotModel):
     timeout_seconds: float = Field(default=10.0, gt=0)
     spend_enabled: bool = False
     allowed_assets: list[str] = Field(default_factory=lambda: ["BTC"])
+    bitcoin_network: BitcoinNetwork = BitcoinNetwork.REGTEST
+    blocked_destinations: list[str] = Field(default_factory=list)
+    blocked_destination_labels: dict[str, str] = Field(default_factory=dict)
     archive_root: Path | None = None
 
     @field_validator("base_url")
@@ -65,6 +69,17 @@ class WalletGovernorConfig(MoneyBotModel):
             msg = "base_url must point to localhost or 127.0.0.1"
             raise ValueError(msg)
         return value
+
+    @field_validator("blocked_destinations")
+    @classmethod
+    def normalize_blocked_destinations(cls, value: list[str]) -> list[str]:
+        """Normalize blocklist entries for exact-match comparisons."""
+        normalized: list[str] = []
+        for destination in value:
+            stripped = destination.strip()
+            if stripped:
+                normalized.append(normalize_btc_address_for_comparison(stripped))
+        return normalized
 
 
 class EmailConfig(MoneyBotModel):

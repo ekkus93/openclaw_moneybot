@@ -105,7 +105,43 @@ class WalletGovernorClientSkill:
 
     def quote(self, request: WalletQuoteSkillRequest) -> WalletQuoteSkillResult:
         """Quote a possible spend without sending."""
-        raw_quote = self.http_client.quote_spend(request.model_dump(mode="json"))
+        try:
+            raw_quote = self.http_client.quote_spend(request.model_dump(mode="json"))
+        except WalletGovernorClientError as error:
+            return WalletQuoteSkillResult(
+                status="error",
+                asset=request.asset,
+                reason="wallet_governor_unavailable",
+                amount_usd_estimate=request.amount_usd,
+                estimated_fee_usd=0.0,
+                limit_check=self._fail_closed_limit_check(),
+                rejection_reasons=[str(error)],
+                raw_response={"status": "error", "message": str(error)},
+            )
+        status = str(raw_quote.get("status", "error"))
+        if status != "ok":
+            raw_reasons = raw_quote.get("rejection_reasons", [])
+            reasons = (
+                [str(reason) for reason in raw_reasons if isinstance(reason, str)]
+                if isinstance(raw_reasons, list)
+                else []
+            )
+            reason = self._json_string(raw_quote.get("reason"))
+            if not reasons and reason is not None:
+                reasons = [reason]
+            return WalletQuoteSkillResult(
+                status=status,
+                asset=request.asset,
+                reason=(
+                    reason
+                    or ("wallet governor returned an error" if status == "error" else None)
+                ),
+                amount_usd_estimate=request.amount_usd,
+                estimated_fee_usd=0.0,
+                limit_check=self._fail_closed_limit_check(),
+                rejection_reasons=reasons,
+                raw_response=raw_quote,
+            )
         limits = self.http_client.limits(request.asset)
         balance = self.http_client.balance(request.asset)
         balance_btc = float(str(balance["balance_btc"]))
@@ -132,12 +168,22 @@ class WalletGovernorClientSkill:
             status="ok" if not rejection_reasons else "rejected",
             asset=request.asset,
             amount_usd_estimate=request.amount_usd,
+            total_usd_estimate=total_usd_estimate,
             amount_asset_estimate=str(raw_quote["amount_btc"]),
             estimated_fee_asset=str(raw_quote["fee_btc"]),
             estimated_fee_usd=self._as_float(raw_quote.get("estimated_fee_usd", 0.0)),
             limit_check=limit_check,
             rejection_reasons=rejection_reasons,
             raw_response=raw_quote,
+        )
+
+    @staticmethod
+    def _fail_closed_limit_check() -> WalletLimitCheck:
+        return WalletLimitCheck(
+            single_spend_ok=False,
+            daily_spend_ok=False,
+            weekly_spend_ok=False,
+            wallet_balance_ok=False,
         )
 
     def spend(self, request: WalletSpendRequest) -> WalletSpendResult:

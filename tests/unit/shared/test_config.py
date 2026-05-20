@@ -101,6 +101,20 @@ def test_wallet_spending_disabled_by_default() -> None:
     config = WalletGovernorConfig(base_url="http://127.0.0.1:8080")
 
     assert config.spend_enabled is False
+    assert config.bitcoin_network.value == "regtest"
+    assert config.blocked_destinations == []
+
+
+def test_wallet_config_normalizes_blocked_destinations() -> None:
+    config = WalletGovernorConfig(
+        base_url="http://127.0.0.1:8080",
+        blocked_destinations=[
+            "  BCRT1QQQGJYV6Y24N80ZYE42AUEH0WLUQPZG3N9TG8M2  ",
+            "",
+        ],
+    )
+
+    assert config.blocked_destinations == ["bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2"]
 
 
 def test_email_mode_defaults_to_draft_only() -> None:

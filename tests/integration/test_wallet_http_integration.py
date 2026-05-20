@@ -80,7 +80,7 @@ def make_spend_request(ledger_service: LedgerService, **overrides: object) -> Wa
         "ledger_event_id": make_prewrite_record(ledger_service, related_id="spend_001"),
         "amount_usd": 5.0,
         "asset": "BTC",
-        "destination": "bcrt1qmoneybotdest123",
+        "destination": "bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
         "counterparty": "Example Vendor",
         "purpose": "Approved small payment",
         "category": "purchase",
@@ -129,7 +129,7 @@ def test_wallet_client_quote_uses_real_http_wrapper(tmp_path: Path) -> None:
             WalletQuoteSkillRequest(
                 asset="BTC",
                 amount_usd=5.0,
-                destination="bcrt1qmoneybotdest123",
+                destination="bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
                 btc_usd_rate=50_000.0,
             )
         )
@@ -137,6 +137,27 @@ def test_wallet_client_quote_uses_real_http_wrapper(tmp_path: Path) -> None:
     assert result.status == "ok"
     assert result.amount_asset_estimate == "0.00010000"
     assert result.raw_response["total_usd_estimate"] == pytest.approx(5.13)
+
+
+def test_wallet_client_quote_handles_rejected_response_through_real_http_wrapper(
+    tmp_path: Path,
+) -> None:
+    _, service, client, skill = make_wallet_stack(tmp_path, spend_enabled=True)
+    service.config.blocked_destinations = ["bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2"]
+
+    with client:
+        result = skill.quote(
+            WalletQuoteSkillRequest(
+                asset="BTC",
+                amount_usd=5.0,
+                destination="bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
+                btc_usd_rate=50_000.0,
+            )
+        )
+
+    assert result.status == "rejected"
+    assert result.reason == "destination_blocked"
+    assert "destination_blocked" in result.rejection_reasons
 
 
 def test_wallet_client_spend_succeeds_through_real_http_wrapper(tmp_path: Path) -> None:

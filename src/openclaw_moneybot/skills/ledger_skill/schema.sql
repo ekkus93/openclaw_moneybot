@@ -115,6 +115,8 @@ CREATE TABLE IF NOT EXISTS btc_transactions (
     txid TEXT NOT NULL UNIQUE,
     amount_btc TEXT NOT NULL,
     fee_btc TEXT NOT NULL,
+    amount_sats INTEGER NOT NULL DEFAULT 0,
+    fee_sats INTEGER NOT NULL DEFAULT 0,
     amount_usd_estimate REAL NOT NULL,
     fee_usd_estimate REAL NOT NULL DEFAULT 0,
     total_usd_estimate REAL NOT NULL DEFAULT 0,

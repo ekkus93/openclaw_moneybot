@@ -175,7 +175,7 @@ def seed_spend_request(service: WalletGovernorService) -> WalletSpendRequest:
             ledger_record_id=prewrite.ledger_event_id,
             amount_usd=5.0,
             asset="BTC",
-            destination="bcrt1qmoneybotdest123",
+            destination="bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
             counterparty="Example Vendor",
             purpose="Pay a small approved invoice",
             category="purchase",
@@ -194,7 +194,7 @@ def seed_spend_request(service: WalletGovernorService) -> WalletSpendRequest:
             "ledger_event_id": prewrite.ledger_event_id,
             "amount_usd": 5.0,
             "asset": "BTC",
-            "destination": "bcrt1qmoneybotdest123",
+            "destination": "bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
             "counterparty": "Example Vendor",
             "purpose": "Pay a small approved invoice",
             "category": "purchase",
@@ -259,7 +259,7 @@ def test_quote_endpoint_returns_fee_estimates(tmp_path: Path) -> None:
                 "asset": "BTC",
                 "amount_usd": 5.0,
                 "btc_usd_rate": 50_000.0,
-                "destination": "bcrt1qmoneybotdest123",
+                "destination": "bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
             },
         )
 
@@ -284,6 +284,24 @@ def test_quote_endpoint_rejects_invalid_destination(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert response.json()["reason"] == "destination_invalid"
+
+
+def test_quote_endpoint_rejects_blocklisted_destination(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.config.blocked_destinations = ["bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2"]
+    with TestClient(create_wallet_governor_app(service)) as client:
+        response = client.post(
+            "/quote-spend",
+            json={
+                "asset": "BTC",
+                "amount_usd": 5.0,
+                "btc_usd_rate": 50_000.0,
+                "destination": "bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["reason"] == "destination_blocked"
 
 
 def test_send_endpoint_rejects_when_spend_disabled(tmp_path: Path) -> None:
@@ -349,7 +367,7 @@ def test_timeout_middleware_returns_http_504(
                 "asset": "BTC",
                 "amount_usd": 5.0,
                 "btc_usd_rate": 50_000.0,
-                "destination": "bcrt1qmoneybotdest123",
+                "destination": "bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
             },
         )
 

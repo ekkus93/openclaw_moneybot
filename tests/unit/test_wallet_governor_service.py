@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 import pytest
 from pydantic import ValidationError
@@ -14,6 +15,7 @@ from openclaw_moneybot.plugins.wallet_governor_service import (
     FakeWalletBackendState,
     WalletGovernorService,
     WalletQuoteRequest,
+    WalletQuoteResponse,
     WalletSendRequest,
 )
 from openclaw_moneybot.plugins.wallet_governor_service.backend import WalletBackendError
@@ -171,7 +173,7 @@ def make_request(**overrides: object) -> WalletSendRequest:
         "ledger_record_id": "ledger_001",
         "amount_usd": 5.0,
         "asset": "BTC",
-        "destination": "bcrt1qmoneybotdest123",
+        "destination": "bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
         "counterparty": "Example Vendor",
         "purpose": "Pay a small approved invoice",
         "category": "purchase",
@@ -399,7 +401,7 @@ def test_quote_returns_btc_and_fee(tmp_path: Path) -> None:
             asset="BTC",
             amount_usd=5.0,
             btc_usd_rate=50_000.0,
-            destination="bcrt1qmoneybotdest123",
+            destination="bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
         )
     )
 
@@ -429,6 +431,74 @@ def test_quote_rejects_invalid_destination(tmp_path: Path) -> None:
     assert backend.state.send_count == 0
 
 
+def test_quote_accepts_network_specific_addresses(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+
+    regtest_result = service.quote(
+        WalletQuoteRequest(
+            asset="BTC",
+            amount_usd=5.0,
+            btc_usd_rate=50_000.0,
+            destination="bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
+        )
+    )
+    service.config.bitcoin_network = "mainnet"  # type: ignore[assignment]
+    mainnet_result = service.quote(
+        WalletQuoteRequest(
+            asset="BTC",
+            amount_usd=5.0,
+            btc_usd_rate=50_000.0,
+            destination="1BoatSLRHtKNngkdXEeobR76b53LETtpyT",
+        )
+    )
+
+    assert regtest_result.status == "ok"
+    assert mainnet_result.status == "ok"
+
+
+def test_quote_rejects_network_mismatch_and_unknown_network(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.config.bitcoin_network = "mainnet"  # type: ignore[assignment]
+
+    mismatch = service.quote(
+        WalletQuoteRequest(
+            asset="BTC",
+            amount_usd=5.0,
+            btc_usd_rate=50_000.0,
+            destination="tb1qqqgjyv6y24n80zye42aueh0wluqpzg3n8z32vr",
+        )
+    )
+    service.config.bitcoin_network = "broken"  # type: ignore[assignment]
+    unknown = service.quote(
+        WalletQuoteRequest(
+            asset="BTC",
+            amount_usd=5.0,
+            btc_usd_rate=50_000.0,
+            destination="1BoatSLRHtKNngkdXEeobR76b53LETtpyT",
+        )
+    )
+
+    assert mismatch.reason == "destination_invalid"
+    assert unknown.reason == "destination_invalid"
+
+
+def test_quote_rejects_blocklisted_destination(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.config.blocked_destinations = ["bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2"]
+
+    result = service.quote(
+        WalletQuoteRequest(
+            asset="BTC",
+            amount_usd=5.0,
+            btc_usd_rate=50_000.0,
+            destination="bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
+        )
+    )
+
+    assert result.status == "rejected"
+    assert result.reason == "destination_blocked"
+
+
 def test_send_rejects_when_spend_disabled(tmp_path: Path) -> None:
     service = make_service(tmp_path, spend_enabled=False)
 
@@ -436,6 +506,127 @@ def test_send_rejects_when_spend_disabled(tmp_path: Path) -> None:
 
     assert result.status == "rejected"
     assert result.reason == "spend_disabled"
+
+
+def test_send_rejects_blocklisted_destination_and_records_audit(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.config.blocked_destinations = ["bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2"]
+
+    result = service.capped_send(seed_spend_request(service))
+    backend = service.backend
+    assert isinstance(backend, FakeWalletBackend)
+
+    events = service.ledger_service.get_related_events(
+        related_type=RecordType.AUDIT_EVENT,
+    )
+
+    assert result.status == "rejected"
+    assert result.reason == "destination_blocked"
+    assert backend.state.send_count == 0
+    assert any(
+        isinstance(event.payload.get("payload"), dict)
+        and event.payload.get("related_record_id") == "spend_001"
+        and cast(dict[str, object], event.payload["payload"]).get("event_name")
+        == "wallet_send_rejected"
+        and cast(dict[str, object], event.payload["payload"]).get("reason_code")
+        == "destination_blocked"
+        for event in events
+    )
+
+
+@pytest.mark.parametrize("evidence_type", ["random_note", "scratchpad", "debug_dump"])
+def test_send_rejects_disallowed_evidence_type_before_backend(
+    tmp_path: Path,
+    evidence_type: str,
+) -> None:
+    service = make_service(tmp_path)
+    request = seed_spend_request(service)
+    bundle = get_bundle(service, request)
+    bundle.evidence_records = [
+        bundle.evidence_records[0].model_copy(update={"evidence_type": evidence_type})
+    ]
+
+    service.ledger_service.get_spend_authorization_bundle = (  # type: ignore[method-assign]
+        lambda spend_request_id: bundle if spend_request_id == request.spend_request_id else None
+    )
+    result = service.capped_send(request)
+    backend = service.backend
+    assert isinstance(backend, FakeWalletBackend)
+    events = service.ledger_service.get_related_events(
+        related_type=RecordType.AUDIT_EVENT,
+    )
+
+    assert result.status == "rejected"
+    assert result.reason == "evidence_type_not_allowed"
+    assert backend.state.send_count == 0
+    assert any(
+        isinstance(event.payload.get("payload"), dict)
+        and event.payload.get("related_record_id") == "spend_001"
+        and cast(dict[str, object], event.payload["payload"]).get("event_name")
+        == "wallet_send_rejected"
+        and cast(dict[str, object], event.payload["payload"]).get("reason_code")
+        == "evidence_type_not_allowed"
+        for event in events
+    )
+
+
+@pytest.mark.parametrize(
+    "evidence_type",
+    ["terms_snapshot", "receipt", "invoice", "payment_request"],
+)
+def test_send_accepts_allowed_spend_evidence_types(tmp_path: Path, evidence_type: str) -> None:
+    service = make_service(tmp_path)
+    request = seed_spend_request(service)
+    bundle = get_bundle(service, request)
+    bundle.evidence_records = [
+        bundle.evidence_records[0].model_copy(update={"evidence_type": evidence_type})
+    ]
+
+    service.ledger_service.get_spend_authorization_bundle = (  # type: ignore[method-assign]
+        lambda spend_request_id: bundle if spend_request_id == request.spend_request_id else None
+    )
+    result = service.capped_send(request)
+
+    assert result.status == "sent"
+
+
+def test_balance_failure_returns_error_and_writes_audit_event(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    request = seed_spend_request(service)
+    quote_called = False
+
+    def raise_balance_error() -> int:
+        raise WalletBackendError("boom")
+
+    def mark_quote(request: WalletQuoteRequest) -> WalletQuoteResponse:
+        nonlocal quote_called
+        quote_called = True
+        return WalletGovernorService.quote(service, request)
+
+    service.backend.get_balance_sats = raise_balance_error  # type: ignore[method-assign]
+    service.quote = mark_quote  # type: ignore[method-assign]
+    result = service.capped_send(request)
+    backend = service.backend
+    assert isinstance(backend, FakeWalletBackend)
+    events = service.ledger_service.get_related_events(
+        related_type=RecordType.AUDIT_EVENT,
+    )
+
+    assert result.status == "error"
+    assert result.reason == "backend_error"
+    assert quote_called is False
+    assert backend.state.last_unlock_seconds == 0
+    assert backend.state.send_count == 0
+    assert service.ledger_service.list_wallet_transactions_for_spend_request("spend_001") == []
+    assert any(
+        isinstance(event.payload.get("payload"), dict)
+        and event.payload.get("related_record_id") == "spend_001"
+        and cast(dict[str, object], event.payload["payload"]).get("event_name")
+        == "wallet_backend_balance_failed"
+        and cast(dict[str, object], event.payload["payload"]).get("reason_code")
+        == "backend_error"
+        for event in events
+    )
 
 
 def test_send_rejects_over_single_limit(tmp_path: Path) -> None:
@@ -784,8 +975,8 @@ def test_asset_and_destination_helpers_cover_edge_cases(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         service._require_supported_asset("ETH")
 
-    assert service._validate_destination("USD", " account-123 ")
-    assert not service._validate_destination("USD", "   ")
+    assert service._validate_destination("USD", " account-123 ").is_valid is True
+    assert service._validate_destination("USD", "   ").is_valid is False
 
 
 def test_quote_json_and_capped_send_json_reject_malformed_payloads(tmp_path: Path) -> None:
@@ -920,7 +1111,7 @@ def test_quote_fee_failure_returns_structured_rejection(
             asset="BTC",
             amount_usd=5.0,
             btc_usd_rate=50_000.0,
-            destination="bcrt1qmoneybotdest123",
+            destination="bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
         )
     )
 

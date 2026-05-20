@@ -310,7 +310,7 @@ def seed_spend_request(
         ledger_record_id=ledger_record_id,
         amount_usd=amount_usd,
         asset="BTC",
-        destination="bcrt1qmoneybotdest123",
+        destination="bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
         counterparty="Example Vendor",
         purpose="Approved small payment",
         category="purchase",
@@ -338,7 +338,7 @@ def seed_wallet_transaction(
         fee_btc="0.00000250",
         amount_usd_estimate=amount_usd_estimate,
         status=status,
-        destination="bcrt1qmoneybotdest123",
+        destination="bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
         purpose="Approved small payment",
     )
     ledger_service.record_wallet_transaction(

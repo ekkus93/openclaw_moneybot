@@ -172,6 +172,7 @@ def default_handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
             json={
+                "status": "ok",
                 "asset": "BTC",
                 "amount_btc": "0.00010000",
                 "amount_sats": 10_000,
@@ -210,7 +211,7 @@ def make_spend_request(**overrides: object) -> WalletSpendRequest:
         "ledger_event_id": "2026-01-01T00:00:00Z",
         "amount_usd": 5.0,
         "asset": "BTC",
-        "destination": "bcrt1qmoneybotdest123",
+        "destination": "bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
         "counterparty": "Example Vendor",
         "purpose": "Pay approved listing fee",
         "category": "listing_fee",
@@ -379,13 +380,72 @@ def test_quote_serialization(tmp_path: Path) -> None:
         WalletQuoteSkillRequest(
             asset="BTC",
             amount_usd=5.0,
-            destination="bcrt1qmoneybotdest123",
+            destination="bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
             btc_usd_rate=50_000.0,
         )
     )
 
     assert result.status == "ok"
     assert result.amount_asset_estimate == "0.00010000"
+
+
+def test_quote_handles_rejected_response_without_exception(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/quote-spend":
+            return httpx.Response(
+                200,
+                json={
+                    "status": "rejected",
+                    "asset": "BTC",
+                    "amount_usd": 5.0,
+                    "reason": "destination_invalid",
+                    "rejection_reasons": ["destination_invalid"],
+                },
+            )
+        return default_handler(request)
+
+    skill = make_skill(tmp_path, handler=httpx.MockTransport(handler))
+
+    result = skill.quote(
+        WalletQuoteSkillRequest(
+            asset="BTC",
+            amount_usd=5.0,
+            destination="bc1notvalid!!!!",
+            btc_usd_rate=50_000.0,
+        )
+    )
+
+    assert result.status == "rejected"
+    assert result.reason == "destination_invalid"
+    assert result.rejection_reasons == ["destination_invalid"]
+    assert result.amount_asset_estimate is None
+    assert result.limit_check.wallet_balance_ok is False
+
+
+def test_quote_handles_error_response_without_exception(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/quote-spend":
+            return httpx.Response(
+                200,
+                json={"status": "error", "reason": "backend_error"},
+            )
+        return default_handler(request)
+
+    skill = make_skill(tmp_path, handler=httpx.MockTransport(handler))
+
+    result = skill.quote(
+        WalletQuoteSkillRequest(
+            asset="BTC",
+            amount_usd=5.0,
+            destination="bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2",
+            btc_usd_rate=50_000.0,
+        )
+    )
+
+    assert result.status == "error"
+    assert result.reason == "backend_error"
+    assert result.rejection_reasons == ["backend_error"]
+    assert result.limit_check.single_spend_ok is False
 
 
 def test_http_client_retries_retryable_timeout_and_succeeds() -> None:
@@ -483,6 +543,20 @@ def test_validate_spend_request_reports_local_rejection_reasons(tmp_path: Path) 
         "missing evidence reference",
         "send-all language is prohibited",
     }.issubset(reasons)
+
+
+def test_validate_spend_request_reports_blocked_destination(tmp_path: Path) -> None:
+    skill = make_skill(tmp_path)
+    skill.config.blocked_destinations = ["bcrt1qqqgjyv6y24n80zye42aueh0wluqpzg3n9tg8m2"]
+
+    reasons = validate_spend_request(
+        make_spend_request(),
+        skill.config,
+        skill.policy_config,
+        skill.ledger_service,
+    )
+
+    assert "blocked destination" in reasons
 
 
 def test_validate_spend_request_reports_blocked_category(tmp_path: Path) -> None:

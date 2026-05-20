@@ -75,6 +75,15 @@ class EmailMode(StrEnum):
     CAPPED_SEND = "capped_send"
 
 
+class BitcoinNetwork(StrEnum):
+    """Supported Bitcoin address networks."""
+
+    MAINNET = "mainnet"
+    TESTNET = "testnet"
+    REGTEST = "regtest"
+    SIGNET = "signet"
+
+
 class SpendRequestStatus(StrEnum):
     """Canonical spend-request lifecycle states."""
 

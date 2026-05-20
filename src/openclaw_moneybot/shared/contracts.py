@@ -179,6 +179,8 @@ class WalletTransactionRecord(TimestampedModel):
     txid: str
     amount_btc: str
     fee_btc: str
+    amount_sats: int | None = Field(default=None, ge=0)
+    fee_sats: int | None = Field(default=None, ge=0)
     amount_usd_estimate: float = Field(ge=0)
     fee_usd_estimate: float = Field(default=0, ge=0)
     total_usd_estimate: float = Field(default=0, ge=0)
@@ -188,7 +190,19 @@ class WalletTransactionRecord(TimestampedModel):
 
     @model_validator(mode="after")
     def set_total_usd_estimate(self) -> WalletTransactionRecord:
-        """Default the total USD estimate to amount plus fee."""
+        """Default exact satoshi fields and derived USD totals."""
+        amount_sats = _btc_string_to_sats(self.amount_btc)
+        fee_sats = _btc_string_to_sats(self.fee_btc)
+        if self.amount_sats is None:
+            self.amount_sats = amount_sats
+        elif self.amount_sats != amount_sats:
+            msg = "amount_sats must match amount_btc"
+            raise ValueError(msg)
+        if self.fee_sats is None:
+            self.fee_sats = fee_sats
+        elif self.fee_sats != fee_sats:
+            msg = "fee_sats must match fee_btc"
+            raise ValueError(msg)
         if self.total_usd_estimate == 0:
             self.total_usd_estimate = round(
                 self.amount_usd_estimate + self.fee_usd_estimate,
@@ -204,6 +218,14 @@ class WalletTransactionRecord(TimestampedModel):
             msg = "total_usd_estimate must be non-negative"
             raise ValueError(msg)
         return value
+
+
+def _btc_string_to_sats(amount_btc: str) -> int:
+    """Convert a display BTC amount to exact satoshis."""
+    from decimal import ROUND_HALF_UP, Decimal
+
+    sats = Decimal(amount_btc) * Decimal("100000000")
+    return int(sats.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
 class EvidenceRecord(TimestampedModel):

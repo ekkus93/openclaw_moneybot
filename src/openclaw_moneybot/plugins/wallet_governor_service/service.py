@@ -22,6 +22,8 @@ from openclaw_moneybot.plugins.wallet_governor_service.models import (
     WalletSendResponse,
 )
 from openclaw_moneybot.shared import (
+    AddressValidationResult,
+    BitcoinNetwork,
     EvidenceRecord,
     LedgerRecord,
     MoneyBotPolicyConfig,
@@ -31,6 +33,8 @@ from openclaw_moneybot.shared import (
     WalletGovernorConfig,
     WalletTransactionRecord,
     WalletTransactionStatus,
+    normalize_btc_address_for_comparison,
+    validate_btc_address,
 )
 from openclaw_moneybot.shared.types import (
     ActionType,
@@ -46,9 +50,7 @@ from openclaw_moneybot.utils.ids import make_id
 from openclaw_moneybot.utils.time import utc_now
 
 SATOSHIS_PER_BTC = Decimal("100000000")
-BTC_ADDRESS_PREFIXES = ("bc1", "tb1", "bcrt1", "1", "3")
 PROHIBITED_SEND_TERMS = ("send_all", "send all", "sweep", "max", "all funds")
-PLACEHOLDER_DESTINATIONS = {"example", "placeholder", "todo", "changeme", "test"}
 ALLOWED_SPEND_CATEGORIES = {
     "purchase",
     "infrastructure",
@@ -117,6 +119,21 @@ BLOCKED_SPEND_CATEGORIES = {
     "deceptive claims",
     "deceptive_claims",
 }
+ALLOWED_SPEND_EVIDENCE_TYPES = {
+    "terms_snapshot",
+    "tos_snapshot",
+    "receipt",
+    "invoice",
+    "html_snapshot",
+    "wallet_governor_response",
+    "budget_snapshot",
+    "policy_snapshot",
+    "opportunity_snapshot",
+    "submission_receipt",
+    "payment_request",
+    "source_document",
+    "email_draft",
+}
 ELIGIBLE_SPEND_STATUSES = {SpendRequestStatus.PROPOSED, SpendRequestStatus.APPROVED}
 TERMINAL_SPEND_STATUSES = {
     SpendRequestStatus.REJECTED,
@@ -135,7 +152,7 @@ WALLET_TOOL_MARKERS = ("wallet",)
 
 def _btc_from_sats(amount_sats: int) -> str:
     btc = Decimal(amount_sats) / SATOSHIS_PER_BTC
-    return str(btc.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP))
+    return format(btc.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP), "f")
 
 
 def _round_usd(value: float) -> float:
@@ -344,6 +361,28 @@ class WalletGovernorService:
                 cache_fingerprint=request_fingerprint,
             )
 
+        try:
+            balance_sats = self.backend.get_balance_sats()
+        except WalletBackendError:
+            response = self._store_failure(
+                request,
+                "backend_error",
+                bundle=bundle,
+                cache_fingerprint=request_fingerprint,
+            )
+            self._record_audit_event(
+                "wallet_backend_balance_failed",
+                request.spend_request_id,
+                {
+                    "idempotency_key": request.idempotency_key,
+                    "reason_code": "backend_error",
+                    "backend_mode": self.backend.backend_name,
+                    "request_summary": self._request_summary(request),
+                    "response_summary": self._response_summary(response),
+                },
+                idempotency_key=f"audit:wallet_backend_balance_failed:{request.idempotency_key}",
+            )
+            return response
         quote = self.quote(
             WalletQuoteRequest(
                 asset=request.asset,
@@ -370,16 +409,6 @@ class WalletGovernorService:
             return self._store_rejection(
                 request,
                 limit_rejection,
-                bundle=bundle,
-                cache_fingerprint=request_fingerprint,
-            )
-
-        try:
-            balance_sats = self.backend.get_balance_sats()
-        except WalletBackendError:
-            return self._store_failure(
-                request,
-                "backend_error",
                 bundle=bundle,
                 cache_fingerprint=request_fingerprint,
             )
@@ -464,6 +493,8 @@ class WalletGovernorService:
             txid=txid,
             amount_btc=quote.amount_btc,
             fee_btc=quote.fee_btc,
+            amount_sats=quote.amount_sats,
+            fee_sats=quote.fee_sats,
             amount_usd_estimate=request.amount_usd,
             fee_usd_estimate=quote.estimated_fee_usd,
             total_usd_estimate=quote.total_usd_estimate,
@@ -685,6 +716,8 @@ class WalletGovernorService:
     ) -> str | None:
         if not self._is_related_evidence(bundle, evidence):
             return "evidence_unrelated"
+        if evidence.evidence_type not in ALLOWED_SPEND_EVIDENCE_TYPES:
+            return "evidence_type_not_allowed"
         archive_root = self.config.archive_root
         if archive_root is None:
             return "evidence_path_invalid"
@@ -888,24 +921,42 @@ class WalletGovernorService:
         destination: str,
         purpose: str | None,
     ) -> str | None:
-        normalized_destination = destination.strip().lower()
-        if not normalized_destination:
+        validation = self._validate_destination(asset, destination)
+        if validation.reason_code == "destination_missing":
             return "destination_missing"
-        if any(token in normalized_destination for token in PLACEHOLDER_DESTINATIONS):
-            return "destination_invalid"
-        if any(term in normalized_destination for term in PROHIBITED_SEND_TERMS):
+        if validation.reason_code == "prohibited_destination_instruction":
             return "send_all_blocked"
         if purpose is not None and any(term in purpose.lower() for term in PROHIBITED_SEND_TERMS):
             return "send_all_blocked"
-        if not self._validate_destination(asset, destination):
+        if validation.is_valid and validation.normalized_address is not None:
+            blocked_destinations = {
+                normalize_btc_address_for_comparison(item)
+                for item in self.config.blocked_destinations
+            }
+            if validation.normalized_address in blocked_destinations:
+                return "destination_blocked"
+            return None
+        if validation.reason_code is None:
             return "destination_invalid"
-        return None
+        if validation.reason_code == "unsupported_network":
+            return "destination_invalid"
+        return "destination_invalid"
 
-    @staticmethod
-    def _validate_destination(asset: str, destination: str) -> bool:
+    def _validate_destination(self, asset: str, destination: str) -> AddressValidationResult:
         if asset == "BTC":
-            return destination.startswith(BTC_ADDRESS_PREFIXES) and len(destination) >= 14
-        return bool(destination.strip())
+            return validate_btc_address(destination, self._bitcoin_network())
+        normalized = destination.strip()
+        return AddressValidationResult(
+            is_valid=bool(normalized),
+            normalized_address=normalized or None,
+            reason_code=None if normalized else "destination_missing",
+        )
+
+    def _bitcoin_network(self) -> BitcoinNetwork | str:
+        try:
+            return BitcoinNetwork(str(self.config.bitcoin_network))
+        except ValueError:
+            return str(self.config.bitcoin_network)
 
     @staticmethod
     def _usd_to_sats(amount_usd: float, btc_usd_rate: float) -> int:

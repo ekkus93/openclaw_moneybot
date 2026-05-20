@@ -9,6 +9,8 @@ from typing import Any, Protocol
 
 import httpx
 
+from openclaw_moneybot.shared import validate_btc_address
+from openclaw_moneybot.shared.types import BitcoinNetwork
 from openclaw_moneybot.utils.ids import make_id
 
 SATOSHIS_PER_BTC = Decimal("100000000")
@@ -207,6 +209,10 @@ class BitcoinCoreWalletBackend:
         self._rpc("walletlock")
 
     def send_to_address(self, destination: str, amount_sats: int) -> str:
+        validation = validate_btc_address(destination, self._configured_network())
+        if not validation.is_valid:
+            msg = "Bitcoin Core send refused an invalid destination."
+            raise WalletBackendError(msg)
         txid = self._rpc("sendtoaddress", [destination, self._sats_to_btc(amount_sats)])
         if not isinstance(txid, str) or not txid:
             msg = "Bitcoin Core send did not return a transaction id."
@@ -257,3 +263,9 @@ class BitcoinCoreWalletBackend:
     def _sats_to_btc(amount_sats: int) -> str:
         btc_amount = Decimal(amount_sats) / SATOSHIS_PER_BTC
         return str(btc_amount.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP))
+
+    def _configured_network(self) -> BitcoinNetwork | str:
+        try:
+            return BitcoinNetwork(self.config.network)
+        except ValueError:
+            return self.config.network
