@@ -58,6 +58,16 @@ class PolicyDecision(TimestampedModel):
 
     policy_decision_id: str
     opportunity_id: str | None = None
+    action_type: ActionType | None = None
+    category: str | None = None
+    requires_payment: bool = False
+    requires_wallet_action: bool = False
+    amount_usd: float | None = Field(default=None, ge=0)
+    counterparty: str | None = None
+    experiment_id: str | None = None
+    spend_request_id: str | None = None
+    planned_tools: list[str] = Field(default_factory=list)
+    sanitized_input: dict[str, JsonValue] = Field(default_factory=dict)
     decision: PolicyDecisionType
     risk_level: RiskLevel
     confidence: ConfidenceLevel = ConfidenceLevel.HIGH
@@ -147,6 +157,7 @@ class SpendRequest(TimestampedModel):
 
     spend_request_id: str
     opportunity_id: str | None = None
+    experiment_id: str | None = None
     budget_plan_id: str
     policy_decision_id: str
     ledger_record_id: str

@@ -32,11 +32,22 @@ SENSITIVE_PATH_MARKERS = (
     "/secrets",
     ".env",
 )
+SAFE_EVIDENCE_TYPE_RE = re.compile(r"^[a-z0-9_]{1,64}$")
 
 
 def normalize_evidence_type(value: str) -> str:
-    """Normalize evidence type values."""
-    return value.strip().lower().replace(" ", "_").replace("-", "_")
+    """Normalize evidence type values and reject unsafe path components."""
+    if "\x00" in value:
+        msg = "Evidence type cannot contain a null byte."
+        raise ValueError(msg)
+    if "/" in value or "\\" in value or ".." in value:
+        msg = "Evidence type must not contain path separators or traversal markers."
+        raise ValueError(msg)
+    normalized = re.sub(r"[\s-]+", "_", value.strip().lower())
+    if not SAFE_EVIDENCE_TYPE_RE.fullmatch(normalized):
+        msg = "Evidence type must match ^[a-z0-9_]{1,64}$ after normalization."
+        raise ValueError(msg)
+    return normalized
 
 
 def detect_extension(request: EvidenceArchiveRequest) -> str:
@@ -129,24 +140,15 @@ def store_artifact(
     """Store an artifact and its metadata."""
     normalized_type = normalize_evidence_type(request.evidence_type)
     extension = detect_extension(request)
-    content_path, metadata_path = build_archive_paths(
-        config,
-        evidence_id=evidence_id,
-        related_id=request.related_id,
-        captured_at=captured_at,
-        evidence_type=normalized_type,
-        extension=extension,
-    )
-    if content_path.exists() or metadata_path.exists():
-        msg = "Refusing to overwrite an existing archived artifact."
-        raise FileExistsError(msg)
-
     redactions: list[str] = []
     if request.content_text is not None:
         content_text = request.content_text
         if config.redact_secrets:
             content_text, redactions = redact_text(content_text)
         content_bytes = content_text.encode("utf-8")
+        if len(content_bytes) > config.max_artifact_bytes:
+            msg = "Evidence artifact exceeds the configured max_artifact_bytes limit."
+            raise ValueError(msg)
     else:
         assert request.content_bytes_path is not None
         resolved_source = resolve_source_path(config, request.content_bytes_path)
@@ -158,6 +160,18 @@ def store_artifact(
             decoded = content_bytes.decode("utf-8")
             redacted_text, redactions = redact_text(decoded)
             content_bytes = redacted_text.encode("utf-8")
+
+    content_path, metadata_path = build_archive_paths(
+        config,
+        evidence_id=evidence_id,
+        related_id=request.related_id,
+        captured_at=captured_at,
+        evidence_type=normalized_type,
+        extension=extension,
+    )
+    if content_path.exists() or metadata_path.exists():
+        msg = "Refusing to overwrite an existing archived artifact."
+        raise FileExistsError(msg)
 
     content_path.write_bytes(content_bytes)
     content_sha256 = sha256_bytes(content_bytes)

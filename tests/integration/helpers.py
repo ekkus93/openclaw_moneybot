@@ -36,6 +36,7 @@ from openclaw_moneybot.shared.config import (
     WalletGovernorConfig,
 )
 from openclaw_moneybot.shared.types import (
+    ActionType,
     BudgetDecisionType,
     ConfidenceLevel,
     EmailMode,
@@ -99,12 +100,14 @@ def make_wallet_config(
     *,
     spend_enabled: bool,
     timeout_seconds: float = 10.0,
+    archive_root: Path | None = None,
 ) -> WalletGovernorConfig:
     return WalletGovernorConfig(
         base_url="http://127.0.0.1",
         timeout_seconds=timeout_seconds,
         spend_enabled=spend_enabled,
         allowed_assets=["BTC"],
+        archive_root=archive_root,
     )
 
 
@@ -178,6 +181,14 @@ def seed_policy_decision(
         created_at=datetime(2026, 1, 1, 0, 1, tzinfo=UTC),
         policy_decision_id=policy_decision_id,
         opportunity_id=opportunity_id,
+        action_type=ActionType.SPEND,
+        category="purchase",
+        requires_payment=True,
+        requires_wallet_action=True,
+        amount_usd=100.0,
+        counterparty="Example Vendor",
+        planned_tools=["wallet_governor_client"],
+        sanitized_input={"action_type": "spend"},
         decision=decision,
         risk_level=RiskLevel.LOW,
         confidence=ConfidenceLevel.HIGH,
@@ -217,15 +228,27 @@ def seed_evidence_record(
     evidence_id: str = "artifact_001",
     related_record_id: str = "opp_001",
     evidence_type: str = "html_snapshot",
+    archive_root: Path | None = None,
 ) -> EvidenceRecord:
+    archive_path = f"archive/{evidence_id}.txt"
+    content_sha256 = "a" * 64
+    if archive_root is not None:
+        archive_root.mkdir(parents=True, exist_ok=True)
+        evidence_path = archive_root / f"{evidence_id}.txt"
+        content = f"evidence:{evidence_id}".encode()
+        evidence_path.write_bytes(content)
+        archive_path = str(evidence_path)
+        from openclaw_moneybot.skills.receipt_and_evidence_archiver.hashing import sha256_bytes
+
+        content_sha256 = sha256_bytes(content)
     evidence = EvidenceRecord(
         created_at=datetime(2026, 1, 1, 0, 4, tzinfo=UTC),
         evidence_id=evidence_id,
         related_record_type=RecordType.OPPORTUNITY,
         related_record_id=related_record_id,
         evidence_type=evidence_type,
-        archive_path=f"archive/{evidence_id}.txt",
-        content_sha256="a" * 64,
+        archive_path=archive_path,
+        content_sha256=content_sha256,
         source_url="https://example.com/opportunity",
     )
     ledger_service.record_evidence(evidence, idempotency_key=f"evidence:{evidence_id}")
@@ -331,9 +354,14 @@ def make_wallet_service(
     spend_enabled: bool,
     timeout_seconds: float = 10.0,
     backend: FakeWalletBackend | None = None,
+    archive_root: Path | None = None,
 ) -> WalletGovernorService:
     return WalletGovernorService(
-        make_wallet_config(spend_enabled=spend_enabled, timeout_seconds=timeout_seconds),
+        make_wallet_config(
+            spend_enabled=spend_enabled,
+            timeout_seconds=timeout_seconds,
+            archive_root=archive_root,
+        ),
         make_policy_config(),
         ledger_service,
         backend or FakeWalletBackend(FakeWalletBackendState(balance_sats=5_000_000)),
@@ -380,7 +408,11 @@ def make_orchestrator(
     ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
     archive_config = make_archive_config(tmp_path)
     policy_config = make_policy_config()
-    wallet_service = make_wallet_service(ledger_service, spend_enabled=spend_enabled)
+    wallet_service = make_wallet_service(
+        ledger_service,
+        spend_enabled=spend_enabled,
+        archive_root=archive_config.base_directory,
+    )
     wallet_test_client = make_wallet_test_client(wallet_service)
     wallet_client = make_wallet_client_skill(
         ledger_service,

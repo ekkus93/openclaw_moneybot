@@ -16,6 +16,7 @@ from openclaw_moneybot.plugins.wallet_governor_service import (
     WalletQuoteRequest,
     WalletSendRequest,
 )
+from openclaw_moneybot.plugins.wallet_governor_service.backend import WalletBackendError
 from openclaw_moneybot.shared import (
     BudgetPlan,
     EvidenceRecord,
@@ -30,6 +31,7 @@ from openclaw_moneybot.shared import (
 )
 from openclaw_moneybot.shared.config import MoneyBotPolicyConfig, WalletGovernorConfig
 from openclaw_moneybot.shared.types import (
+    ActionType,
     BudgetDecisionType,
     ConfidenceLevel,
     PolicyDecisionType,
@@ -39,6 +41,7 @@ from openclaw_moneybot.shared.types import (
 )
 from openclaw_moneybot.skills.ledger_skill.models import SpendAuthorizationBundle
 from openclaw_moneybot.skills.ledger_skill.service import LedgerService
+from openclaw_moneybot.skills.receipt_and_evidence_archiver.hashing import sha256_bytes
 from openclaw_moneybot.utils.time import utc_now
 
 Mutator = Callable[
@@ -49,6 +52,11 @@ Mutator = Callable[
 
 def make_service(tmp_path: Path, *, spend_enabled: bool = True) -> WalletGovernorService:
     ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
+    archive_root = tmp_path / "archive"
+    archive_root.mkdir(parents=True, exist_ok=True)
+    evidence_path = archive_root / "artifact_001.html"
+    evidence_bytes = b"wallet test evidence"
+    evidence_path.write_bytes(evidence_bytes)
     ledger_service.create_opportunity(
         Opportunity(
             created_at=datetime(2026, 1, 1, tzinfo=UTC),
@@ -71,6 +79,14 @@ def make_service(tmp_path: Path, *, spend_enabled: bool = True) -> WalletGoverno
             created_at=datetime(2026, 1, 1, 0, 1, tzinfo=UTC),
             policy_decision_id="policy_001",
             opportunity_id="opp_001",
+            action_type=ActionType.SPEND,
+            category="purchase",
+            requires_payment=True,
+            requires_wallet_action=True,
+            amount_usd=100.0,
+            counterparty="Example Vendor",
+            planned_tools=["wallet_governor_client"],
+            sanitized_input={"action_type": "spend"},
             decision=PolicyDecisionType.ALLOW,
             risk_level=RiskLevel.LOW,
             confidence=ConfidenceLevel.HIGH,
@@ -122,8 +138,8 @@ def make_service(tmp_path: Path, *, spend_enabled: bool = True) -> WalletGoverno
             related_record_type=RecordType.OPPORTUNITY,
             related_record_id="opp_001",
             evidence_type="html_snapshot",
-            archive_path="archive/2026/01/01/artifact_001.html",
-            content_sha256="a" * 64,
+            archive_path=str(evidence_path),
+            content_sha256=sha256_bytes(evidence_bytes),
             source_url="https://example.com/opportunity",
         ),
         idempotency_key="evidence:artifact_001",
@@ -133,6 +149,7 @@ def make_service(tmp_path: Path, *, spend_enabled: bool = True) -> WalletGoverno
         base_url="http://127.0.0.1:8080",
         spend_enabled=spend_enabled,
         allowed_assets=["BTC"],
+        archive_root=archive_root,
     )
     policy = MoneyBotPolicyConfig(
         policy_version="v1",
@@ -186,6 +203,7 @@ def seed_spend_request(
             created_at=utc_now(),
             spend_request_id=request.spend_request_id,
             opportunity_id=request.opportunity_id,
+            experiment_id=request.experiment_id,
             budget_plan_id=request.budget_plan_id,
             policy_decision_id=request.policy_decision_id,
             ledger_record_id=prewrite.ledger_event_id,
@@ -213,6 +231,7 @@ def seed_spend_without_prewrite(
             created_at=utc_now(),
             spend_request_id=request.spend_request_id,
             opportunity_id=request.opportunity_id,
+            experiment_id=request.experiment_id,
             budget_plan_id=request.budget_plan_id,
             policy_decision_id=request.policy_decision_id,
             ledger_record_id=request.ledger_record_id,
@@ -281,7 +300,20 @@ def block_policy_category(value: str) -> Mutator:
         service: WalletGovernorService,
     ) -> None:
         service.policy_config.blocked_categories.append(value)
+        sync_category_everywhere(value)(request, bundle, service)
+
+    return _mutate
+
+
+def sync_category_everywhere(value: str) -> Mutator:
+    def _mutate(
+        request: WalletSendRequest,
+        bundle: SpendAuthorizationBundle,
+        service: WalletGovernorService,
+    ) -> None:
         sync_request_and_spend_request("category", value)(request, bundle, service)
+        assert bundle.policy_decision is not None
+        bundle.policy_decision = bundle.policy_decision.model_copy(update={"category": value})
 
     return _mutate
 
@@ -330,7 +362,8 @@ def set_unrelated_evidence(
     bundle: SpendAuthorizationBundle,
     service: WalletGovernorService,
 ) -> None:
-    del request, service
+    del service
+    request.evidence_archive_ids = ["artifact_unrelated"]
     assert bundle.tos_legal_check is not None
     bundle.tos_legal_check = bundle.tos_legal_check.model_copy(
         update={"evidence_archive_ids": ["artifact_unrelated"]}
@@ -370,8 +403,30 @@ def test_quote_returns_btc_and_fee(tmp_path: Path) -> None:
         )
     )
 
+    assert result.amount_sats is not None
+    assert result.fee_sats is not None
     assert result.amount_sats > 0
     assert result.fee_sats > 0
+
+
+def test_quote_rejects_invalid_destination(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+
+    result = service.quote(
+        WalletQuoteRequest(
+            asset="BTC",
+            amount_usd=5.0,
+            btc_usd_rate=50_000.0,
+            destination="not-a-btc-address",
+        )
+    )
+
+    assert result.status == "rejected"
+    assert result.reason == "destination_invalid"
+    backend = service.backend
+    assert isinstance(backend, FakeWalletBackend)
+    assert backend.state.last_unlock_seconds == 0
+    assert backend.state.send_count == 0
 
 
 def test_send_rejects_when_spend_disabled(tmp_path: Path) -> None:
@@ -525,22 +580,22 @@ def test_send_rejects_bundle_validation_matrix(
                 "ledger_record_id",
                 "other-ledger",
             ),
-            expected_reason="spend_request_mismatch",
+            expected_reason="ledger_record_mismatch",
         ),
         case(
             label="mismatched-opportunity",
             mutate=lambda request, bundle, svc: setattr(request, "opportunity_id", "opp_other"),
-            expected_reason="spend_request_mismatch",
+            expected_reason="opportunity_id_mismatch",
         ),
         case(
             label="mismatched-counterparty",
             mutate=lambda request, bundle, svc: setattr(request, "counterparty", "Other Vendor"),
-            expected_reason="spend_request_mismatch",
+            expected_reason="counterparty_mismatch",
         ),
         case(
             label="mismatched-purpose",
             mutate=lambda request, bundle, svc: setattr(request, "purpose", "Other purpose"),
-            expected_reason="spend_request_mismatch",
+            expected_reason="purpose_mismatch",
         ),
         case(
             label="policy-missing",
@@ -555,7 +610,7 @@ def test_send_rejects_bundle_validation_matrix(
         case(
             label="policy-opportunity-mismatch",
             mutate=update_policy(opportunity_id="opp_else"),
-            expected_reason="policy_not_allow",
+            expected_reason="policy_context_mismatch",
         ),
         case(
             label="budget-missing",
@@ -609,12 +664,12 @@ def test_send_rejects_bundle_validation_matrix(
         ),
         case(
             label="blank-category",
-            mutate=sync_request_and_spend_request("category", ""),
+            mutate=sync_category_everywhere(""),
             expected_reason="category_missing",
         ),
         case(
             label="built-in-blocked-category",
-            mutate=sync_request_and_spend_request("category", "gambling"),
+            mutate=sync_category_everywhere("gambling"),
             expected_reason="category_blocked",
         ),
         case(
@@ -624,7 +679,7 @@ def test_send_rejects_bundle_validation_matrix(
         ),
         case(
             label="unknown-category",
-            mutate=sync_request_and_spend_request("category", "mystery"),
+            mutate=sync_category_everywhere("mystery"),
             expected_reason="category_unknown",
         ),
         case(
@@ -634,7 +689,7 @@ def test_send_rejects_bundle_validation_matrix(
                 "spend_request",
                 bundle.spend_request.model_copy(update={"evidence_archive_ids": []}),
             ),
-            expected_reason="evidence_missing",
+            expected_reason="evidence_ids_mismatch",
         ),
         case(
             label="unrelated-evidence",
@@ -797,3 +852,170 @@ def test_send_rejects_send_all_request() -> None:
         assert "send_all" in str(error)
     else:
         raise AssertionError("Expected send_all validation failure")
+
+
+def test_send_rejects_missing_evidence_file(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    request = seed_spend_request(service)
+    bundle = get_bundle(service, request)
+    assert bundle.evidence_records
+    Path(bundle.evidence_records[0].archive_path).unlink()
+
+    result = service.capped_send(request)
+
+    assert result.status == "rejected"
+    assert result.reason == "evidence_missing"
+
+
+def test_send_rejects_evidence_hash_mismatch(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    request = seed_spend_request(service)
+    bundle = get_bundle(service, request)
+    assert bundle.evidence_records
+    Path(bundle.evidence_records[0].archive_path).write_text("tampered", encoding="utf-8")
+
+    result = service.capped_send(request)
+
+    assert result.status == "rejected"
+    assert result.reason == "evidence_hash_mismatch"
+
+
+def test_send_rejects_evidence_path_outside_archive_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = make_service(tmp_path)
+    request = seed_spend_request(service)
+    bundle = get_bundle(service, request)
+    assert bundle.evidence_records
+    bundle.evidence_records[0] = bundle.evidence_records[0].model_copy(
+        update={"archive_path": str(tmp_path.parent / "escape.txt")}
+    )
+    monkeypatch.setattr(
+        service.ledger_service,
+        "get_spend_authorization_bundle",
+        lambda spend_request_id: bundle if spend_request_id == request.spend_request_id else None,
+    )
+
+    result = service.capped_send(request)
+
+    assert result.status == "rejected"
+    assert result.reason == "evidence_path_invalid"
+
+
+def test_quote_fee_failure_returns_structured_rejection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = make_service(tmp_path)
+
+    def raise_fee_error(amount_sats: int) -> int:
+        del amount_sats
+        raise WalletBackendError("fee unavailable")
+
+    monkeypatch.setattr(service.backend, "estimate_fee_sats", raise_fee_error)
+
+    result = service.quote(
+        WalletQuoteRequest(
+            asset="BTC",
+            amount_usd=5.0,
+            btc_usd_rate=50_000.0,
+            destination="bcrt1qmoneybotdest123",
+        )
+    )
+
+    assert result.status == "rejected"
+    assert result.reason == "fee_quote_failed"
+
+
+def test_unlock_failure_returns_error_without_sending(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = make_service(tmp_path)
+    request = seed_spend_request(
+        service,
+        spend_request_id="spend_unlock",
+        idempotency_key="send_unlock",
+    )
+
+    def raise_unlock_error(seconds: int) -> None:
+        del seconds
+        raise WalletBackendError("unlock failed")
+
+    monkeypatch.setattr(service.backend, "unlock", raise_unlock_error)
+
+    result = service.capped_send(request)
+
+    backend = service.backend
+    assert isinstance(backend, FakeWalletBackend)
+    assert result.status == "error"
+    assert result.reason == "wallet_unlock_failed"
+    assert backend.state.send_count == 0
+    spend_request = service.ledger_service.get_spend_request("spend_unlock")
+    assert spend_request is not None
+    assert spend_request.status == SpendRequestStatus.FAILED
+
+
+def test_send_failure_returns_error_and_no_transaction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = make_service(tmp_path)
+    request = seed_spend_request(
+        service,
+        spend_request_id="spend_send_fail",
+        idempotency_key="send_send_fail",
+    )
+
+    def raise_send_error(destination: str, amount_sats: int) -> str:
+        del destination, amount_sats
+        raise WalletBackendError("send failed")
+
+    monkeypatch.setattr(service.backend, "send_to_address", raise_send_error)
+
+    result = service.capped_send(request)
+
+    backend = service.backend
+    assert isinstance(backend, FakeWalletBackend)
+    assert result.status == "error"
+    assert result.reason == "wallet_send_failed"
+    assert backend.state.lock_count == 1
+    assert (
+        service.ledger_service.list_wallet_transactions_for_spend_request(
+            "spend_send_fail"
+        )
+        == []
+    )
+
+
+def test_lock_failure_returns_warning_after_successful_send(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = make_service(tmp_path)
+    request = seed_spend_request(
+        service,
+        spend_request_id="spend_lock_fail",
+        idempotency_key="send_lock_fail",
+    )
+
+    def raise_lock_error() -> None:
+        raise WalletBackendError("lock failed")
+
+    monkeypatch.setattr(service.backend, "lock", raise_lock_error)
+
+    result = service.capped_send(request)
+    audit_events = service.ledger_service.get_related_events(
+        related_type=RecordType.AUDIT_EVENT,
+    )
+
+    assert result.status == "sent"
+    assert result.warnings == ["wallet_lock_failed"]
+    assert any(
+        isinstance(payload, dict)
+        and payload.get("event_name") == "wallet_lock_failed"
+        and event.payload.get("related_record_id") == "spend_lock_fail"
+        for event in audit_events
+        for payload in [event.payload.get("payload")]
+    )

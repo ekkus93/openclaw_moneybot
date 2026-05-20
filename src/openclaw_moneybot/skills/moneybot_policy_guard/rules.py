@@ -16,6 +16,7 @@ from openclaw_moneybot.skills.moneybot_policy_guard.models import (
 from openclaw_moneybot.skills.moneybot_policy_guard.taxonomy import (
     ALLOWED_ACTION_TYPES_FOR_RESEARCH,
     BLOCKED_TOOL_PATTERNS,
+    BUILTIN_ALLOWED_EXECUTION_CATEGORIES,
     BUILTIN_ALLOWED_LOW_RISK_CATEGORIES,
     BUILTIN_BLOCKED_CATEGORIES,
     BUILTIN_REVIEW_REQUIRED_CATEGORIES,
@@ -51,6 +52,29 @@ def _request_fingerprint(request: PolicyCheckRequest) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _sanitized_policy_input(request: PolicyCheckRequest) -> dict[str, object]:
+    return {
+        "action_id": request.action_id,
+        "action_type": request.action_type.value,
+        "title": request.title,
+        "description": request.description,
+        "category": normalize_category(request.category),
+        "counterparty": request.counterparty,
+        "amount_usd": request.amount_usd,
+        "asset": request.asset,
+        "source_urls": [str(url) for url in request.source_urls],
+        "planned_tools": request.planned_tools,
+        "user_approval_present": request.user_approval_present,
+        "requires_new_account": request.requires_new_account,
+        "requires_payment": request.requires_payment,
+        "requires_email_send": request.requires_email_send,
+        "requires_wallet_action": request.requires_wallet_action,
+        "requires_public_claims": request.requires_public_claims,
+        "requires_user_data_collection": request.requires_user_data_collection,
+        "metadata": request.metadata,
+    }
+
+
 def evaluate_policy(
     request: PolicyCheckRequest,
     config: MoneyBotPolicyConfig,
@@ -63,7 +87,9 @@ def evaluate_policy(
     review_categories = BUILTIN_REVIEW_REQUIRED_CATEGORIES | {
         normalize_category(value) for value in config.review_required_categories
     }
-    allowed_categories = BUILTIN_ALLOWED_LOW_RISK_CATEGORIES
+    allowed_categories = (
+        BUILTIN_ALLOWED_LOW_RISK_CATEGORIES | BUILTIN_ALLOWED_EXECUTION_CATEGORIES
+    )
 
     blocked_reasons: list[str] = []
     mitigations: list[str] = []
@@ -77,6 +103,17 @@ def evaluate_policy(
         if "opportunity_id" in request.metadata
         else None
     )
+    experiment_id = (
+        str(request.metadata.get("experiment_id"))
+        if "experiment_id" in request.metadata
+        else None
+    )
+    spend_request_id = (
+        str(request.metadata.get("spend_request_id"))
+        if "spend_request_id" in request.metadata
+        else None
+    )
+    sanitized_input = _sanitized_policy_input(request)
 
     if request.action_type not in config.allowed_action_types:
         blocked_reasons.append("Action type is not enabled by policy config.")
@@ -183,6 +220,16 @@ def evaluate_policy(
             created_at=utc_now(),
             policy_decision_id=make_id("policy"),
             opportunity_id=opportunity_id,
+            action_type=request.action_type,
+            category=normalized_category,
+            requires_payment=request.requires_payment,
+            requires_wallet_action=request.requires_wallet_action,
+            amount_usd=request.amount_usd,
+            counterparty=request.counterparty,
+            experiment_id=experiment_id,
+            spend_request_id=spend_request_id,
+            planned_tools=request.planned_tools,
+            sanitized_input=sanitized_input,
             decision=PolicyDecisionType.BLOCK,
             risk_level=RiskLevel.CRITICAL,
             confidence=ConfidenceLevel.HIGH,
@@ -224,6 +271,16 @@ def evaluate_policy(
             created_at=utc_now(),
             policy_decision_id=make_id("policy"),
             opportunity_id=opportunity_id,
+            action_type=request.action_type,
+            category=normalized_category,
+            requires_payment=request.requires_payment,
+            requires_wallet_action=request.requires_wallet_action,
+            amount_usd=request.amount_usd,
+            counterparty=request.counterparty,
+            experiment_id=experiment_id,
+            spend_request_id=spend_request_id,
+            planned_tools=request.planned_tools,
+            sanitized_input=sanitized_input,
             decision=PolicyDecisionType.NEEDS_REVIEW,
             risk_level=RiskLevel.MEDIUM,
             confidence=ConfidenceLevel.HIGH,
@@ -279,6 +336,16 @@ def evaluate_policy(
         created_at=utc_now(),
         policy_decision_id=make_id("policy"),
         opportunity_id=opportunity_id,
+        action_type=request.action_type,
+        category=normalized_category,
+        requires_payment=request.requires_payment,
+        requires_wallet_action=request.requires_wallet_action,
+        amount_usd=request.amount_usd,
+        counterparty=request.counterparty,
+        experiment_id=experiment_id,
+        spend_request_id=spend_request_id,
+        planned_tools=request.planned_tools,
+        sanitized_input=sanitized_input,
         decision=PolicyDecisionType.ALLOW,
         risk_level=RiskLevel.LOW,
         confidence=ConfidenceLevel.HIGH,

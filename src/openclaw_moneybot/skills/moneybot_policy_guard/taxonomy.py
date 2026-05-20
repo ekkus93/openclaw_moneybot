@@ -62,6 +62,18 @@ BUILTIN_ALLOWED_LOW_RISK_CATEGORIES = {
     "static_page_generation",
 }
 
+BUILTIN_ALLOWED_EXECUTION_CATEGORIES = {
+    "purchase",
+    "infrastructure",
+    "domain",
+    "hosting",
+    "listing_fee",
+    "software_tool",
+    "software_credit",
+    "bounty_submission_fee",
+    "experiment_material",
+}
+
 BLOCKED_TOOL_PATTERNS = {
     "bitcoin-cli": "direct_bitcoin_cli",
     "sendall": "send_all_request",

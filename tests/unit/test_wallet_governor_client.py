@@ -20,6 +20,7 @@ from openclaw_moneybot.shared import (
 )
 from openclaw_moneybot.shared.config import MoneyBotPolicyConfig, WalletGovernorConfig
 from openclaw_moneybot.shared.types import (
+    ActionType,
     BudgetDecisionType,
     ConfidenceLevel,
     PolicyDecisionType,
@@ -69,6 +70,14 @@ def make_skill(
             created_at=datetime(2026, 1, 1, 0, 1, tzinfo=UTC),
             policy_decision_id="policy_001",
             opportunity_id="opp_001",
+            action_type=ActionType.SPEND,
+            category="listing_fee",
+            requires_payment=True,
+            requires_wallet_action=True,
+            amount_usd=100.0,
+            counterparty="Example Vendor",
+            planned_tools=["wallet_governor_client"],
+            sanitized_input={"action_type": "spend"},
             decision=PolicyDecisionType.ALLOW,
             risk_level=RiskLevel.LOW,
             confidence=ConfidenceLevel.HIGH,

@@ -195,3 +195,57 @@ def test_uncertain_revenue_returns_simulate(tmp_path: Path) -> None:
     )
 
     assert result.budget_plan.decision.value == "simulate"
+
+
+def test_policy_block_beats_revenue_uncertainty(tmp_path: Path) -> None:
+    planner = make_planner(tmp_path)
+
+    result = planner.evaluate(
+        make_request(
+            policy_decision="block",
+            expected_revenue_unknown=True,
+            estimated_revenue_usd=None,
+        )
+    )
+
+    assert result.budget_plan.decision.value == "reject"
+
+
+def test_missing_reference_ids_do_not_insert_budget_plan(tmp_path: Path) -> None:
+    planner = make_planner(tmp_path)
+
+    result = planner.evaluate(
+        make_request(
+            policy_decision_id="policy_missing",
+            tos_legal_check_id="tos_missing",
+        )
+    )
+
+    assert result.budget_plan.decision.value == "reject"
+    assert planner.ledger_service.get_budget_plan(result.budget_plan.budget_plan_id) is None
+    assert any("policy_missing" in reason for reason in result.budget_plan.reasons)
+    assert any("tos_missing" in reason for reason in result.budget_plan.reasons)
+
+
+def test_missing_opportunity_does_not_insert_budget_plan(tmp_path: Path) -> None:
+    planner = make_planner(tmp_path)
+
+    result = planner.evaluate(make_request(opportunity_id="opp_missing"))
+
+    assert result.budget_plan.decision.value == "reject"
+    assert planner.ledger_service.get_budget_plan(result.budget_plan.budget_plan_id) is None
+    assert any("opportunity_missing" in reason for reason in result.budget_plan.reasons)
+
+
+def test_review_required_category_beats_simulate(tmp_path: Path) -> None:
+    planner = make_planner(tmp_path)
+
+    result = planner.evaluate(
+        make_request(
+            approved_spend_categories=["affiliate_marketing"],
+            expected_revenue_unknown=True,
+            estimated_revenue_usd=None,
+        )
+    )
+
+    assert result.budget_plan.decision.value == "human_review"

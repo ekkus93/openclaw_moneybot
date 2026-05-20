@@ -18,21 +18,21 @@ P2 = documentation / cleanup / hardening
 
 # 0. Global Rules
 
-- [ ] Continue from the latest Copilot implementation reviewed after Code Review 1.
-- [ ] Keep real wallet spending disabled by default.
-- [ ] Keep Bitcoin Core backend disabled by default.
-- [ ] Keep email sending disabled by default.
-- [ ] Keep browser automation non-executing/disabled by default.
-- [ ] Do not add arbitrary Bitcoin RPC passthrough.
-- [ ] Do not add `sendall`, `dumpprivkey`, `dumpwallet`, or equivalent methods.
-- [ ] Do not commit wallet passphrases.
-- [ ] Do not commit private keys.
-- [ ] Do not commit Bitcoin Core RPC cookies.
-- [ ] Do not commit seed phrases.
-- [ ] Do not put secrets in tests, fixtures, logs, prompts, or docs.
-- [ ] Fail closed on malformed, missing, ambiguous, or unverifiable data.
-- [ ] Add regression tests for every fixed issue.
-- [ ] Run the full test suite before completion.
+- [x] Continue from the latest Copilot implementation reviewed after Code Review 1.
+- [x] Keep real wallet spending disabled by default.
+- [x] Keep Bitcoin Core backend disabled by default.
+- [x] Keep email sending disabled by default.
+- [x] Keep browser automation non-executing/disabled by default.
+- [x] Do not add arbitrary Bitcoin RPC passthrough.
+- [x] Do not add `sendall`, `dumpprivkey`, `dumpwallet`, or equivalent methods.
+- [x] Do not commit wallet passphrases.
+- [x] Do not commit private keys.
+- [x] Do not commit Bitcoin Core RPC cookies.
+- [x] Do not commit seed phrases.
+- [x] Do not put secrets in tests, fixtures, logs, prompts, or docs.
+- [x] Fail closed on malformed, missing, ambiguous, or unverifiable data.
+- [x] Add regression tests for every fixed issue.
+- [x] Run the full test suite before completion.
 
 ---
 
@@ -52,65 +52,65 @@ Persist enough policy request/action metadata for the wallet service to verify w
 
 Add these fields to persisted policy decision records, or add a linked policy request/action record:
 
-- [ ] `action_type`
-- [ ] `category`
-- [ ] `requires_payment`
-- [ ] `requires_wallet_action`
-- [ ] `amount_usd`
-- [ ] `counterparty`
-- [ ] `opportunity_id`
-- [ ] `experiment_id`
-- [ ] `spend_request_id`, if applicable
-- [ ] `planned_tools`
-- [ ] sanitized raw policy input
-- [ ] optional policy input hash
+- [x] `action_type`
+- [x] `category`
+- [x] `requires_payment`
+- [x] `requires_wallet_action`
+- [x] `amount_usd`
+- [x] `counterparty`
+- [x] `opportunity_id`
+- [x] `experiment_id`
+- [x] `spend_request_id`, if applicable
+- [x] `planned_tools`
+- [x] sanitized raw policy input
+- [x] optional policy input hash
 
 ## 1.4 Schema / Model Work
 
-- [ ] Update Pydantic policy models.
-- [ ] Update SQLite schema/migration.
-- [ ] Update ledger insert method for policy decisions.
-- [ ] Update ledger read method for policy decisions.
-- [ ] Update raw JSON serialization.
-- [ ] Update tests/fixtures that create policy decisions.
-- [ ] Preserve backward compatibility only if required; otherwise update fixtures cleanly.
+- [x] Update Pydantic policy models.
+- [x] Update SQLite schema/migration.
+- [x] Update ledger insert method for policy decisions.
+- [x] Update ledger read method for policy decisions.
+- [x] Update raw JSON serialization.
+- [x] Update tests/fixtures that create policy decisions.
+- [x] Preserve backward compatibility only if required; otherwise update fixtures cleanly.
 
 ## 1.5 Wallet Service Validation
 
 In wallet-governor service validation:
 
-- [ ] Reject if policy action metadata is missing.
-- [ ] Reject if `policy.decision != allow`.
-- [ ] Reject if `policy.action_type` is not one of:
-  - [ ] `SPEND`
-  - [ ] `WALLET_TRANSFER`
-  - [ ] `PURCHASE`
-- [ ] Reject if `policy.requires_wallet_action != true`.
-- [ ] Reject if `policy.requires_payment != true`.
-- [ ] Reject if policy `amount_usd` is missing.
-- [ ] Reject if spend request amount exceeds policy-approved amount.
-- [ ] Reject if policy counterparty conflicts with spend request counterparty.
-- [ ] Reject if policy category conflicts with spend request category.
-- [ ] Reject if policy opportunity ID conflicts with spend request opportunity ID.
-- [ ] Reject if policy experiment ID conflicts with spend request experiment ID, when applicable.
-- [ ] Reject if policy planned tools do not include wallet spend or wallet governor, if planned tools are enforced.
+- [x] Reject if policy action metadata is missing.
+- [x] Reject if `policy.decision != allow`.
+- [x] Reject if `policy.action_type` is not one of:
+  - [x] `SPEND`
+  - [x] `WALLET_TRANSFER`
+  - [x] `PURCHASE`
+- [x] Reject if `policy.requires_wallet_action != true`.
+- [x] Reject if `policy.requires_payment != true`.
+- [x] Reject if policy `amount_usd` is missing.
+- [x] Reject if spend request amount exceeds policy-approved amount.
+- [x] Reject if policy counterparty conflicts with spend request counterparty.
+- [x] Reject if policy category conflicts with spend request category.
+- [x] Reject if policy opportunity ID conflicts with spend request opportunity ID.
+- [x] Reject if policy experiment ID conflicts with spend request experiment ID, when applicable.
+- [x] Reject if policy planned tools do not include wallet spend or wallet governor, if planned tools are enforced.
 
 ## 1.6 Required Tests
 
-- [ ] Wallet service accepts executable spend policy.
-- [ ] Wallet service accepts executable wallet-transfer policy.
-- [ ] Wallet service accepts executable purchase policy when all other gates pass.
-- [ ] Wallet service rejects research policy.
-- [ ] Wallet service rejects email-draft policy.
-- [ ] Wallet service rejects read-only/browser policy.
-- [ ] Wallet service rejects policy with missing action metadata.
-- [ ] Wallet service rejects policy with `requires_wallet_action=false`.
-- [ ] Wallet service rejects policy with `requires_payment=false`.
-- [ ] Wallet service rejects policy amount lower than spend request amount.
-- [ ] Wallet service rejects policy counterparty mismatch.
-- [ ] Wallet service rejects policy category mismatch.
-- [ ] Wallet service rejects policy opportunity mismatch.
-- [ ] Existing policy guard tests still pass.
+- [x] Wallet service accepts executable spend policy.
+- [x] Wallet service accepts executable wallet-transfer policy.
+- [x] Wallet service accepts executable purchase policy when all other gates pass.
+- [x] Wallet service rejects research policy.
+- [x] Wallet service rejects email-draft policy.
+- [x] Wallet service rejects read-only/browser policy.
+- [x] Wallet service rejects policy with missing action metadata.
+- [x] Wallet service rejects policy with `requires_wallet_action=false`.
+- [x] Wallet service rejects policy with `requires_payment=false`.
+- [x] Wallet service rejects policy amount lower than spend request amount.
+- [x] Wallet service rejects policy counterparty mismatch.
+- [x] Wallet service rejects policy category mismatch.
+- [x] Wallet service rejects policy opportunity mismatch.
+- [x] Existing policy guard tests still pass.
 
 ---
 
@@ -134,23 +134,23 @@ In the wallet service, compare incoming request fields against the ledger spend 
 
 Reject mismatches for:
 
-- [ ] `policy_decision_id`
-- [ ] `budget_plan_id`
-- [ ] `evidence_archive_ids`
-- [ ] amount
-- [ ] destination
-- [ ] category
-- [ ] counterparty, when present
-- [ ] purpose, when materially inconsistent
-- [ ] opportunity ID, if request includes it
-- [ ] experiment ID, if request includes it
+- [x] `policy_decision_id`
+- [x] `budget_plan_id`
+- [x] `evidence_archive_ids`
+- [x] amount
+- [x] destination
+- [x] category
+- [x] counterparty, when present
+- [x] purpose, when materially inconsistent
+- [x] opportunity ID, if request includes it
+- [x] experiment ID, if request includes it
 
 ## 2.3 Evidence ID Comparison Rules
 
-- [ ] Treat evidence IDs as sets unless order is semantically required.
-- [ ] Reject if request omits required ledger evidence IDs.
-- [ ] Reject if request adds unrelated evidence IDs.
-- [ ] Reject if request evidence IDs do not exactly match the spend request evidence IDs, unless explicitly documented otherwise.
+- [x] Treat evidence IDs as sets unless order is semantically required.
+- [x] Reject if request omits required ledger evidence IDs.
+- [x] Reject if request adds unrelated evidence IDs.
+- [x] Reject if request evidence IDs do not exactly match the spend request evidence IDs, unless explicitly documented otherwise.
 
 ## 2.4 Rejection Reason
 
@@ -175,19 +175,19 @@ purpose_mismatch
 
 ## 2.5 Required Tests
 
-- [ ] Reject request policy ID mismatch.
-- [ ] Reject request budget ID mismatch.
-- [ ] Reject request evidence ID mismatch.
-- [ ] Reject request missing evidence ID.
-- [ ] Reject request added unrelated evidence ID.
-- [ ] Reject request amount mismatch.
-- [ ] Reject request destination mismatch.
-- [ ] Reject request category mismatch.
-- [ ] Reject request counterparty mismatch.
-- [ ] Accept matching request/ledger fields.
-- [ ] Rejection writes audit event.
-- [ ] Rejection updates spend request status where appropriate.
-- [ ] Wallet backend is not called on mismatch.
+- [x] Reject request policy ID mismatch.
+- [x] Reject request budget ID mismatch.
+- [x] Reject request evidence ID mismatch.
+- [x] Reject request missing evidence ID.
+- [x] Reject request added unrelated evidence ID.
+- [x] Reject request amount mismatch.
+- [x] Reject request destination mismatch.
+- [x] Reject request category mismatch.
+- [x] Reject request counterparty mismatch.
+- [x] Accept matching request/ledger fields.
+- [x] Rejection writes audit event.
+- [x] Rejection updates spend request status where appropriate.
+- [x] Wallet backend is not called on mismatch.
 
 ---
 
@@ -199,38 +199,38 @@ If `spend_enabled=false`, the service rejects early and leaves a valid prewritte
 
 ## 3.2 Required Flow
 
-- [ ] Parse request enough to get `spend_request_id`.
-- [ ] If `spend_request_id` exists, attempt to load the spend request before early rejection.
-- [ ] If request must be rejected and spend request is eligible, update status to `rejected`.
-- [ ] Preserve terminal statuses.
-- [ ] Record audit event.
+- [x] Parse request enough to get `spend_request_id`.
+- [x] If `spend_request_id` exists, attempt to load the spend request before early rejection.
+- [x] If request must be rejected and spend request is eligible, update status to `rejected`.
+- [x] Preserve terminal statuses.
+- [x] Record audit event.
 
 ## 3.3 Eligible Rejection Transitions
 
-- [ ] `proposed -> rejected`
-- [ ] `approved -> rejected`
-- [ ] `sending -> failed` for backend failures
+- [x] `proposed -> rejected`
+- [x] `approved -> rejected`
+- [x] `sending -> failed` for backend failures
 
 ## 3.4 Terminal Statuses
 
 Do not mutate these during ordinary rejection:
 
-- [ ] `sent`
-- [ ] `confirmed`
-- [ ] `failed`
-- [ ] `rejected`
-- [ ] `cancelled`
+- [x] `sent`
+- [x] `confirmed`
+- [x] `failed`
+- [x] `rejected`
+- [x] `cancelled`
 
 ## 3.5 Required Tests
 
-- [ ] `spend_disabled` rejection updates proposed spend to rejected.
-- [ ] `spend_disabled` rejection updates approved spend to rejected.
-- [ ] `spend_disabled` rejection does not mutate already sent spend.
-- [ ] validation rejection updates proposed spend to rejected.
-- [ ] validation rejection updates approved spend to rejected.
-- [ ] backend failure updates sending spend to failed.
-- [ ] all rejection status updates create audit events.
-- [ ] missing spend request ID still returns structured rejection.
+- [x] `spend_disabled` rejection updates proposed spend to rejected.
+- [x] `spend_disabled` rejection updates approved spend to rejected.
+- [x] `spend_disabled` rejection does not mutate already sent spend.
+- [x] validation rejection updates proposed spend to rejected.
+- [x] validation rejection updates approved spend to rejected.
+- [x] backend failure updates sending spend to failed.
+- [x] all rejection status updates create audit events.
+- [x] missing spend request ID still returns structured rejection.
 
 ---
 
@@ -244,30 +244,30 @@ Do not mutate these during ordinary rejection:
 
 Apply the same destination validation to quote as send:
 
-- [ ] require destination
-- [ ] reject empty destination
-- [ ] reject placeholder/test strings
-- [ ] reject malformed BTC address
-- [ ] reject unsupported network address
-- [ ] reject configured destination blocklist hits
-- [ ] reject `send_all`
-- [ ] reject `sweep`
-- [ ] reject `max`
-- [ ] reject `all funds`
-- [ ] reject equivalent send-all language
-- [ ] do not unlock wallet for quote
-- [ ] do not call send backend for quote
+- [x] require destination
+- [x] reject empty destination
+- [x] reject placeholder/test strings
+- [x] reject malformed BTC address
+- [x] reject unsupported network address
+- [x] reject configured destination blocklist hits
+- [x] reject `send_all`
+- [x] reject `sweep`
+- [x] reject `max`
+- [x] reject `all funds`
+- [x] reject equivalent send-all language
+- [x] do not unlock wallet for quote
+- [x] do not call send backend for quote
 
 ## 4.3 Required Tests
 
-- [ ] Quote rejects `not-a-btc-address`.
-- [ ] Quote rejects empty destination.
-- [ ] Quote rejects placeholder destination.
-- [ ] Quote rejects send-all language.
-- [ ] Quote rejects unsupported network address.
-- [ ] Quote accepts valid configured-network BTC destination.
-- [ ] Quote does not call wallet unlock.
-- [ ] Quote does not call wallet send.
+- [x] Quote rejects `not-a-btc-address`.
+- [x] Quote rejects empty destination.
+- [x] Quote rejects placeholder destination.
+- [x] Quote rejects send-all language.
+- [x] Quote rejects unsupported network address.
+- [x] Quote accepts valid configured-network BTC destination.
+- [x] Quote does not call wallet unlock.
+- [x] Quote does not call wallet send.
 
 ---
 
@@ -279,58 +279,58 @@ Backend failures from quote, fee estimation, wallet unlock, wallet send, or wall
 
 ## 5.2 Quote/Fee Failure Handling
 
-- [ ] Wrap fee estimation failures.
-- [ ] Return structured failure response.
-- [ ] Use reason code `fee_quote_failed`.
-- [ ] Record audit event.
-- [ ] Update spend request status to `rejected` when appropriate.
-- [ ] Do not call wallet unlock.
-- [ ] Do not call wallet send.
+- [x] Wrap fee estimation failures.
+- [x] Return structured failure response.
+- [x] Use reason code `fee_quote_failed`.
+- [x] Record audit event.
+- [x] Update spend request status to `rejected` when appropriate.
+- [x] Do not call wallet unlock.
+- [x] Do not call wallet send.
 
 ## 5.3 Unlock Failure Handling
 
-- [ ] Wrap wallet unlock failures.
-- [ ] Return structured failure response.
-- [ ] Use reason code `backend_error` or `wallet_unlock_failed`.
-- [ ] Record audit event.
-- [ ] Update spend request status to `failed` or `rejected`, depending on state.
-- [ ] Do not call wallet send if unlock fails.
-- [ ] Attempt wallet lock in a best-effort safe block if unlock state is ambiguous.
-- [ ] Do not leak passphrase or backend details.
+- [x] Wrap wallet unlock failures.
+- [x] Return structured failure response.
+- [x] Use reason code `backend_error` or `wallet_unlock_failed`.
+- [x] Record audit event.
+- [x] Update spend request status to `failed` or `rejected`, depending on state.
+- [x] Do not call wallet send if unlock fails.
+- [x] Attempt wallet lock in a best-effort safe block if unlock state is ambiguous.
+- [x] Do not leak passphrase or backend details.
 
 ## 5.4 Send Failure Handling
 
-- [ ] Wrap wallet send failures.
-- [ ] Return structured failure response.
-- [ ] Use reason code `backend_error` or `wallet_send_failed`.
-- [ ] Record audit event.
-- [ ] Update spend request status to `failed`.
-- [ ] Attempt wallet lock in `finally`.
-- [ ] Do not record successful wallet transaction.
+- [x] Wrap wallet send failures.
+- [x] Return structured failure response.
+- [x] Use reason code `backend_error` or `wallet_send_failed`.
+- [x] Record audit event.
+- [x] Update spend request status to `failed`.
+- [x] Attempt wallet lock in `finally`.
+- [x] Do not record successful wallet transaction.
 
 ## 5.5 Lock Failure Handling
 
-- [ ] Catch wallet lock failures in `finally`.
-- [ ] Record audit event with reason code `wallet_lock_failed`.
-- [ ] Do not mark spend as successful solely because lock failed.
-- [ ] If send succeeded but lock failed, return success with warning or failure requiring review; choose one and document it.
-- [ ] Never leak secrets in lock failure logs.
+- [x] Catch wallet lock failures in `finally`.
+- [x] Record audit event with reason code `wallet_lock_failed`.
+- [x] Do not mark spend as successful solely because lock failed.
+- [x] If send succeeded but lock failed, return success with warning or failure requiring review; choose one and document it.
+- [x] Never leak secrets in lock failure logs.
 
 ## 5.6 Required Tests
 
-- [ ] Fee quote failure returns structured rejection.
-- [ ] Fee quote failure writes audit event.
-- [ ] Fee quote failure updates spend request status.
-- [ ] Unlock failure returns structured failure.
-- [ ] Unlock failure writes audit event.
-- [ ] Unlock failure does not call send.
-- [ ] Send failure returns structured failure.
-- [ ] Send failure writes audit event.
-- [ ] Send failure updates status to failed.
-- [ ] Send failure does not record wallet transaction.
-- [ ] Lock failure writes audit event.
-- [ ] Lock failure does not leak secrets.
-- [ ] Backend exception does not crash HTTP route with traceback.
+- [x] Fee quote failure returns structured rejection.
+- [x] Fee quote failure writes audit event.
+- [x] Fee quote failure updates spend request status.
+- [x] Unlock failure returns structured failure.
+- [x] Unlock failure writes audit event.
+- [x] Unlock failure does not call send.
+- [x] Send failure returns structured failure.
+- [x] Send failure writes audit event.
+- [x] Send failure updates status to failed.
+- [x] Send failure does not record wallet transaction.
+- [x] Lock failure writes audit event.
+- [x] Lock failure does not leak secrets.
+- [x] Backend exception does not crash HTTP route with traceback.
 
 ---
 
@@ -363,47 +363,47 @@ REJECT > HUMAN_REVIEW > SIMULATE > EXECUTE_REQUEST
 
 Final decision must be `reject` when:
 
-- [ ] policy decision is not exactly `allow`
-- [ ] TOS/legal decision is not exactly `proceed`
-- [ ] spend exceeds max loss
-- [ ] spend exceeds configured budget
-- [ ] spend amount is negative
-- [ ] max loss is negative
-- [ ] prohibited category is present
-- [ ] wallet spend is requested but not allowed
-- [ ] required references are missing
-- [ ] recurring cost is uncapped if policy treats this as reject
+- [x] policy decision is not exactly `allow`
+- [x] TOS/legal decision is not exactly `proceed`
+- [x] spend exceeds max loss
+- [x] spend exceeds configured budget
+- [x] spend amount is negative
+- [x] max loss is negative
+- [x] prohibited category is present
+- [x] wallet spend is requested but not allowed
+- [x] required references are missing
+- [x] recurring cost is uncapped if policy treats this as reject
 
 ## 6.4 Human Review Conditions
 
 Final decision should be `human_review` when:
 
-- [ ] terms are unclear but not hard-rejected
-- [ ] identity/KYC requirements are unclear
-- [ ] recurring billing exists and requires human choice
-- [ ] legal/TOS ambiguity remains
-- [ ] high uncertainty requires human operator
+- [x] terms are unclear but not hard-rejected
+- [x] identity/KYC requirements are unclear
+- [x] recurring billing exists and requires human choice
+- [x] legal/TOS ambiguity remains
+- [x] high uncertainty requires human operator
 
 ## 6.5 Simulate Conditions
 
 Final decision may be `simulate` only when:
 
-- [ ] no hard reject exists
-- [ ] no human review blocker exists
-- [ ] expected revenue is unknown
-- [ ] expected ROI is uncertain
-- [ ] dry-run is recommended before spend
+- [x] no hard reject exists
+- [x] no human review blocker exists
+- [x] expected revenue is unknown
+- [x] expected ROI is uncertain
+- [x] dry-run is recommended before spend
 
 ## 6.6 Required Tests
 
-- [ ] Policy block plus revenue uncertainty returns reject.
-- [ ] TOS reject plus revenue uncertainty returns reject.
-- [ ] Missing policy returns reject or human_review, not simulate.
-- [ ] Missing TOS returns reject or human_review, not simulate.
-- [ ] Revenue uncertainty alone returns simulate.
-- [ ] Human-review blocker beats simulate.
-- [ ] Reject beats human_review.
-- [ ] Valid low-risk plan returns execute.
+- [x] Policy block plus revenue uncertainty returns reject.
+- [x] TOS reject plus revenue uncertainty returns reject.
+- [x] Missing policy returns reject or human_review, not simulate.
+- [x] Missing TOS returns reject or human_review, not simulate.
+- [x] Revenue uncertainty alone returns simulate.
+- [x] Human-review blocker beats simulate.
+- [x] Reject beats human_review.
+- [x] Valid low-risk plan returns execute.
 
 ---
 
@@ -417,13 +417,13 @@ The budget planner can crash with SQLite FK errors if given nonexistent policy/T
 
 Before inserting budget plan:
 
-- [ ] Load referenced policy decision.
-- [ ] Load referenced TOS/legal check.
-- [ ] Load referenced opportunity, if applicable.
-- [ ] If required reference is missing, return structured reject/human-review result.
-- [ ] Do not attempt invalid ledger insert.
-- [ ] Record audit event or validation failure if applicable.
-- [ ] Return useful reason codes.
+- [x] Load referenced policy decision.
+- [x] Load referenced TOS/legal check.
+- [x] Load referenced opportunity, if applicable.
+- [x] If required reference is missing, return structured reject/human-review result.
+- [x] Do not attempt invalid ledger insert.
+- [x] Record audit event or validation failure if applicable.
+- [x] Return useful reason codes.
 
 ## 7.3 Suggested Reason Codes
 
@@ -436,13 +436,13 @@ invalid_reference
 
 ## 7.4 Required Tests
 
-- [ ] Nonexistent policy ID does not raise SQLite FK error.
-- [ ] Nonexistent TOS ID does not raise SQLite FK error.
-- [ ] Nonexistent opportunity ID does not raise SQLite FK error.
-- [ ] Missing policy produces structured reject/human_review.
-- [ ] Missing TOS produces structured reject/human_review.
-- [ ] Valid references still insert budget plan.
-- [ ] Validation failure is auditable or visible in returned reasons.
+- [x] Nonexistent policy ID does not raise SQLite FK error.
+- [x] Nonexistent TOS ID does not raise SQLite FK error.
+- [x] Nonexistent opportunity ID does not raise SQLite FK error.
+- [x] Missing policy produces structured reject/human_review.
+- [x] Missing TOS produces structured reject/human_review.
+- [x] Valid references still insert budget plan.
+- [x] Validation failure is auditable or visible in returned reasons.
 
 ---
 
@@ -454,20 +454,20 @@ File input is size-limited, but direct `content_text` input can exceed `max_arti
 
 ## 8.2 Required Fix
 
-- [ ] Convert `content_text` to bytes.
-- [ ] Check byte length.
-- [ ] Reject if byte length exceeds `max_artifact_bytes`.
-- [ ] Return clear error.
-- [ ] Do not write file.
-- [ ] Do not write ledger artifact record.
+- [x] Convert `content_text` to bytes.
+- [x] Check byte length.
+- [x] Reject if byte length exceeds `max_artifact_bytes`.
+- [x] Return clear error.
+- [x] Do not write file.
+- [x] Do not write ledger artifact record.
 
 ## 8.3 Required Tests
 
-- [ ] Oversized `content_text` rejected.
-- [ ] Boundary-size `content_text` accepted.
-- [ ] Small `content_text` accepted.
-- [ ] Rejected text does not create archive file.
-- [ ] Rejected text does not create ledger artifact.
+- [x] Oversized `content_text` rejected.
+- [x] Boundary-size `content_text` accepted.
+- [x] Small `content_text` accepted.
+- [x] Rejected text does not create archive file.
+- [x] Rejected text does not create ledger artifact.
 
 ---
 
@@ -487,28 +487,28 @@ After normalization, require:
 
 Reject evidence types containing:
 
-- [ ] `/`
-- [ ] `\`
-- [ ] `..`
-- [ ] null byte
-- [ ] whitespace after normalization, if not expected
-- [ ] shell metacharacters
-- [ ] path separators
-- [ ] empty string
-- [ ] strings longer than 64 chars
+- [x] `/`
+- [x] `\`
+- [x] `..`
+- [x] null byte
+- [x] whitespace after normalization, if not expected
+- [x] shell metacharacters
+- [x] path separators
+- [x] empty string
+- [x] strings longer than 64 chars
 
 ## 9.3 Required Tests
 
-- [ ] Reject `../../evil`.
-- [ ] Reject `foo/bar`.
-- [ ] Reject `foo\bar`.
-- [ ] Reject null-byte evidence type.
-- [ ] Reject empty evidence type.
-- [ ] Reject overlong evidence type.
-- [ ] Accept `receipt`.
-- [ ] Accept `terms_snapshot`.
-- [ ] Accept `wallet_transaction`.
-- [ ] Reject unsafe type without creating file or ledger record.
+- [x] Reject `../../evil`.
+- [x] Reject `foo/bar`.
+- [x] Reject `foo\bar`.
+- [x] Reject null-byte evidence type.
+- [x] Reject empty evidence type.
+- [x] Reject overlong evidence type.
+- [x] Accept `receipt`.
+- [x] Accept `terms_snapshot`.
+- [x] Accept `wallet_transaction`.
+- [x] Reject unsafe type without creating file or ledger record.
 
 ---
 
@@ -528,39 +528,39 @@ validate_evidence_artifact(evidence_id, expected_context) -> EvidenceValidationR
 
 It should verify:
 
-- [ ] ledger evidence record exists
-- [ ] archive path is present
-- [ ] archive path resolves under configured archive root
-- [ ] archive file exists
-- [ ] archive path is regular file
-- [ ] archive hash exists
-- [ ] archive file hash matches ledger hash
-- [ ] metadata file exists if required
-- [ ] related record type/id is compatible with spend authorization context
-- [ ] artifact type is acceptable for spend evidence
+- [x] ledger evidence record exists
+- [x] archive path is present
+- [x] archive path resolves under configured archive root
+- [x] archive file exists
+- [x] archive path is regular file
+- [x] archive hash exists
+- [x] archive file hash matches ledger hash
+- [x] metadata file exists if required
+- [x] related record type/id is compatible with spend authorization context
+- [x] artifact type is acceptable for spend evidence
 
 ## 10.3 Wallet Service Integration
 
-- [ ] Call evidence validation for every required evidence ID before send.
-- [ ] Reject spend if any evidence file is missing.
-- [ ] Reject spend if any evidence hash mismatches.
-- [ ] Reject spend if evidence path escapes archive root.
-- [ ] Reject spend if evidence is unrelated to the spend/opportunity/experiment/budget.
-- [ ] Record reason code:
-  - [ ] `evidence_missing`
-  - [ ] `evidence_hash_mismatch`
-  - [ ] `evidence_path_invalid`
-  - [ ] `evidence_unrelated`
+- [x] Call evidence validation for every required evidence ID before send.
+- [x] Reject spend if any evidence file is missing.
+- [x] Reject spend if any evidence hash mismatches.
+- [x] Reject spend if evidence path escapes archive root.
+- [x] Reject spend if evidence is unrelated to the spend/opportunity/experiment/budget.
+- [x] Record reason code:
+  - [x] `evidence_missing`
+  - [x] `evidence_hash_mismatch`
+  - [x] `evidence_path_invalid`
+  - [x] `evidence_unrelated`
 
 ## 10.4 Required Tests
 
-- [ ] Missing evidence file rejects spend.
-- [ ] Evidence hash mismatch rejects spend.
-- [ ] Evidence path outside archive root rejects spend.
-- [ ] Evidence unrelated to spend rejects spend.
-- [ ] Valid evidence file/hash/context allows spend.
-- [ ] Evidence validation rejection writes audit event.
-- [ ] Wallet backend not called on evidence validation failure.
+- [x] Missing evidence file rejects spend.
+- [x] Evidence hash mismatch rejects spend.
+- [x] Evidence path outside archive root rejects spend.
+- [x] Evidence unrelated to spend rejects spend.
+- [x] Valid evidence file/hash/context allows spend.
+- [x] Evidence validation rejection writes audit event.
+- [x] Wallet backend not called on evidence validation failure.
 
 ---
 
@@ -579,44 +579,44 @@ get_spend_by_category(...)
 
 Should:
 
-- [ ] Accept `experiment_id`.
-- [ ] Count only actual spend statuses.
-- [ ] Include `sent`.
-- [ ] Include `confirmed`.
-- [ ] Exclude `proposed`.
-- [ ] Exclude `approved`.
-- [ ] Exclude `rejected`.
-- [ ] Exclude `failed`.
-- [ ] Exclude `cancelled`.
-- [ ] Include fees if configured or return separate amount/fee fields.
-- [ ] Return USD amount.
-- [ ] Return BTC amount if applicable.
-- [ ] Return fee totals if available.
+- [x] Accept `experiment_id`.
+- [x] Count only actual spend statuses.
+- [x] Include `sent`.
+- [x] Include `confirmed`.
+- [x] Exclude `proposed`.
+- [x] Exclude `approved`.
+- [x] Exclude `rejected`.
+- [x] Exclude `failed`.
+- [x] Exclude `cancelled`.
+- [x] Include fees if configured or return separate amount/fee fields.
+- [x] Return USD amount.
+- [x] Return BTC amount if applicable.
+- [x] Return fee totals if available.
 
 ## 11.3 `get_spend_by_category`
 
 Should support:
 
-- [ ] optional date range
-- [ ] optional experiment ID
-- [ ] optional opportunity ID
-- [ ] only actual spend statuses
-- [ ] category totals in USD
-- [ ] category totals in BTC if applicable
-- [ ] fee totals if available
+- [x] optional date range
+- [x] optional experiment ID
+- [x] optional opportunity ID
+- [x] only actual spend statuses
+- [x] category totals in USD
+- [x] category totals in BTC if applicable
+- [x] fee totals if available
 
 ## 11.4 Required Tests
 
-- [ ] Experiment spend total includes sent spend.
-- [ ] Experiment spend total includes confirmed spend.
-- [ ] Experiment spend total excludes proposed spend.
-- [ ] Experiment spend total excludes rejected spend.
-- [ ] Experiment spend total excludes failed spend.
-- [ ] Experiment spend total includes fees correctly.
-- [ ] Spend by category groups correctly.
-- [ ] Spend by category respects date range.
-- [ ] Spend by category respects experiment filter.
-- [ ] Spend by category excludes non-spend records.
+- [x] Experiment spend total includes sent spend.
+- [x] Experiment spend total includes confirmed spend.
+- [x] Experiment spend total excludes proposed spend.
+- [x] Experiment spend total excludes rejected spend.
+- [x] Experiment spend total excludes failed spend.
+- [x] Experiment spend total includes fees correctly.
+- [x] Spend by category groups correctly.
+- [x] Spend by category respects date range.
+- [x] Spend by category respects experiment filter.
+- [x] Spend by category excludes non-spend records.
 
 ---
 
@@ -634,20 +634,20 @@ Both Copilot and OpenCode independently implement the same TODO from the same st
 
 ## 12.2 Required Work
 
-- [ ] Search docs for “Suggested Work Split”.
-- [ ] Search docs for “Copilot should focus”.
-- [ ] Search docs for “OpenCode should focus”.
-- [ ] Search docs for module-specific agent assignments.
-- [ ] Remove stale work-split text.
-- [ ] Replace with parallel implementation comparison instructions if the file is kept.
-- [ ] Ensure README does not instruct split work.
-- [ ] Ensure `CODE_REVIEW1_TODO.md` copy in repo is corrected or removed.
+- [x] Search docs for “Suggested Work Split”.
+- [x] Search docs for “Copilot should focus”.
+- [x] Search docs for “OpenCode should focus”.
+- [x] Search docs for module-specific agent assignments.
+- [x] Remove stale work-split text.
+- [x] Replace with parallel implementation comparison instructions if the file is kept.
+- [x] Ensure README does not instruct split work.
+- [x] Ensure `CODE_REVIEW1_TODO.md` copy in repo is corrected or removed.
 
 ## 12.3 Required Tests / Checks
 
-- [ ] Add docs check or simple grep-based test if practical.
-- [ ] Confirm no stale split-work phrase remains.
-- [ ] Confirm docs say both agents independently implement the same TODO.
+- [x] Add docs check or simple grep-based test if practical.
+- [x] Confirm no stale split-work phrase remains.
+- [x] Confirm docs say both agents independently implement the same TODO.
 
 ---
 
@@ -657,22 +657,22 @@ Both Copilot and OpenCode independently implement the same TODO from the same st
 
 Add:
 
-- [ ] `docs/CODE_REVIEW2_SPEC.md`
-- [ ] `docs/CODE_REVIEW2_TODO.md`
-- [ ] `docs/CODE_REVIEW2_FIXES.md`, after implementation
+- [x] `docs/CODE_REVIEW2_SPEC.md`
+- [x] `docs/CODE_REVIEW2_TODO.md`
+- [x] `docs/CODE_REVIEW2_FIXES.md`, after implementation
 
 ## 13.2 `CODE_REVIEW2_FIXES.md`
 
 After implementation, include:
 
-- [ ] summary of fixed P0 issues
-- [ ] summary of fixed P1 issues
-- [ ] changed files
-- [ ] test command
-- [ ] test result summary
-- [ ] deferred work
-- [ ] safety notes
-- [ ] confirmation that real spend remains disabled by default
+- [x] summary of fixed P0 issues
+- [x] summary of fixed P1 issues
+- [x] changed files
+- [x] test command
+- [x] test result summary
+- [x] deferred work
+- [x] safety notes
+- [x] confirmation that real spend remains disabled by default
 
 ---
 
@@ -680,31 +680,31 @@ After implementation, include:
 
 This TODO is complete when:
 
-- [ ] Policy action metadata is persisted and read back.
-- [ ] Wallet service rejects non-executable policy approvals.
-- [ ] Wallet service rejects research/email/browser policy approvals for spend.
-- [ ] Wallet service rejects request/ledger policy ID mismatch.
-- [ ] Wallet service rejects request/ledger budget ID mismatch.
-- [ ] Wallet service rejects request/ledger evidence ID mismatch.
-- [ ] Spend-disabled rejection updates eligible spend requests to rejected.
-- [ ] Quote rejects malformed BTC destinations.
-- [ ] Fee quote failure creates structured durable rejection.
-- [ ] Unlock failure creates structured durable failure.
-- [ ] Send failure creates structured durable failure.
-- [ ] Lock failure records audit event.
-- [ ] Budget hard rejections cannot become simulate.
-- [ ] Budget missing references do not crash with SQLite FK errors.
-- [ ] Oversized `content_text` evidence is rejected.
-- [ ] Unsafe `evidence_type` is rejected.
-- [ ] Wallet service verifies evidence file path and hash.
-- [ ] Ledger exposes explicit experiment spend total API.
-- [ ] Ledger exposes explicit spend-by-category API.
-- [ ] Stale split-work docs are removed or corrected.
-- [ ] Full test suite passes.
-- [ ] Real wallet spending remains disabled by default.
-- [ ] Bitcoin Core backend remains disabled by default.
-- [ ] No secrets are committed.
-- [ ] No arbitrary Bitcoin RPC passthrough exists.
+- [x] Policy action metadata is persisted and read back.
+- [x] Wallet service rejects non-executable policy approvals.
+- [x] Wallet service rejects research/email/browser policy approvals for spend.
+- [x] Wallet service rejects request/ledger policy ID mismatch.
+- [x] Wallet service rejects request/ledger budget ID mismatch.
+- [x] Wallet service rejects request/ledger evidence ID mismatch.
+- [x] Spend-disabled rejection updates eligible spend requests to rejected.
+- [x] Quote rejects malformed BTC destinations.
+- [x] Fee quote failure creates structured durable rejection.
+- [x] Unlock failure creates structured durable failure.
+- [x] Send failure creates structured durable failure.
+- [x] Lock failure records audit event.
+- [x] Budget hard rejections cannot become simulate.
+- [x] Budget missing references do not crash with SQLite FK errors.
+- [x] Oversized `content_text` evidence is rejected.
+- [x] Unsafe `evidence_type` is rejected.
+- [x] Wallet service verifies evidence file path and hash.
+- [x] Ledger exposes explicit experiment spend total API.
+- [x] Ledger exposes explicit spend-by-category API.
+- [x] Stale split-work docs are removed or corrected.
+- [x] Full test suite passes.
+- [x] Real wallet spending remains disabled by default.
+- [x] Bitcoin Core backend remains disabled by default.
+- [x] No secrets are committed.
+- [x] No arbitrary Bitcoin RPC passthrough exists.
 
 ---
 

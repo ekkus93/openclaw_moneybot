@@ -192,6 +192,7 @@ class MoneyBotOrchestrator:
                 tos_legal_check_id=tos_result.ledger_record.tos_legal_check_id,
                 send_email=request.draft_recipient_email is not None,
                 enable_wallet_payment=request.enable_wallet_payment,
+                payment_counterparty=request.payment_counterparty,
             )
         )
         execution_policy_write = self.ledger_service.record_policy_decision(
@@ -459,10 +460,11 @@ class MoneyBotOrchestrator:
         tos_legal_check_id: str,
         send_email: bool,
         enable_wallet_payment: bool,
+        payment_counterparty: str,
     ) -> PolicyCheckRequest:
         if enable_wallet_payment and candidate.required_spend_usd > 0:
             action_type = ActionType.PURCHASE
-            category = "research"
+            category = "purchase"
         elif send_email:
             action_type = ActionType.EMAIL
             category = "draft_email"
@@ -475,7 +477,7 @@ class MoneyBotOrchestrator:
             title=f"Execute plan for {candidate.name}",
             description=f"Execute the bounded workflow for {candidate.name}.",
             category=category,
-            counterparty=candidate.name,
+            counterparty=payment_counterparty if enable_wallet_payment else candidate.name,
             amount_usd=candidate.required_spend_usd,
             asset="BTC",
             source_urls=[candidate.source_url],

@@ -48,15 +48,18 @@ class WalletQuoteRequest(MoneyBotModel):
 class WalletQuoteResponse(MoneyBotModel):
     """Deterministic quote for a BTC transfer."""
 
+    status: str = "ok"
     asset: str
-    amount_btc: str
-    amount_sats: int
-    fee_btc: str
-    fee_sats: int
+    amount_btc: str | None = None
+    amount_sats: int | None = None
+    fee_btc: str | None = None
+    fee_sats: int | None = None
     amount_usd: float
-    estimated_fee_usd: float
-    total_usd_estimate: float
-    total_usd: float
+    estimated_fee_usd: float = 0
+    total_usd_estimate: float | None = None
+    total_usd: float | None = None
+    reason: str | None = None
+    rejection_reasons: list[str] = Field(default_factory=list)
 
 
 class WalletSendRequest(MoneyBotModel):
@@ -64,6 +67,7 @@ class WalletSendRequest(MoneyBotModel):
 
     spend_request_id: str | None = None
     opportunity_id: str | None = None
+    experiment_id: str | None = None
     budget_plan_id: str
     policy_decision_id: str
     ledger_record_id: str
@@ -114,3 +118,4 @@ class WalletSendResponse(MoneyBotModel):
     amount_usd: float | None = None
     reason: str | None = None
     rejection_reasons: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)

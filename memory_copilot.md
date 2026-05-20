@@ -81,3 +81,12 @@
 - Finished the INT_TEST1 integration-test implementation across workflow fail-closed gates, the real wallet HTTP wrapper boundary, governed email flows, browser governor prepare/complete flows, review-feedback scenarios, ledger/evidence linkage checks, replay behavior, and local-only boundary regressions.
 - Added offline integration helpers under `tests/integration/helpers.py`, new browser/email/wallet/workflow integration coverage, and deterministic replay behavior for governed email sends and browser actions so repeated requests do not create duplicate success artifacts.
 - The repository now passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 272 passing tests, and `docs/INT_TEST1_TODO.md` is complete.
+
+## 2026-05-20T21:49:23Z - GPT-5.4 - Reviewed Code Review 2 spec and TODO
+- Read `docs/CODE_REVIEW2_SPEC.md` and `docs/CODE_REVIEW2_TODO.md` to prepare for the next remediation pass focused on fail-closed wallet authorization, request/ledger mismatch rejection, durable failure handling, budget precedence, evidence validation, ledger spend-summary APIs, and stale documentation cleanup.
+- The main design choice clarified with the user is that if a wallet send succeeds but the post-send lock step fails, the service should return success with a warning and record review/audit state rather than pretending the transaction failed.
+
+## 2026-05-20T22:11:39Z - GPT-5.4 - Completed Code Review 2 remediation pass
+- Finished the `docs/CODE_REVIEW2_TODO.md` implementation pass across wallet authorization, budget precedence and reference validation, evidence archive hardening, ledger spend summaries, orchestration/policy alignment, and stale review-doc cleanup.
+- The wallet-governor service now requires executable policy metadata, exact request/ledger agreement, verified evidence files under a configured archive root, and structured handling for quote, unlock, send, and lock failures; post-send lock failures return success with a warning and an audit event.
+- Added regression coverage for the new wallet failure paths, evidence hash/path checks, budget precedence and missing references, strict evidence-type and content-size validation, ledger spend summary APIs, and review-doc wording, bringing the suite to 296 passing tests with Ruff and mypy clean.

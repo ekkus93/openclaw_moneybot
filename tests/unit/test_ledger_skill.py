@@ -27,7 +27,9 @@ from openclaw_moneybot.shared.types import (
     RecordType,
     ReviewDecisionType,
     RiskLevel,
+    SpendRequestStatus,
     TosDecisionType,
+    WalletTransactionStatus,
 )
 from openclaw_moneybot.skills.ledger_skill.repository import LedgerRepository
 
@@ -109,6 +111,7 @@ def make_spend_request(created_at: datetime) -> SpendRequest:
         created_at=created_at,
         spend_request_id="spend_001",
         opportunity_id="opp_001",
+        experiment_id="exp_001",
         budget_plan_id="budget_001",
         policy_decision_id="policy_001",
         ledger_record_id="ledger_prewrite_001",
@@ -289,6 +292,72 @@ def test_daily_and_weekly_spend_totals(repository: LedgerRepository) -> None:
 
     assert repository.get_daily_spend_total("2026-01-01") == pytest.approx(5.0)
     assert repository.get_weekly_spend_total("2026-01-01") == pytest.approx(5.0)
+
+
+def test_experiment_spend_total_and_category_summaries(repository: LedgerRepository) -> None:
+    base_time = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    repository.create_opportunity(make_opportunity(base_time))
+    repository.record_policy_decision(make_policy(base_time + timedelta(minutes=1)))
+    repository.record_tos_legal_check(make_tos_check(base_time + timedelta(minutes=2)))
+    repository.record_budget_plan(make_budget_plan(base_time + timedelta(minutes=3)))
+    repository.record_spend_request(make_spend_request(base_time + timedelta(minutes=4)))
+    repository.record_btc_transaction(make_wallet_transaction(base_time + timedelta(minutes=5)))
+    repository.record_spend_request(
+        make_spend_request(base_time + timedelta(minutes=6)).model_copy(
+            update={
+                "spend_request_id": "spend_002",
+                "experiment_id": "exp_001",
+                "category": "hosting",
+                "ledger_record_id": "ledger_prewrite_002",
+            }
+        )
+    )
+    repository.record_btc_transaction(
+        make_wallet_transaction(base_time + timedelta(minutes=7)).model_copy(
+            update={
+                "wallet_transaction_id": "wallet_tx_002",
+                "spend_request_id": "spend_002",
+                "txid": "txid_002",
+                "amount_usd_estimate": 3.0,
+                "fee_usd_estimate": 0.5,
+                "total_usd_estimate": 3.5,
+                "status": WalletTransactionStatus.CONFIRMED,
+            }
+        )
+    )
+    repository.record_spend_request(
+        make_spend_request(base_time + timedelta(minutes=8)).model_copy(
+            update={
+                "spend_request_id": "spend_003",
+                "experiment_id": "exp_001",
+                "category": "hosting",
+                "ledger_record_id": "ledger_prewrite_003",
+                "status": SpendRequestStatus.REJECTED,
+            }
+        )
+    )
+    repository.record_btc_transaction(
+        make_wallet_transaction(base_time + timedelta(minutes=9)).model_copy(
+            update={
+                "wallet_transaction_id": "wallet_tx_003",
+                "spend_request_id": "spend_003",
+                "txid": "txid_003",
+                "amount_usd_estimate": 10.0,
+                "fee_usd_estimate": 0.5,
+                "total_usd_estimate": 10.5,
+                "status": WalletTransactionStatus.FAILED,
+            }
+        )
+    )
+
+    experiment_total = repository.get_experiment_spend_total("exp_001")
+    by_category = repository.get_spend_by_category(experiment_id="exp_001")
+
+    assert experiment_total.amount_usd == pytest.approx(8.0)
+    assert experiment_total.fee_usd == pytest.approx(0.5)
+    assert experiment_total.total_usd == pytest.approx(8.5)
+    assert {entry.category for entry in by_category} == {"hosting", "infrastructure"}
+    assert sum(entry.total_usd for entry in by_category) == pytest.approx(8.5)
 
 
 def test_hash_chain_verification_detects_tampering(repository: LedgerRepository) -> None:

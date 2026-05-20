@@ -248,3 +248,76 @@ def test_max_file_size_rejection(
             evidence_id="artifact_oversized",
             captured_at="2026-01-09T12:00:00Z",
         )
+
+
+def test_max_content_text_size_rejection(
+    archive_env: tuple[ArchiveConfig, LedgerService],
+) -> None:
+    config, ledger_service = archive_env
+    archiver = ReceiptAndEvidenceArchiver(config, ledger_service)
+
+    with pytest.raises(ValueError, match="max_artifact_bytes"):
+        archiver.archive(
+            EvidenceArchiveRequest(
+                related_type=RecordType.OPPORTUNITY,
+                related_id="opp_001",
+                evidence_type="summary",
+                content_text="x" * 129,
+                captured_at="2026-01-10T12:00:00Z",
+            )
+        )
+
+    assert not any(config.base_directory.rglob("*"))
+    assert ledger_service.list_evidence_for_related(
+        related_type=RecordType.OPPORTUNITY,
+        related_id="opp_001",
+    ) == []
+
+
+def test_boundary_content_text_size_is_accepted(
+    archive_env: tuple[ArchiveConfig, LedgerService],
+) -> None:
+    config, ledger_service = archive_env
+    archiver = ReceiptAndEvidenceArchiver(config, ledger_service)
+
+    result = archiver.archive(
+        EvidenceArchiveRequest(
+            related_type=RecordType.OPPORTUNITY,
+            related_id="opp_001",
+            evidence_type="summary",
+            content_text="x" * 128,
+            captured_at="2026-01-11T12:00:00Z",
+        )
+    )
+
+    assert result.file_size == 128
+    assert result.archive_path.exists()
+
+
+@pytest.mark.parametrize(
+    "evidence_type",
+    ["../../evil", "foo/bar", r"foo\\bar", "bad\x00type", "", "a" * 65, "receipt;rm"],
+)
+def test_unsafe_evidence_type_rejected_without_side_effects(
+    archive_env: tuple[ArchiveConfig, LedgerService],
+    evidence_type: str,
+) -> None:
+    config, ledger_service = archive_env
+    archiver = ReceiptAndEvidenceArchiver(config, ledger_service)
+
+    with pytest.raises(ValueError):
+        archiver.archive(
+            EvidenceArchiveRequest(
+                related_type=RecordType.OPPORTUNITY,
+                related_id="opp_001",
+                evidence_type=evidence_type,
+                content_text="hello",
+                captured_at="2026-01-12T12:00:00Z",
+            )
+        )
+
+    assert not any(config.base_directory.rglob("*"))
+    assert ledger_service.list_evidence_for_related(
+        related_type=RecordType.OPPORTUNITY,
+        related_id="opp_001",
+    ) == []

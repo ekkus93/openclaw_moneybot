@@ -51,12 +51,13 @@ def make_wallet_stack(
     seed_policy_decision(ledger_service)
     seed_tos_legal_check(ledger_service)
     seed_budget_plan(ledger_service)
-    seed_evidence_record(ledger_service)
     archive_config = make_archive_config(tmp_path)
+    seed_evidence_record(ledger_service, archive_root=archive_config.base_directory)
     service = make_wallet_service(
         ledger_service,
         spend_enabled=spend_enabled,
         timeout_seconds=timeout_seconds,
+        archive_root=archive_config.base_directory,
     )
     client = make_wallet_test_client(service, request_timeout_seconds=timeout_seconds)
     skill = make_wallet_client_skill(
@@ -186,6 +187,7 @@ def test_wallet_http_client_reports_safe_error_for_malformed_request(
         make_wallet_service(
             LedgerService.from_db_path(tmp_path / "extra.sqlite3"),
             spend_enabled=True,
+            archive_root=tmp_path / "archive",
         ).config,
         transport=client._transport,
     )
@@ -294,7 +296,11 @@ def test_wallet_http_wrapper_rejects_idempotency_conflict_payload(tmp_path: Path
 
 def test_wallet_http_app_rejects_non_local_bind_host(tmp_path: Path) -> None:
     ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
-    service = make_wallet_service(ledger_service, spend_enabled=True)
+    service = make_wallet_service(
+        ledger_service,
+        spend_enabled=True,
+        archive_root=tmp_path / "archive",
+    )
 
     with pytest.raises(ValueError, match="must bind to localhost or 127.0.0.1"):
         create_wallet_governor_app(service, bind_host="0.0.0.0")

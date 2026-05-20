@@ -28,6 +28,7 @@ from openclaw_moneybot.shared import (
 )
 from openclaw_moneybot.shared.config import MoneyBotPolicyConfig, WalletGovernorConfig
 from openclaw_moneybot.shared.types import (
+    ActionType,
     BudgetDecisionType,
     ConfidenceLevel,
     PolicyDecisionType,
@@ -36,12 +37,18 @@ from openclaw_moneybot.shared.types import (
     TosDecisionType,
 )
 from openclaw_moneybot.skills.ledger_skill.service import LedgerService
+from openclaw_moneybot.skills.receipt_and_evidence_archiver.hashing import sha256_bytes
 from openclaw_moneybot.skills.wallet_governor_client.models import WalletSpendRequest
 from openclaw_moneybot.utils.time import utc_now
 
 
 def make_service(tmp_path: Path, *, spend_enabled: bool = True) -> WalletGovernorService:
     ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
+    archive_root = tmp_path / "archive"
+    archive_root.mkdir(parents=True, exist_ok=True)
+    evidence_path = archive_root / "artifact_001.html"
+    evidence_bytes = b"http wallet test evidence"
+    evidence_path.write_bytes(evidence_bytes)
     ledger_service.create_opportunity(
         Opportunity(
             created_at=datetime(2026, 1, 1, tzinfo=UTC),
@@ -64,6 +71,14 @@ def make_service(tmp_path: Path, *, spend_enabled: bool = True) -> WalletGoverno
             created_at=datetime(2026, 1, 1, 0, 1, tzinfo=UTC),
             policy_decision_id="policy_001",
             opportunity_id="opp_001",
+            action_type=ActionType.SPEND,
+            category="purchase",
+            requires_payment=True,
+            requires_wallet_action=True,
+            amount_usd=100.0,
+            counterparty="Example Vendor",
+            planned_tools=["wallet_governor_client"],
+            sanitized_input={"action_type": "spend"},
             decision=PolicyDecisionType.ALLOW,
             risk_level=RiskLevel.LOW,
             confidence=ConfidenceLevel.HIGH,
@@ -115,8 +130,8 @@ def make_service(tmp_path: Path, *, spend_enabled: bool = True) -> WalletGoverno
             related_record_type=RecordType.OPPORTUNITY,
             related_record_id="opp_001",
             evidence_type="html_snapshot",
-            archive_path="archive/2026/01/01/artifact_001.html",
-            content_sha256="a" * 64,
+            archive_path=str(evidence_path),
+            content_sha256=sha256_bytes(evidence_bytes),
             source_url="https://example.com/opportunity",
         ),
         idempotency_key="evidence:artifact_001",
@@ -126,6 +141,7 @@ def make_service(tmp_path: Path, *, spend_enabled: bool = True) -> WalletGoverno
         base_url="http://127.0.0.1:8080",
         spend_enabled=spend_enabled,
         allowed_assets=["BTC"],
+        archive_root=archive_root,
     )
     policy = MoneyBotPolicyConfig(
         policy_version="v1",
@@ -252,6 +268,22 @@ def test_quote_endpoint_returns_fee_estimates(tmp_path: Path) -> None:
     assert payload["fee_btc"] != "0"
     assert payload["estimated_fee_usd"] > 0
     assert payload["total_usd_estimate"] > payload["amount_usd"]
+
+
+def test_quote_endpoint_rejects_invalid_destination(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        response = client.post(
+            "/quote-spend",
+            json={
+                "asset": "BTC",
+                "amount_usd": 5.0,
+                "btc_usd_rate": 50_000.0,
+                "destination": "invalid-address",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["reason"] == "destination_invalid"
 
 
 def test_send_endpoint_rejects_when_spend_disabled(tmp_path: Path) -> None:

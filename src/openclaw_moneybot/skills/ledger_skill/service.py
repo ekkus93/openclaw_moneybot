@@ -22,6 +22,8 @@ from openclaw_moneybot.skills.ledger_skill.models import (
     LedgerTimelineEntry,
     LedgerWriteResult,
     SpendAuthorizationBundle,
+    SpendByCategoryEntry,
+    SpendTotals,
     TaxExportResult,
 )
 from openclaw_moneybot.skills.ledger_skill.repository import LedgerRepository
@@ -95,6 +97,24 @@ class LedgerService:
 
     def get_weekly_spend_total(self, day: str) -> float:
         return self.repository.get_weekly_spend_total(day)
+
+    def get_experiment_spend_total(self, experiment_id: str) -> SpendTotals:
+        return self.repository.get_experiment_spend_total(experiment_id)
+
+    def get_spend_by_category(
+        self,
+        *,
+        start_day: str | None = None,
+        end_day: str | None = None,
+        experiment_id: str | None = None,
+        opportunity_id: str | None = None,
+    ) -> list[SpendByCategoryEntry]:
+        return self.repository.get_spend_by_category(
+            start_day=start_day,
+            end_day=end_day,
+            experiment_id=experiment_id,
+            opportunity_id=opportunity_id,
+        )
 
     def get_remaining_daily_limit(self, day: str, limit_usd: float) -> float:
         return self.repository.get_remaining_daily_limit(day, limit_usd)

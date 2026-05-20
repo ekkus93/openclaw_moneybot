@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from decimal import ROUND_HALF_UP, Decimal
+from pathlib import Path
 
 from pydantic import JsonValue
 
@@ -21,14 +22,18 @@ from openclaw_moneybot.plugins.wallet_governor_service.models import (
     WalletSendResponse,
 )
 from openclaw_moneybot.shared import (
+    EvidenceRecord,
     LedgerRecord,
     MoneyBotPolicyConfig,
+    PolicyDecision,
+    SpendRequest,
     SpendRequestStatus,
     WalletGovernorConfig,
     WalletTransactionRecord,
     WalletTransactionStatus,
 )
 from openclaw_moneybot.shared.types import (
+    ActionType,
     BudgetDecisionType,
     PolicyDecisionType,
     RecordType,
@@ -36,6 +41,7 @@ from openclaw_moneybot.shared.types import (
 )
 from openclaw_moneybot.skills.ledger_skill.models import SpendAuthorizationBundle
 from openclaw_moneybot.skills.ledger_skill.service import LedgerService
+from openclaw_moneybot.skills.receipt_and_evidence_archiver.hashing import verify_file_hash
 from openclaw_moneybot.utils.ids import make_id
 from openclaw_moneybot.utils.time import utc_now
 
@@ -119,6 +125,12 @@ TERMINAL_SPEND_STATUSES = {
     SpendRequestStatus.FAILED,
     SpendRequestStatus.CANCELLED,
 }
+EXECUTABLE_POLICY_ACTIONS = {
+    ActionType.SPEND,
+    ActionType.WALLET_TRANSFER,
+    ActionType.PURCHASE,
+}
+WALLET_TOOL_MARKERS = ("wallet",)
 
 
 def _btc_from_sats(amount_sats: int) -> str:
@@ -191,12 +203,44 @@ class WalletGovernorService:
 
     def quote(self, request: WalletQuoteRequest) -> WalletQuoteResponse:
         """Return a deterministic BTC quote."""
-        self._require_supported_asset(request.asset)
+        try:
+            self._require_supported_asset(request.asset)
+        except ValueError:
+            return WalletQuoteResponse(
+                status="rejected",
+                asset=request.asset,
+                amount_usd=request.amount_usd,
+                reason="unsupported_asset",
+                rejection_reasons=["unsupported_asset"],
+            )
+        destination_error = self._destination_error(
+            request.asset,
+            request.destination,
+            purpose=None,
+        )
+        if destination_error is not None:
+            return WalletQuoteResponse(
+                status="rejected",
+                asset=request.asset,
+                amount_usd=request.amount_usd,
+                reason=destination_error,
+                rejection_reasons=[destination_error],
+            )
         amount_sats = self._usd_to_sats(request.amount_usd, request.btc_usd_rate)
-        fee_sats = self.backend.estimate_fee_sats(amount_sats)
+        try:
+            fee_sats = self.backend.estimate_fee_sats(amount_sats)
+        except WalletBackendError:
+            return WalletQuoteResponse(
+                status="rejected",
+                asset=request.asset,
+                amount_usd=request.amount_usd,
+                reason="fee_quote_failed",
+                rejection_reasons=["fee_quote_failed"],
+            )
         estimated_fee_usd = self._sats_to_usd(fee_sats, request.btc_usd_rate)
         total_usd_estimate = _round_usd(request.amount_usd + estimated_fee_usd)
         return WalletQuoteResponse(
+            status="ok",
             asset=request.asset,
             amount_btc=_btc_from_sats(amount_sats),
             amount_sats=amount_sats,
@@ -250,10 +294,16 @@ class WalletGovernorService:
             },
             idempotency_key=f"audit:wallet_send_validation_started:{request.idempotency_key}",
         )
+        bundle = (
+            None
+            if request.spend_request_id is None
+            else self.ledger_service.get_spend_authorization_bundle(request.spend_request_id)
+        )
         if not self.config.spend_enabled:
             return self._store_rejection(
                 request,
                 "spend_disabled",
+                bundle=bundle,
                 related_record_id=related_record_id,
                 cache_fingerprint=request_fingerprint,
             )
@@ -272,11 +322,11 @@ class WalletGovernorService:
             return self._store_rejection(
                 request,
                 "unsupported_asset",
+                bundle=bundle,
                 related_record_id=related_record_id,
                 cache_fingerprint=request_fingerprint,
             )
 
-        bundle = self.ledger_service.get_spend_authorization_bundle(request.spend_request_id)
         if bundle is None:
             return self._store_rejection(
                 request,
@@ -302,6 +352,19 @@ class WalletGovernorService:
                 destination=request.destination,
             )
         )
+        if quote.status != "ok":
+            return self._store_rejection(
+                request,
+                quote.reason or "fee_quote_failed",
+                bundle=bundle,
+                cache_fingerprint=request_fingerprint,
+            )
+        assert quote.total_usd_estimate is not None
+        assert quote.amount_sats is not None
+        assert quote.amount_btc is not None
+        assert quote.fee_sats is not None
+        assert quote.fee_btc is not None
+
         limit_rejection = self._limit_rejection_code(quote.total_usd_estimate)
         if limit_rejection is not None:
             return self._store_rejection(
@@ -311,7 +374,15 @@ class WalletGovernorService:
                 cache_fingerprint=request_fingerprint,
             )
 
-        balance_sats = self.backend.get_balance_sats()
+        try:
+            balance_sats = self.backend.get_balance_sats()
+        except WalletBackendError:
+            return self._store_failure(
+                request,
+                "backend_error",
+                bundle=bundle,
+                cache_fingerprint=request_fingerprint,
+            )
         if quote.amount_sats + quote.fee_sats > balance_sats:
             return self._store_rejection(
                 request,
@@ -342,38 +413,48 @@ class WalletGovernorService:
             idempotency_key=f"audit:wallet_backend_send_started:{request.idempotency_key}",
         )
 
-        self.backend.unlock(self.max_unlock_seconds)
+        unlock_succeeded = False
+        lock_failure = False
         try:
+            self.backend.unlock(self.max_unlock_seconds)
+            unlock_succeeded = True
             txid = self.backend.send_to_address(request.destination, quote.amount_sats)
         except WalletBackendError:
-            self.ledger_service.update_spend_request_status(
-                request.spend_request_id,
-                SpendRequestStatus.FAILED.value,
-                idempotency_key=f"wallet:spend-status:failed:{request.idempotency_key}",
-            )
-            response = WalletSendResponse(
-                status="error",
-                spend_request_id=request.spend_request_id,
-                amount_usd=request.amount_usd,
-                reason="backend_error",
-                rejection_reasons=["backend_error"],
+            reason = "wallet_unlock_failed" if not unlock_succeeded else "wallet_send_failed"
+            response = self._store_failure(
+                request,
+                reason,
+                bundle=bundle,
+                cache_fingerprint=request_fingerprint,
             )
             self._record_audit_event(
                 "wallet_backend_send_failed",
                 request.spend_request_id,
                 {
                     "idempotency_key": request.idempotency_key,
-                    "reason_code": "backend_error",
+                    "reason_code": reason,
                     "request_summary": self._request_summary(request),
                     "response_summary": self._response_summary(response),
                 },
                 idempotency_key=f"audit:wallet_backend_send_failed:{request.idempotency_key}",
             )
-            self._responses[request.idempotency_key] = response
-            self._response_fingerprints[request.idempotency_key] = request_fingerprint
             return response
         finally:
-            self.backend.lock()
+            if unlock_succeeded:
+                try:
+                    self.backend.lock()
+                except WalletBackendError:
+                    lock_failure = True
+                    self._record_audit_event(
+                        "wallet_lock_failed",
+                        request.spend_request_id or request.idempotency_key,
+                        {
+                            "idempotency_key": request.idempotency_key,
+                            "reason_code": "wallet_lock_failed",
+                            "request_summary": self._request_summary(request),
+                        },
+                        idempotency_key=f"audit:wallet_lock_failed:{request.idempotency_key}",
+                    )
 
         wallet_transaction_id = make_id("wallet_tx")
         transaction = WalletTransactionRecord(
@@ -407,6 +488,7 @@ class WalletGovernorService:
             amount_btc=quote.amount_btc,
             fee_btc=quote.fee_btc,
             amount_usd=request.amount_usd,
+            warnings=["wallet_lock_failed"] if lock_failure else [],
         )
         self._record_audit_event(
             "wallet_backend_send_succeeded",
@@ -441,28 +523,32 @@ class WalletGovernorService:
             return "spend_request_status_invalid"
         if not bundle.ledger_record_exists:
             return "spend_request_missing"
+        if request.policy_decision_id != spend_request.policy_decision_id:
+            return "policy_id_mismatch"
+        if request.budget_plan_id != spend_request.budget_plan_id:
+            return "budget_id_mismatch"
         if request.ledger_record_id != spend_request.ledger_record_id:
-            return "spend_request_mismatch"
+            return "ledger_record_mismatch"
         if request.amount_usd != spend_request.amount_usd:
-            return "spend_request_mismatch"
+            return "amount_mismatch"
         if request.destination != spend_request.destination:
-            return "spend_request_mismatch"
+            return "destination_mismatch"
         if request.category != spend_request.category:
-            return "spend_request_mismatch"
+            return "category_mismatch"
         if request.counterparty != spend_request.counterparty:
-            return "spend_request_mismatch"
+            return "counterparty_mismatch"
         if request.purpose != spend_request.purpose:
-            return "spend_request_mismatch"
+            return "purpose_mismatch"
         if request.opportunity_id != spend_request.opportunity_id:
-            return "spend_request_mismatch"
+            return "opportunity_id_mismatch"
+        if request.experiment_id != spend_request.experiment_id:
+            return "experiment_id_mismatch"
+        if set(request.evidence_archive_ids) != set(spend_request.evidence_archive_ids):
+            return "evidence_ids_mismatch"
 
-        policy = bundle.policy_decision
-        if policy is None:
-            return "policy_missing"
-        if policy.decision is not PolicyDecisionType.ALLOW:
-            return "policy_not_allow"
-        if policy.opportunity_id != spend_request.opportunity_id:
-            return "policy_not_allow"
+        policy_error = self._policy_authorization_error(bundle.policy_decision, spend_request)
+        if policy_error is not None:
+            return policy_error
 
         budget = bundle.budget_plan
         if budget is None:
@@ -508,41 +594,75 @@ class WalletGovernorService:
 
         if not spend_request.evidence_archive_ids:
             return "evidence_missing"
-        found_evidence_ids = {record.evidence_id for record in bundle.evidence_records}
+        evidence_by_id = {record.evidence_id: record for record in bundle.evidence_records}
+        found_evidence_ids = set(evidence_by_id)
         required_evidence_ids = set(spend_request.evidence_archive_ids) | set(
             tos_legal_check.evidence_archive_ids
         )
         required_evidence_ids.update(budget.required_evidence_ids)
         if not required_evidence_ids.issubset(found_evidence_ids):
             return "evidence_missing"
-        if not all(
-            self._is_related_evidence(bundle, evidence)
-            for evidence in bundle.evidence_records
-        ):
-            return "evidence_unrelated"
+        for evidence_id in required_evidence_ids:
+            evidence_error = self._validate_evidence_artifact(
+                bundle,
+                evidence_by_id[evidence_id],
+            )
+            if evidence_error is not None:
+                return evidence_error
 
-        destination = request.destination.strip().lower()
-        if not destination:
-            return "destination_missing"
-        if any(token in destination for token in PLACEHOLDER_DESTINATIONS):
-            return "destination_invalid"
-        if any(term in destination for term in PROHIBITED_SEND_TERMS):
-            return "send_all_blocked"
-        if any(term in request.purpose.lower() for term in PROHIBITED_SEND_TERMS):
-            return "send_all_blocked"
-        if not self._validate_destination(request.asset, request.destination):
-            return "destination_invalid"
+        return self._destination_error(request.asset, request.destination, request.purpose)
+
+    def _policy_authorization_error(
+        self,
+        policy: PolicyDecision | None,
+        spend_request: SpendRequest,
+    ) -> str | None:
+        if policy is None:
+            return "policy_missing"
+        if policy.decision is not PolicyDecisionType.ALLOW:
+            return "policy_not_allow"
+        if (
+            policy.action_type is None
+            or policy.category is None
+            or policy.amount_usd is None
+            or not policy.sanitized_input
+        ):
+            return "policy_metadata_missing"
+        if policy.action_type not in EXECUTABLE_POLICY_ACTIONS:
+            return "policy_not_executable"
+        if not policy.requires_wallet_action or not policy.requires_payment:
+            return "policy_not_executable"
+        if policy.opportunity_id != spend_request.opportunity_id:
+            return "policy_context_mismatch"
+        if policy.experiment_id != spend_request.experiment_id:
+            return "policy_context_mismatch"
+        if (
+            policy.spend_request_id is not None
+            and policy.spend_request_id != spend_request.spend_request_id
+        ):
+            return "policy_context_mismatch"
+        if policy.amount_usd < spend_request.amount_usd:
+            return "policy_amount_exceeded"
+        if (
+            policy.counterparty is not None
+            and policy.counterparty != spend_request.counterparty
+        ):
+            return "policy_counterparty_mismatch"
+        if policy.category.strip().lower() != spend_request.category.strip().lower():
+            return "policy_category_mismatch"
+        normalized_tools = [tool.lower() for tool in policy.planned_tools]
+        if not normalized_tools or not any(
+            any(marker in tool for marker in WALLET_TOOL_MARKERS)
+            for tool in normalized_tools
+        ):
+            return "policy_not_executable"
         return None
 
     def _is_related_evidence(
         self,
         bundle: SpendAuthorizationBundle,
-        evidence: object,
+        evidence: EvidenceRecord,
     ) -> bool:
-        from openclaw_moneybot.shared import EvidenceRecord
-
-        if not isinstance(evidence, EvidenceRecord):
-            return False
         allowed_pairs = {
             (RecordType.OPPORTUNITY, bundle.spend_request.opportunity_id),
             (RecordType.BUDGET_PLAN, bundle.spend_request.budget_plan_id),
@@ -558,6 +678,46 @@ class WalletGovernorService:
         }
         return (evidence.related_record_type, evidence.related_record_id) in allowed_pairs
 
+    def _validate_evidence_artifact(
+        self,
+        bundle: SpendAuthorizationBundle,
+        evidence: EvidenceRecord,
+    ) -> str | None:
+        if not self._is_related_evidence(bundle, evidence):
+            return "evidence_unrelated"
+        archive_root = self.config.archive_root
+        if archive_root is None:
+            return "evidence_path_invalid"
+        resolved_root = archive_root.expanduser().resolve(strict=False)
+        raw_path = Path(evidence.archive_path).expanduser()
+        resolved_path = (
+            raw_path.resolve(strict=False)
+            if raw_path.is_absolute()
+            else (resolved_root / raw_path).resolve(strict=False)
+        )
+        if not (resolved_root == resolved_path or resolved_root in resolved_path.parents):
+            return "evidence_path_invalid"
+        if not resolved_path.exists() or not resolved_path.is_file():
+            return "evidence_missing"
+        if not verify_file_hash(resolved_path, evidence.content_sha256):
+            return "evidence_hash_mismatch"
+        metadata_path_value = evidence.metadata.get("metadata_path")
+        if isinstance(metadata_path_value, str):
+            metadata_path = Path(metadata_path_value).expanduser()
+            resolved_metadata_path = (
+                metadata_path.resolve(strict=False)
+                if metadata_path.is_absolute()
+                else (resolved_root / metadata_path).resolve(strict=False)
+            )
+            if not (
+                resolved_root == resolved_metadata_path
+                or resolved_root in resolved_metadata_path.parents
+            ):
+                return "evidence_path_invalid"
+            if not resolved_metadata_path.exists() or not resolved_metadata_path.is_file():
+                return "evidence_missing"
+        return None
+
     def _store_rejection(
         self,
         request: WalletSendRequest,
@@ -571,12 +731,12 @@ class WalletGovernorService:
         spend_request_id = (
             request.spend_request_id if related_record_id is None else related_record_id
         ) or request.idempotency_key
-        if bundle is not None and bundle.spend_request.status in ELIGIBLE_SPEND_STATUSES:
-            self.ledger_service.update_spend_request_status(
-                bundle.spend_request.spend_request_id,
-                SpendRequestStatus.REJECTED.value,
-                idempotency_key=f"wallet:spend-status:rejected:{request.idempotency_key}:{reason}",
-            )
+        self._update_spend_status_for_outcome(
+            bundle,
+            post_send_failure=False,
+            idempotency_key=request.idempotency_key,
+            reason=reason,
+        )
         response = WalletSendResponse(
             status="rejected",
             spend_request_id=spend_request_id,
@@ -600,6 +760,56 @@ class WalletGovernorService:
             if cache_fingerprint is not None:
                 self._response_fingerprints[request.idempotency_key] = cache_fingerprint
         return response
+
+    def _store_failure(
+        self,
+        request: WalletSendRequest,
+        reason: str,
+        *,
+        bundle: SpendAuthorizationBundle | None = None,
+        cache_fingerprint: str | None = None,
+    ) -> WalletSendResponse:
+        self._update_spend_status_for_outcome(
+            bundle,
+            post_send_failure=True,
+            idempotency_key=request.idempotency_key,
+            reason=reason,
+        )
+        response = WalletSendResponse(
+            status="error",
+            spend_request_id=request.spend_request_id,
+            amount_usd=request.amount_usd,
+            reason=reason,
+            rejection_reasons=[reason],
+        )
+        self._responses[request.idempotency_key] = response
+        if cache_fingerprint is not None:
+            self._response_fingerprints[request.idempotency_key] = cache_fingerprint
+        return response
+
+    def _update_spend_status_for_outcome(
+        self,
+        bundle: SpendAuthorizationBundle | None,
+        *,
+        post_send_failure: bool,
+        idempotency_key: str,
+        reason: str,
+    ) -> None:
+        if bundle is None:
+            return
+        current_status = bundle.spend_request.status
+        if current_status in TERMINAL_SPEND_STATUSES:
+            return
+        next_status = (
+            SpendRequestStatus.FAILED
+            if post_send_failure or current_status is SpendRequestStatus.SENDING
+            else SpendRequestStatus.REJECTED
+        )
+        self.ledger_service.update_spend_request_status(
+            bundle.spend_request.spend_request_id,
+            next_status.value,
+            idempotency_key=f"wallet:spend-status:{next_status.value}:{idempotency_key}:{reason}",
+        )
 
     def _limit_rejection_code(self, total_usd_estimate: float) -> str | None:
         if total_usd_estimate > self.policy_config.max_single_spend_usd:
@@ -641,6 +851,7 @@ class WalletGovernorService:
         return {
             "spend_request_id": request.spend_request_id,
             "opportunity_id": request.opportunity_id,
+            "experiment_id": request.experiment_id,
             "budget_plan_id": request.budget_plan_id,
             "policy_decision_id": request.policy_decision_id,
             "ledger_record_id": request.ledger_record_id,
@@ -663,12 +874,32 @@ class WalletGovernorService:
             "amount_usd": response.amount_usd,
             "reason": response.reason,
             "rejection_reasons": [item for item in response.rejection_reasons],
+            "warnings": [item for item in response.warnings],
         }
 
     def _require_supported_asset(self, asset: str) -> None:
         if asset not in self.config.allowed_assets:
             msg = f"Unsupported asset: {asset}"
             raise ValueError(msg)
+
+    def _destination_error(
+        self,
+        asset: str,
+        destination: str,
+        purpose: str | None,
+    ) -> str | None:
+        normalized_destination = destination.strip().lower()
+        if not normalized_destination:
+            return "destination_missing"
+        if any(token in normalized_destination for token in PLACEHOLDER_DESTINATIONS):
+            return "destination_invalid"
+        if any(term in normalized_destination for term in PROHIBITED_SEND_TERMS):
+            return "send_all_blocked"
+        if purpose is not None and any(term in purpose.lower() for term in PROHIBITED_SEND_TERMS):
+            return "send_all_blocked"
+        if not self._validate_destination(asset, destination):
+            return "destination_invalid"
+        return None
 
     @staticmethod
     def _validate_destination(asset: str, destination: str) -> bool:

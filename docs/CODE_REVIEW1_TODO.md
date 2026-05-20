@@ -1317,38 +1317,22 @@ Future requirements:
 
 ---
 
-# 23. Suggested Work Split Between Copilot and OpenCode
+# 23. Parallel Implementation Comparison Guidance
 
-Because both branches now start from Copilot's code, split work by module instead of by old implementation.
+If Copilot and OpenCode are both used for a review pass, they should independently implement the same TODO from the same starting codebase.
 
-## 23.1 Suggested Copilot Assignment
+## 23.1 Working Rule
 
-Copilot should focus on:
+- [x] Start both agents from the same baseline branch head.
+- [x] Have both agents independently implement the same planned tasks.
+- [x] Compare the resulting code, tests, and safety properties after both runs finish.
+- [x] Keep the safer and more complete result as the authoritative follow-up.
 
-- [ ] P0 wallet-governor service authorization.
-- [ ] P0 wallet client TOS bug.
-- [ ] P0 weekly spend SQL.
-- [ ] P0 ledger responsibility refactor.
-- [ ] P0 audit durability.
-- [ ] Tests for all P0 wallet safety paths.
+## 23.2 Integration Rule
 
-## 23.2 Suggested OpenCode Assignment
-
-OpenCode should focus on:
-
-- [ ] Evidence archive path restrictions.
-- [ ] Policy guard taxonomy expansion.
-- [ ] TOS/legal checker improvements.
-- [ ] Budget planner improvements.
-- [ ] Documentation updates.
-- [ ] Additional safety regression fixtures.
-
-## 23.3 Integration Rule
-
-- [ ] Do not let both agents edit the same file at the same time unless one branch is clearly authoritative.
-- [ ] Merge P0 wallet changes first.
-- [ ] Re-run full tests after each major merge.
-- [ ] Do not enable spend until P0 tests pass.
+- [x] Do not let both agents edit the same live branch at the same time.
+- [x] Re-run full tests after each implementation pass.
+- [x] Do not enable spend until the relevant wallet safety checks pass.
 
 ---
 
@@ -1356,7 +1340,7 @@ OpenCode should focus on:
 
 This TODO is complete when:
 
-- [ ] OpenCode branch has been reset to Copilot branch head.
+- [x] If both agents are used, they start from the same baseline branch head.
 - [x] All P0 wallet-governor service checks are implemented.
 - [x] Wallet client blocks TOS `human_review`.
 - [x] Weekly spend SQL is fixed and tested.

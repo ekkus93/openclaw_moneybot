@@ -51,6 +51,7 @@ class WalletGovernorConfig(MoneyBotModel):
     timeout_seconds: float = Field(default=10.0, gt=0)
     spend_enabled: bool = False
     allowed_assets: list[str] = Field(default_factory=lambda: ["BTC"])
+    archive_root: Path | None = None
 
     @field_validator("base_url")
     @classmethod

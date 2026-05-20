@@ -7,6 +7,7 @@ import json
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any
 
@@ -33,12 +34,18 @@ from openclaw_moneybot.skills.ledger_skill.models import (
     LedgerTimelineEntry,
     LedgerWriteResult,
     SpendAuthorizationBundle,
+    SpendByCategoryEntry,
+    SpendTotals,
     TaxExportResult,
 )
 from openclaw_moneybot.utils.ids import make_id
 from openclaw_moneybot.utils.time import utc_now
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+ACTUAL_TRANSACTION_STATUSES = (
+    WalletTransactionStatus.SENT.value,
+    WalletTransactionStatus.CONFIRMED.value,
+)
 
 
 class LedgerRepository:
@@ -68,6 +75,72 @@ class LedgerRepository:
         schema_sql = schema_path.read_text(encoding="utf-8")
         with self._connect() as connection:
             connection.executescript(schema_sql)
+            self._ensure_column(
+                connection,
+                "spend_requests",
+                "experiment_id",
+                "TEXT",
+            )
+            self._ensure_column(
+                connection,
+                "policy_decisions",
+                "action_type",
+                "TEXT",
+            )
+            self._ensure_column(
+                connection,
+                "policy_decisions",
+                "category",
+                "TEXT",
+            )
+            self._ensure_column(
+                connection,
+                "policy_decisions",
+                "requires_payment",
+                "INTEGER NOT NULL DEFAULT 0",
+            )
+            self._ensure_column(
+                connection,
+                "policy_decisions",
+                "requires_wallet_action",
+                "INTEGER NOT NULL DEFAULT 0",
+            )
+            self._ensure_column(
+                connection,
+                "policy_decisions",
+                "amount_usd",
+                "REAL",
+            )
+            self._ensure_column(
+                connection,
+                "policy_decisions",
+                "counterparty",
+                "TEXT",
+            )
+            self._ensure_column(
+                connection,
+                "policy_decisions",
+                "experiment_id",
+                "TEXT",
+            )
+            self._ensure_column(
+                connection,
+                "policy_decisions",
+                "spend_request_id",
+                "TEXT",
+            )
+            self._ensure_column(
+                connection,
+                "policy_decisions",
+                "planned_tools_json",
+                "TEXT NOT NULL DEFAULT '{\"items\":[]}'",
+            )
+            self._ensure_column(
+                connection,
+                "policy_decisions",
+                "sanitized_input_json",
+                "TEXT NOT NULL DEFAULT '{}'",
+            )
             self._ensure_column(
                 connection,
                 "spend_requests",
@@ -279,16 +352,28 @@ class LedgerRepository:
             connection.execute(
                 """
                 INSERT INTO policy_decisions (
-                    id, created_at, opportunity_id, decision, risk_level, confidence,
-                    blocked_reasons_json, required_mitigations_json, matched_rules_json,
-                    human_review_reason, safe_next_steps_json, policy_version,
-                    request_hash, expires_at, raw_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    id, created_at, opportunity_id, action_type, category, requires_payment,
+                    requires_wallet_action, amount_usd, counterparty, experiment_id,
+                    spend_request_id, planned_tools_json, sanitized_input_json, decision,
+                    risk_level, confidence, blocked_reasons_json, required_mitigations_json,
+                    matched_rules_json, human_review_reason, safe_next_steps_json,
+                    policy_version, request_hash, expires_at, raw_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     decision.policy_decision_id,
                     decision.created_at.isoformat(),
                     decision.opportunity_id,
+                    None if decision.action_type is None else decision.action_type.value,
+                    decision.category,
+                    int(decision.requires_payment),
+                    int(decision.requires_wallet_action),
+                    decision.amount_usd,
+                    decision.counterparty,
+                    decision.experiment_id,
+                    decision.spend_request_id,
+                    canonical_json({"items": decision.planned_tools}),
+                    canonical_json(decision.sanitized_input),
                     decision.decision.value,
                     decision.risk_level.value,
                     decision.confidence.value,
@@ -426,15 +511,17 @@ class LedgerRepository:
             connection.execute(
                 """
                 INSERT INTO spend_requests (
-                    id, created_at, opportunity_id, budget_plan_id, policy_decision_id,
-                    ledger_record_id, amount_usd, asset, destination, counterparty, purpose,
+                    id, created_at, opportunity_id, experiment_id,
+                    budget_plan_id, policy_decision_id, ledger_record_id,
+                    amount_usd, asset, destination, counterparty, purpose,
                     category, status, evidence_archive_ids_json, raw_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     spend_request.spend_request_id,
                     spend_request.created_at.isoformat(),
                     spend_request.opportunity_id,
+                    spend_request.experiment_id,
                     spend_request.budget_plan_id,
                     spend_request.policy_decision_id,
                     spend_request.ledger_record_id,
@@ -661,6 +748,100 @@ class LedgerRepository:
                 ),
             ).fetchone()
         return float(row["total"]) if row is not None else 0.0
+
+    @staticmethod
+    def _format_btc_total(value: object) -> str:
+        amount = Decimal(str(value if value is not None else 0))
+        return str(amount.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP))
+
+    @classmethod
+    def _totals_from_row(cls, row: sqlite3.Row | None) -> SpendTotals:
+        if row is None:
+            return SpendTotals()
+        amount_usd = float(row["amount_usd"] or 0.0)
+        fee_usd = float(row["fee_usd"] or 0.0)
+        total_usd = float(row["total_usd"] or 0.0)
+        return SpendTotals(
+            amount_usd=amount_usd,
+            fee_usd=fee_usd,
+            total_usd=total_usd,
+            amount_btc=cls._format_btc_total(row["amount_btc"]),
+            fee_btc=cls._format_btc_total(row["fee_btc"]),
+        )
+
+    def get_experiment_spend_total(self, experiment_id: str) -> SpendTotals:
+        """Return actual spend totals for a single experiment."""
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    COALESCE(SUM(bt.amount_usd_estimate), 0.0) AS amount_usd,
+                    COALESCE(SUM(bt.fee_usd_estimate), 0.0) AS fee_usd,
+                    COALESCE(SUM(bt.total_usd_estimate), 0.0) AS total_usd,
+                    COALESCE(SUM(CAST(bt.amount_btc AS REAL)), 0.0) AS amount_btc,
+                    COALESCE(SUM(CAST(bt.fee_btc AS REAL)), 0.0) AS fee_btc
+                FROM btc_transactions bt
+                JOIN spend_requests sr ON sr.id = bt.spend_request_id
+                WHERE sr.experiment_id = ?
+                  AND bt.status IN (?, ?)
+                """,
+                (experiment_id, *ACTUAL_TRANSACTION_STATUSES),
+            ).fetchone()
+        return self._totals_from_row(row)
+
+    def get_spend_by_category(
+        self,
+        *,
+        start_day: str | None = None,
+        end_day: str | None = None,
+        experiment_id: str | None = None,
+        opportunity_id: str | None = None,
+    ) -> list[SpendByCategoryEntry]:
+        """Return actual spend totals grouped by spend-request category."""
+        clauses = ["bt.status IN (?, ?)"]
+        parameters: list[str] = [*ACTUAL_TRANSACTION_STATUSES]
+        if start_day is not None:
+            clauses.append("date(substr(bt.created_at, 1, 10)) >= date(?)")
+            parameters.append(start_day)
+        if end_day is not None:
+            clauses.append("date(substr(bt.created_at, 1, 10)) <= date(?)")
+            parameters.append(end_day)
+        if experiment_id is not None:
+            clauses.append("sr.experiment_id = ?")
+            parameters.append(experiment_id)
+        if opportunity_id is not None:
+            clauses.append("sr.opportunity_id = ?")
+            parameters.append(opportunity_id)
+        where_clause = " AND ".join(clauses)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    sr.category AS category,
+                    COALESCE(SUM(bt.amount_usd_estimate), 0.0) AS amount_usd,
+                    COALESCE(SUM(bt.fee_usd_estimate), 0.0) AS fee_usd,
+                    COALESCE(SUM(bt.total_usd_estimate), 0.0) AS total_usd,
+                    COALESCE(SUM(CAST(bt.amount_btc AS REAL)), 0.0) AS amount_btc,
+                    COALESCE(SUM(CAST(bt.fee_btc AS REAL)), 0.0) AS fee_btc
+                FROM btc_transactions bt
+                JOIN spend_requests sr ON sr.id = bt.spend_request_id
+                WHERE {where_clause}
+                GROUP BY sr.category
+                ORDER BY sr.category ASC
+                """,
+                parameters,
+            ).fetchall()
+        return [
+            SpendByCategoryEntry(
+                category=str(row["category"]),
+                amount_usd=float(row["amount_usd"] or 0.0),
+                fee_usd=float(row["fee_usd"] or 0.0),
+                total_usd=float(row["total_usd"] or 0.0),
+                amount_btc=self._format_btc_total(row["amount_btc"]),
+                fee_btc=self._format_btc_total(row["fee_btc"]),
+            )
+            for row in rows
+        ]
 
     def get_remaining_daily_limit(self, day: str, limit_usd: float) -> float:
         return max(limit_usd - self.get_daily_spend_total(day), 0.0)
@@ -991,6 +1172,8 @@ class LedgerRepository:
             else self.get_tos_legal_check(budget_plan.tos_legal_check_id)
         )
         evidence_ids = list(spend_request.evidence_archive_ids)
+        if budget_plan is not None:
+            evidence_ids.extend(budget_plan.required_evidence_ids)
         if tos_legal_check is not None:
             evidence_ids.extend(tos_legal_check.evidence_archive_ids)
         seen: set[str] = set()
