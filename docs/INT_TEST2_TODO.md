@@ -226,28 +226,28 @@ src/openclaw_moneybot/skills/receipt_and_evidence_archiver/
 
 ## 4.2 Download ingest -> promotion path
 
-- [ ] Add integration test: safe downloaded file is ingested into quarantine, then promoted into the evidence archive.
-- [ ] Assert:
-  - [ ] quarantine scan record exists
-  - [ ] metadata status changes from staged to promoted
-  - [ ] promoted evidence record exists and points at the archived file
-  - [ ] content hash identity remains stable across staging and promotion
+- [x] Add integration test: safe downloaded file is ingested into quarantine, then promoted into the evidence archive.
+- [x] Assert:
+  - [x] quarantine scan record exists
+  - [x] metadata status changes from staged to promoted
+  - [x] promoted evidence record exists and points at the archived file
+  - [x] content hash identity remains stable across staging and promotion
 
 ## 4.3 Inbox attachment -> quarantine -> promotion path
 
-- [ ] Add integration test: supported inbound attachment is observed, staged in quarantine, then promoted for downstream use.
-- [ ] Assert:
-  - [ ] inbox observation record exists
-  - [ ] attachment action and quarantine result are consistent
-  - [ ] promoted evidence can be referenced by a later package/render step
+- [x] Add integration test: supported inbound attachment is observed, staged in quarantine, then promoted for downstream use.
+- [x] Assert:
+  - [x] inbox observation record exists
+  - [x] attachment action and quarantine result are consistent
+  - [x] promoted evidence can be referenced by a later package/render step
 
 ## 4.4 Rejection and boundary cases
 
-- [ ] Add integration test: rejected quarantine item cannot be promoted and cannot be used as downstream evidence.
-- [ ] Add integration test: unsupported attachment or download remains quarantined/rejected without false promotion metadata.
-- [ ] Assert:
-  - [ ] explicit rejection reasons are durable
-  - [ ] no downstream package/render/archive success path consumes the rejected file
+- [x] Add integration test: rejected quarantine item cannot be promoted and cannot be used as downstream evidence.
+- [x] Add integration test: unsupported attachment or download remains quarantined/rejected without false promotion metadata.
+- [x] Assert:
+  - [x] explicit rejection reasons are durable
+  - [x] no downstream package/render/archive success path consumes the rejected file
 
 ---
 
@@ -269,30 +269,30 @@ src/openclaw_moneybot/skills/payout_followup_planner/
 
 ## 5.2 Observed payout -> reconciled happy path
 
-- [ ] Add integration test: wallet observer records an inbound or outbound payment event, and `revenue_reconciler` matches it to the expected experiment or opportunity context.
-- [ ] Assert:
-  - [ ] wallet observation record exists
-  - [ ] reconciliation record exists
-  - [ ] matched transaction metadata is preserved
-  - [ ] resulting ROI/revenue fields are consistent with ledger history
+- [x] Add integration test: wallet observer records an inbound or outbound payment event, and `revenue_reconciler` matches it to the expected experiment or opportunity context.
+- [x] Assert:
+  - [x] wallet observation record exists
+  - [x] reconciliation record exists
+  - [x] matched transaction metadata is preserved
+  - [x] resulting ROI/revenue fields are consistent with ledger history
 
 ## 5.3 Missing or partial payout path
 
-- [ ] Add integration test: expected payout is still missing and `payout_followup_planner` produces the correct bounded follow-up plan.
-- [ ] Add integration test: partial/ambiguous payment state yields the expected non-success reconciliation status.
-- [ ] Assert:
-  - [ ] follow-up plan record exists only when needed
-  - [ ] reasons and next steps are durable and deterministic
-  - [ ] no success-shaped reconciliation is produced for ambiguous payment state
+- [x] Add integration test: expected payout is still missing and `payout_followup_planner` produces the correct bounded follow-up plan.
+- [x] Add integration test: partial/ambiguous payment state yields the expected non-success reconciliation status.
+- [x] Assert:
+  - [x] follow-up plan record exists only when needed
+  - [x] reasons and next steps are durable and deterministic
+  - [x] no success-shaped reconciliation is produced for ambiguous payment state
 
 ## 5.4 Linkage and sequence checks
 
-- [ ] Add integration assertion set proving the payout loop links:
-  - [ ] opportunity or experiment context
-  - [ ] wallet observation
-  - [ ] reconciliation output
-  - [ ] follow-up planning output
-  - [ ] any evidence or notes emitted along the way
+- [x] Add integration assertion set proving the payout loop links:
+  - [x] opportunity or experiment context
+  - [x] wallet observation
+  - [x] reconciliation output
+  - [x] follow-up planning output
+  - [x] any evidence or notes emitted along the way
 
 ---
 
@@ -314,27 +314,27 @@ src/openclaw_moneybot/skills/budget_and_roi_planner/
 
 ## 6.2 Snapshot -> risk-profile baseline
 
-- [ ] Add integration test: public counterparty snapshot feeds `counterparty_risk_profiler` successfully.
-- [ ] Assert:
-  - [ ] snapshot record exists
-  - [ ] snapshot evidence is archived
-  - [ ] risk profile record exists and references the snapshot context
+- [x] Add integration test: public counterparty snapshot feeds `counterparty_risk_profiler` successfully.
+- [x] Assert:
+  - [x] snapshot record exists
+  - [x] snapshot evidence is archived
+  - [x] risk profile record exists and references the snapshot context
 
 ## 6.3 Changed or weak evidence path
 
-- [ ] Add integration test: weak or incomplete counterparty evidence produces the expected higher-risk profile or review-required state.
-- [ ] Add integration test: changed indicators between snapshots are visible in the resulting risk reasoning.
-- [ ] Assert:
-  - [ ] changed fields are durable
-  - [ ] evidence tier/freshness affect the integrated risk output as intended
-  - [ ] downstream planning or review reflects the elevated uncertainty
+- [x] Add integration test: weak or incomplete counterparty evidence produces the expected higher-risk profile or review-required state.
+- [x] Add integration test: changed indicators between snapshots are visible in the resulting risk reasoning.
+- [x] Assert:
+  - [x] changed fields are durable
+  - [x] evidence tier/freshness affect the integrated risk output as intended
+  - [x] downstream planning or review reflects the elevated uncertainty
 
 ## 6.4 Downstream effect checks
 
-- [ ] Add integration test: counterparty risk output influences later planning or review records in a traceable way.
-- [ ] Assert:
-  - [ ] downstream record references the correct counterparty profile
-  - [ ] no unrelated opportunity or snapshot leaks into the decision path
+- [x] Add integration test: counterparty risk output influences later planning or review records in a traceable way.
+- [x] Assert:
+  - [x] downstream record references the correct counterparty profile
+  - [x] no unrelated opportunity or snapshot leaks into the decision path
 
 ---
 
