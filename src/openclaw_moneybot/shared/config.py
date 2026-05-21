@@ -320,9 +320,11 @@ class BraveSearchConfig(MoneyBotModel):
     api_key_env_var: str = "BRAVE_SEARCH_API_KEY"
     timeout_seconds: float = Field(default=10.0, gt=0, le=60.0)
     max_results: int = Field(default=10, gt=0, le=20)
+    max_news_results: int = Field(default=10, gt=0, le=20)
     default_country: str = "us"
     default_search_lang: str = "en"
     safesearch: str = "moderate"
+    default_news_freshness: str = "pd"
 
     @field_validator("api_base_url")
     @classmethod
@@ -342,7 +344,12 @@ class BraveSearchConfig(MoneyBotModel):
     def normalize_brave_env_var(cls, value: str) -> str:
         return value.strip()
 
-    @field_validator("default_country", "default_search_lang", "safesearch")
+    @field_validator(
+        "default_country",
+        "default_search_lang",
+        "safesearch",
+        "default_news_freshness",
+    )
     @classmethod
     def normalize_brave_strings(cls, value: str) -> str:
         return value.strip().lower()

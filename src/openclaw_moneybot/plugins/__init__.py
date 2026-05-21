@@ -6,6 +6,7 @@ from openclaw_moneybot.plugins.artifact_renderer_plugin import (
     ArtifactRenderResult,
 )
 from openclaw_moneybot.plugins.brave_search_plugin import (
+    BraveNewsSearchRequest,
     BraveSearchPlugin,
     BraveSearchPluginError,
     BraveSearchRequest,
@@ -93,6 +94,7 @@ __all__ = [
     "BrowserActionRequest",
     "BrowserActionResult",
     "BrowserGovernorService",
+    "BraveNewsSearchRequest",
     "BraveSearchPlugin",
     "BraveSearchPluginError",
     "BraveSearchRequest",

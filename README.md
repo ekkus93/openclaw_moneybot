@@ -103,6 +103,8 @@ brave_search:
   api_base_url: "https://api.search.brave.com/res/v1/web/search"
   api_key_env_var: "BRAVE_SEARCH_API_KEY"
   max_results: 10
+  max_news_results: 10
+  default_news_freshness: "pd"
 ```
 
 2. Build the orchestrator from config and run a mission:
@@ -157,6 +159,10 @@ For Brave Search, set the hosted API credential in your environment before enabl
 ```bash
 export BRAVE_SEARCH_API_KEY="your-token"
 ```
+
+The same plugin can also be used for current-events/news lookups through a bounded
+`search_news()` path, which stays on Brave web search but applies recency and optional
+source-domain filters rather than introducing a separate news API boundary.
 
 For an automated reference run, the integration coverage in `tests/integration/test_workflow.py` exercises:
 

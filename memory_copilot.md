@@ -152,3 +152,8 @@
 - Implemented a disabled-by-default `brave_search_plugin` for hosted web search using the Brave Search API instead of self-hosted search infrastructure.
 - The plugin uses a configurable Brave API URL, an environment-variable credential (`BRAVE_SEARCH_API_KEY` by default), bounded result counts, archived raw response snapshots, ledger-linked `web_search` records, and read-only health reporting that surfaces missing credentials safely.
 - Updated shared config/types/plugin exports, the architecture and README docs, and unit coverage for successful queries, disabled/missing-key behavior, transport failures, and malformed payloads; the repository now passes `ruff`, `mypy`, and `pytest` with 591 passing tests.
+
+## 2026-05-21T20:32:50Z - GPT-5.4 - Added news search mode to Brave Search plugin
+- Extended `brave_search_plugin` with a bounded `search_news()` path so MoneyBot can use Brave web search for current-events lookups without introducing a separate news API dependency yet.
+- The news mode adds a dedicated request shape with recency and optional source-domain filters, separate `max_news_results` and `default_news_freshness` config, distinct audit/evidence labeling, and normalized result metadata that marks the query mode as `news`.
+- Added unit coverage for news defaults, source-domain query shaping, and result-count enforcement; the full repository now passes `ruff`, `mypy`, and `pytest` with 593 passing tests.

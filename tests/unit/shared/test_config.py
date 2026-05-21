@@ -170,6 +170,8 @@ def test_brave_search_defaults_are_bounded_and_disabled() -> None:
     assert config.enabled is False
     assert config.api_key_env_var == "BRAVE_SEARCH_API_KEY"
     assert config.max_results == 10
+    assert config.max_news_results == 10
+    assert config.default_news_freshness == "pd"
 
 
 def test_brave_search_config_rejects_non_brave_host() -> None:

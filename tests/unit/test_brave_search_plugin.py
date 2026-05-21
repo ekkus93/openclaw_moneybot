@@ -9,6 +9,7 @@ import pytest
 from pytest import MonkeyPatch
 
 from openclaw_moneybot.plugins.brave_search_plugin import (
+    BraveNewsSearchRequest,
     BraveSearchPlugin,
     BraveSearchPluginError,
     BraveSearchRequest,
@@ -26,7 +27,7 @@ def make_plugin(
 ) -> tuple[BraveSearchPlugin, LedgerService]:
     ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
     plugin = BraveSearchPlugin(
-        BraveSearchConfig(enabled=enabled, max_results=5),
+        BraveSearchConfig(enabled=enabled, max_results=5, max_news_results=5),
         ArchiveConfig(base_directory=tmp_path / "archive"),
         ledger_service,
         transport=handler,
@@ -91,7 +92,7 @@ def test_search_returns_bounded_normalized_results(
     assert result.raw_response_summary["reported_total"] == 2
     assert len(result.evidence_archive_ids) == 1
     assert len(evidence) == 1
-    assert evidence[0].evidence_type == "brave_search_response"
+    assert evidence[0].evidence_type == "brave_web_search_response"
 
 
 def test_search_rejects_when_plugin_disabled(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -146,3 +147,60 @@ def test_search_rejects_malformed_payloads(tmp_path: Path, monkeypatch: MonkeyPa
 
     with pytest.raises(BraveSearchPluginError, match="results must be a list"):
         plugin.search(BraveSearchRequest(query="python jobs"))
+
+
+def test_search_news_uses_news_mode_defaults_and_source_filters(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["q"] == "bitcoin etf (site:reuters.com OR site:apnews.com)"
+        assert request.url.params["freshness"] == "pd"
+        return httpx.Response(
+            200,
+            json={
+                "web": {
+                    "total": 1,
+                    "results": [
+                        {
+                            "title": "ETF headline",
+                            "url": "https://www.reuters.com/example",
+                            "description": "News result",
+                        }
+                    ],
+                }
+            },
+        )
+
+    plugin, ledger_service = make_plugin(tmp_path, handler=httpx.MockTransport(handler))
+
+    result = plugin.search_news(
+        BraveNewsSearchRequest(
+            query="bitcoin etf",
+            count=1,
+            source_domains=["Reuters.com", "apnews.com"],
+        )
+    )
+    evidence = ledger_service.list_evidence_for_related(
+        related_type=RecordType.WEB_SEARCH,
+        related_id=result.search_id,
+    )
+
+    assert result.mode == "news"
+    assert result.freshness == "pd"
+    assert result.source_domains == ["reuters.com", "apnews.com"]
+    assert result.results[0].title == "ETF headline"
+    assert evidence[0].evidence_type == "brave_news_search_response"
+
+
+def test_search_news_rejects_requests_above_news_maximum(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "token")
+    plugin, _ = make_plugin(tmp_path)
+
+    with pytest.raises(ValueError, match="news result count"):
+        plugin.search_news(BraveNewsSearchRequest(query="fed rates", count=6))
