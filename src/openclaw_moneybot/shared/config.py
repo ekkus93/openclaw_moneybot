@@ -21,9 +21,7 @@ class MoneyBotPolicyConfig(MoneyBotModel):
     policy_version: str
     blocked_categories: list[str]
     review_required_categories: list[str]
-    allowed_action_types: list[ActionType] = Field(
-        default_factory=lambda: list(ActionType)
-    )
+    allowed_action_types: list[ActionType] = Field(default_factory=lambda: list(ActionType))
     max_single_spend_usd: float = Field(gt=0)
     max_daily_spend_usd: float = Field(gt=0)
     max_weekly_spend_usd: float = Field(gt=0)
@@ -131,6 +129,160 @@ class BrowserGovernorConfig(MoneyBotModel):
         return value
 
 
+class OperatorProfileStoreConfig(MoneyBotModel):
+    """Local operator-profile storage configuration."""
+
+    enabled: bool = False
+    profile_path: Path = Path("config/operator_profile.json")
+    max_export_fields: int = Field(default=32, gt=0)
+
+
+class RulesSnapshotGatewayConfig(MoneyBotModel):
+    """Rules snapshot gateway configuration."""
+
+    enabled: bool = False
+    allowed_hosts: list[str] = Field(default_factory=list)
+    allowed_content_types: list[str] = Field(default_factory=lambda: ["text/plain", "text/html"])
+    max_content_bytes: int = Field(default=200_000, gt=0)
+    stale_after_hours: int = Field(default=24 * 7, gt=0)
+
+    @field_validator("allowed_hosts")
+    @classmethod
+    def normalize_allowed_hosts(cls, value: list[str]) -> list[str]:
+        return [host.strip().lower() for host in value if host.strip()]
+
+
+class WalletObserverConfig(MoneyBotModel):
+    """Read-only wallet observer configuration."""
+
+    enabled: bool = False
+    allowed_assets: list[str] = Field(default_factory=lambda: ["BTC"])
+    read_only: bool = True
+
+
+class InboxObserverConfig(MoneyBotModel):
+    """Dedicated bot-mailbox observation configuration."""
+
+    enabled: bool = False
+    mailbox_address: str = "bot@example.com"
+    allowed_attachment_extensions: list[str] = Field(
+        default_factory=lambda: [".txt", ".json", ".csv", ".md", ".png", ".jpg", ".jpeg"]
+    )
+    max_body_excerpt_chars: int = Field(default=500, gt=0)
+    max_attachment_bytes: int = Field(default=1_000_000, gt=0)
+
+    @field_validator("mailbox_address")
+    @classmethod
+    def validate_mailbox_address(cls, value: str) -> str:
+        if value.count("@") != 1:
+            msg = "mailbox_address must be a dedicated bot mailbox."
+            raise ValueError(msg)
+        domain = value.split("@", 1)[1].lower()
+        if domain in {"gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com"}:
+            msg = "mailbox_address must not point to a personal mailbox provider."
+            raise ValueError(msg)
+        return value
+
+    @field_validator("allowed_attachment_extensions")
+    @classmethod
+    def normalize_attachment_extensions(cls, value: list[str]) -> list[str]:
+        normalized = [extension.lower() for extension in value if extension]
+        if not normalized:
+            msg = "allowed_attachment_extensions must contain at least one extension."
+            raise ValueError(msg)
+        return normalized
+
+
+class OpportunityIndexConfig(MoneyBotModel):
+    """Local opportunity-index configuration."""
+
+    enabled: bool = False
+    max_results: int = Field(default=25, gt=0)
+
+
+class ArtifactRendererConfig(MoneyBotModel):
+    """Artifact renderer configuration."""
+
+    enabled: bool = False
+    template_root: Path = Path("templates/moneybot")
+    render_root: Path = Path("workspace/rendered_artifacts")
+    max_bundle_files: int = Field(default=50, gt=0)
+
+
+class DeadlineSchedulerConfig(MoneyBotModel):
+    """Deadline scheduler configuration."""
+
+    enabled: bool = False
+    default_timezone: str = "UTC"
+    max_items: int = Field(default=500, gt=0)
+
+
+class DownloadQuarantineConfig(MoneyBotModel):
+    """Quarantine pipeline configuration."""
+
+    enabled: bool = False
+    quarantine_root: Path = Path("workspace/quarantine")
+    allowed_hosts: list[str] = Field(default_factory=list)
+    allowed_extensions: list[str] = Field(
+        default_factory=lambda: [
+            ".txt",
+            ".json",
+            ".csv",
+            ".md",
+            ".html",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".pdf",
+            ".zip",
+        ]
+    )
+    allowed_mime_types: list[str] = Field(
+        default_factory=lambda: [
+            "text/plain",
+            "application/json",
+            "text/csv",
+            "text/markdown",
+            "text/html",
+            "image/png",
+            "image/jpeg",
+            "application/pdf",
+            "application/zip",
+        ]
+    )
+    max_file_bytes: int = Field(default=2_000_000, gt=0)
+    max_archive_entries: int = Field(default=100, gt=0)
+    max_nested_bytes: int = Field(default=5_000_000, gt=0)
+
+    @field_validator("allowed_hosts", "allowed_extensions", "allowed_mime_types")
+    @classmethod
+    def normalize_string_lists(cls, value: list[str]) -> list[str]:
+        return [item.strip().lower() for item in value if item.strip()]
+
+
+class CounterpartySnapshotConfig(MoneyBotModel):
+    """Public counterparty snapshot configuration."""
+
+    enabled: bool = False
+    allowed_hosts: list[str] = Field(default_factory=list)
+    allowed_content_types: list[str] = Field(default_factory=lambda: ["text/plain", "text/html"])
+    max_content_bytes: int = Field(default=200_000, gt=0)
+    freshness_days: int = Field(default=30, gt=0)
+
+    @field_validator("allowed_hosts")
+    @classmethod
+    def normalize_counterparty_hosts(cls, value: list[str]) -> list[str]:
+        return [host.strip().lower() for host in value if host.strip()]
+
+
+class MetricsExportConfig(MoneyBotModel):
+    """Metrics export plugin configuration."""
+
+    enabled: bool = False
+    export_root: Path = Path("exports")
+    max_rows: int = Field(default=1_000, gt=0)
+
+
 class AppConfig(MoneyBotModel):
     """Top-level MoneyBot configuration."""
 
@@ -140,6 +292,22 @@ class AppConfig(MoneyBotModel):
     wallet_governor: WalletGovernorConfig
     email: EmailConfig
     browser_governor: BrowserGovernorConfig = Field(default_factory=BrowserGovernorConfig)
+    operator_profile_store: OperatorProfileStoreConfig = Field(
+        default_factory=OperatorProfileStoreConfig
+    )
+    rules_snapshot_gateway: RulesSnapshotGatewayConfig = Field(
+        default_factory=RulesSnapshotGatewayConfig
+    )
+    wallet_observer: WalletObserverConfig = Field(default_factory=WalletObserverConfig)
+    inbox_observer: InboxObserverConfig = Field(default_factory=InboxObserverConfig)
+    opportunity_index: OpportunityIndexConfig = Field(default_factory=OpportunityIndexConfig)
+    artifact_renderer: ArtifactRendererConfig = Field(default_factory=ArtifactRendererConfig)
+    deadline_scheduler: DeadlineSchedulerConfig = Field(default_factory=DeadlineSchedulerConfig)
+    download_quarantine: DownloadQuarantineConfig = Field(default_factory=DownloadQuarantineConfig)
+    counterparty_snapshot: CounterpartySnapshotConfig = Field(
+        default_factory=CounterpartySnapshotConfig
+    )
+    metrics_export: MetricsExportConfig = Field(default_factory=MetricsExportConfig)
 
 
 def load_app_config(path: Path) -> AppConfig:
@@ -167,9 +335,7 @@ def load_app_config(path: Path) -> AppConfig:
     try:
         return AppConfig.model_validate(raw_data)
     except ValidationError as error:
-        normalized_errors = json.loads(
-            json.dumps(error.errors(include_url=False), default=str)
-        )
+        normalized_errors = json.loads(json.dumps(error.errors(include_url=False), default=str))
         detail = MoneyBotErrorDetail(
             error_code=ErrorCode.INVALID_CONFIG,
             message="Config validation failed",

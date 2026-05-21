@@ -56,13 +56,13 @@ P2 = analytics, indexing, and quality-of-life plugins
 
 ## 1.1 Confirm plugin scope and sequencing
 
-- [ ] Confirm that this wave is limited to **first-party** plugins only.
-- [ ] Confirm the initial implementation order for the plugin wave.
+- [x] Confirm that this wave is limited to **first-party** plugins only.
+- [x] Confirm the initial implementation order for the plugin wave.
 - [ ] Recommended order:
-  - [ ] `operator_profile_store`
-  - [ ] `rules_snapshot_gateway`
-  - [ ] `wallet_observer_plugin`
-  - [ ] `inbox_observer_plugin`
+  - [x] `operator_profile_store`
+  - [x] `rules_snapshot_gateway`
+  - [x] `wallet_observer_plugin`
+  - [x] `inbox_observer_plugin`
   - [ ] `opportunity_index_plugin`
   - [ ] `artifact_renderer_plugin`
   - [ ] `deadline_scheduler_plugin`
@@ -73,54 +73,54 @@ P2 = analytics, indexing, and quality-of-life plugins
 
 ## 1.2 Shared plugin conventions
 
-- [ ] Decide where each plugin should live in the repo structure.
-  - [ ] local Python module under `src/openclaw_moneybot/plugins/`
+- [x] Decide where each plugin should live in the repo structure.
+  - [x] local Python module under `src/openclaw_moneybot/plugins/`
   - [ ] localhost-only service wrapper where process separation is desirable
-- [ ] Define standard plugin config loading patterns.
-- [ ] Define standard health-check behavior for service-style plugins.
+- [x] Define standard plugin config loading patterns.
+- [x] Define standard health-check behavior for service-style plugins.
 - [ ] Define standard error model and error-code conventions for plugin failures.
 - [ ] Define standard idempotency requirements for any plugin that persists state.
-- [ ] Define standard audit-event conventions for plugin reads, writes, and rejections.
+- [x] Define standard audit-event conventions for plugin reads, writes, and rejections.
 
 ## 1.3 Shared contracts and enums
 
-- [ ] Add or confirm shared enums/types needed by the new plugins.
-  - [ ] profile attribute availability enum
-  - [ ] snapshot freshness enum
-  - [ ] inbound message classification enum
-  - [ ] opportunity similarity enum
-  - [ ] artifact render outcome enum
-  - [ ] deadline state enum
-  - [ ] quarantine scan status enum
-  - [ ] counterparty evidence tier enum
-  - [ ] export job status enum
-- [ ] Add shared record-link conventions so plugin outputs can be tied to opportunities, experiments, reviews, and evidence.
-- [ ] Ensure every plugin contract is serializable and stable for ledger persistence.
+- [x] Add or confirm shared enums/types needed by the new plugins.
+  - [x] profile attribute availability enum
+  - [x] snapshot freshness enum
+  - [x] inbound message classification enum
+  - [x] opportunity similarity enum
+  - [x] artifact render outcome enum
+  - [x] deadline state enum
+  - [x] quarantine scan status enum
+  - [x] counterparty evidence tier enum
+  - [x] export job status enum
+- [x] Add shared record-link conventions so plugin outputs can be tied to opportunities, experiments, reviews, and evidence.
+- [x] Ensure every plugin contract is serializable and stable for ledger persistence.
 
 ## 1.4 Shared security controls
 
 - [ ] Define path allowlists for every plugin that reads or writes files.
-- [ ] Define host/domain allowlists for every plugin that fetches remote content.
-- [ ] Define content-type allowlists for downloads and imported artifacts.
-- [ ] Define maximum payload/file sizes.
+- [x] Define host/domain allowlists for every plugin that fetches remote content.
+- [x] Define content-type allowlists for downloads and imported artifacts.
+- [x] Define maximum payload/file sizes.
 - [ ] Define per-plugin timeouts and retry rules.
 - [ ] Define redaction rules for inbound content, account data, and receipts.
-- [ ] Decide which plugins must operate in read-only mode by default.
+- [x] Decide which plugins must operate in read-only mode by default.
 
 ## 1.5 Shared ledger and evidence preparation
 
-- [ ] Decide whether new dedicated ledger record types are needed for plugin-originated events.
-- [ ] If needed, add safe record support for:
-  - [ ] operator profile snapshots
-  - [ ] rule snapshot captures
-  - [ ] wallet observation snapshots
-  - [ ] inbox observation events
-  - [ ] opportunity index records
-  - [ ] rendered artifact manifests
-  - [ ] deadline schedule events
-  - [ ] quarantine scan results
-  - [ ] counterparty snapshot records
-  - [ ] metrics export jobs
+- [x] Decide whether new dedicated ledger record types are needed for plugin-originated events.
+- [x] If needed, add safe record support for:
+  - [x] operator profile snapshots
+  - [x] rule snapshot captures
+  - [x] wallet observation snapshots
+  - [x] inbox observation events
+  - [x] opportunity index records
+  - [x] rendered artifact manifests
+  - [x] deadline schedule events
+  - [x] quarantine scan results
+  - [x] counterparty snapshot records
+  - [x] metrics export jobs
 - [ ] Define which plugin outputs must be archived as evidence.
 - [ ] Define retention expectations for snapshot-style plugin outputs.
 
@@ -149,47 +149,47 @@ Provide a narrow local store of operator capabilities and allowed account/profil
 
 ## 2.2 Supported data
 
-- [ ] Allowed operator region metadata
-- [ ] allowed working hours or time-budget caps
-- [ ] allowed hardware/software capabilities
-- [ ] allowed payout methods
-- [ ] allowed legal/business status flags
-- [ ] approved repository/history capabilities
-- [ ] explicit deny flags for personal-account-only requirements
+- [x] Allowed operator region metadata
+- [x] allowed working hours or time-budget caps
+- [x] allowed hardware/software capabilities
+- [x] allowed payout methods
+- [x] allowed legal/business status flags
+- [x] approved repository/history capabilities
+- [x] explicit deny flags for personal-account-only requirements
 
 ## 2.3 Hard boundaries
 
-- [ ] Do not store personal account credentials.
-- [ ] Do not store personal email credentials.
-- [ ] Do not store KYC documents, government IDs, or sensitive secrets.
-- [ ] Do not expose profile fields that the operator has not explicitly configured.
-- [ ] Return `unknown` rather than guessing.
+- [x] Do not store personal account credentials.
+- [x] Do not store personal email credentials.
+- [x] Do not store KYC documents, government IDs, or sensitive secrets.
+- [x] Do not expose profile fields that the operator has not explicitly configured.
+- [x] Return `unknown` rather than guessing.
 
 ## 2.4 Implementation tasks
 
-- [ ] Create plugin module and config models.
-- [ ] Define typed read/write request models.
-- [ ] Define allowed profile fields and validation rules.
-- [ ] Add support for explicit field provenance metadata.
-- [ ] Add support for profile versioning and last-updated timestamps.
-- [ ] Add read-only query helpers for eligibility checks.
-- [ ] Add audit events for profile creation and modification.
-- [ ] Add safe export/redaction behavior for diagnostics.
+- [x] Create plugin module and config models.
+- [x] Define typed read/write request models.
+- [x] Define allowed profile fields and validation rules.
+- [x] Add support for explicit field provenance metadata.
+- [x] Add support for profile versioning and last-updated timestamps.
+- [x] Add read-only query helpers for eligibility checks.
+- [x] Add audit events for profile creation and modification.
+- [x] Add safe export/redaction behavior for diagnostics.
 
 ## 2.5 Tests
 
-- [ ] Reading configured profile data succeeds.
-- [ ] Unknown field access returns a safe structured result.
-- [ ] Unsupported field write is rejected.
-- [ ] Sensitive field types are rejected.
-- [ ] Provenance metadata is preserved.
-- [ ] Versioning and audit linkage are preserved.
+- [x] Reading configured profile data succeeds.
+- [x] Unknown field access returns a safe structured result.
+- [x] Unsupported field write is rejected.
+- [x] Sensitive field types are rejected.
+- [x] Provenance metadata is preserved.
+- [x] Versioning and audit linkage are preserved.
 
 ## 2.6 Acceptance criteria
 
-- [ ] Eligibility skills can consume deterministic operator facts.
-- [ ] No secrets or personal-account credentials are exposed.
-- [ ] Missing data fails closed as `unknown` instead of assumed true.
+- [x] Eligibility skills can consume deterministic operator facts.
+- [x] No secrets or personal-account credentials are exposed.
+- [x] Missing data fails closed as `unknown` instead of assumed true.
 
 ---
 
@@ -201,47 +201,47 @@ Capture, normalize, hash, and version rule/terms snapshots so stale approvals ca
 
 ## 3.2 Supported responsibilities
 
-- [ ] Capture HTML/text snapshots from allowlisted opportunity rule sources.
-- [ ] Normalize line endings and strip clearly irrelevant noise where deterministic.
-- [ ] Store hash, capture timestamp, source URL, and content type.
-- [ ] Compare new snapshots against prior snapshots for the same opportunity/source.
-- [ ] Produce a stable diff artifact for downstream review.
+- [x] Capture HTML/text snapshots from allowlisted opportunity rule sources.
+- [x] Normalize line endings and strip clearly irrelevant noise where deterministic.
+- [x] Store hash, capture timestamp, source URL, and content type.
+- [x] Compare new snapshots against prior snapshots for the same opportunity/source.
+- [x] Produce a stable diff artifact for downstream review.
 
 ## 3.3 Hard boundaries
 
-- [ ] Do not execute JavaScript in an unrestricted browser context.
-- [ ] Do not log raw secrets or session data from fetched pages.
-- [ ] Do not silently accept oversized or unsupported content types.
-- [ ] Do not fetch arbitrary domains without allowlist checks.
+- [x] Do not execute JavaScript in an unrestricted browser context.
+- [x] Do not log raw secrets or session data from fetched pages.
+- [x] Do not silently accept oversized or unsupported content types.
+- [x] Do not fetch arbitrary domains without allowlist checks.
 
 ## 3.4 Implementation tasks
 
-- [ ] Create plugin module and config models.
-- [ ] Define allowlisted source configuration.
-- [ ] Define typed capture, fetch, and diff result models.
-- [ ] Add content-size and content-type enforcement.
-- [ ] Add normalization pipeline for deterministic snapshots.
-- [ ] Add hashing and snapshot identity logic.
-- [ ] Add previous-snapshot lookup helpers.
-- [ ] Add stable diff generation.
-- [ ] Archive raw and normalized snapshots through the evidence archive.
-- [ ] Record snapshot metadata and diff summaries in the ledger.
+- [x] Create plugin module and config models.
+- [x] Define allowlisted source configuration.
+- [x] Define typed capture, fetch, and diff result models.
+- [x] Add content-size and content-type enforcement.
+- [x] Add normalization pipeline for deterministic snapshots.
+- [x] Add hashing and snapshot identity logic.
+- [x] Add previous-snapshot lookup helpers.
+- [x] Add stable diff generation.
+- [x] Archive raw and normalized snapshots through the evidence archive.
+- [x] Record snapshot metadata and diff summaries in the ledger.
 
 ## 3.5 Tests
 
-- [ ] Initial snapshot capture succeeds.
-- [ ] Same-content recapture yields same hash identity expectations.
-- [ ] Meaningful text changes appear in diff output.
-- [ ] Unsupported content type is rejected.
-- [ ] Oversized content is rejected.
-- [ ] Non-allowlisted host is rejected.
-- [ ] Evidence and ledger linkage are preserved.
+- [x] Initial snapshot capture succeeds.
+- [x] Same-content recapture yields same hash identity expectations.
+- [x] Meaningful text changes appear in diff output.
+- [x] Unsupported content type is rejected.
+- [x] Oversized content is rejected.
+- [x] Non-allowlisted host is rejected.
+- [x] Evidence and ledger linkage are preserved.
 
 ## 3.6 Acceptance criteria
 
-- [ ] Terms/TOS reviews can rely on durable versioned snapshots.
-- [ ] Snapshot changes are detectable and auditable.
-- [ ] Unsafe fetches fail closed.
+- [x] Terms/TOS reviews can rely on durable versioned snapshots.
+- [x] Snapshot changes are detectable and auditable.
+- [x] Unsafe fetches fail closed.
 
 ---
 
@@ -253,44 +253,44 @@ Provide a read-only wallet observation layer that can support reconciliation and
 
 ## 4.2 Supported responsibilities
 
-- [ ] Read current wallet balance through approved local interfaces.
-- [ ] Read transaction summaries relevant to MoneyBot-recorded spends and receipts.
-- [ ] Normalize tx metadata for ledger comparison.
-- [ ] Detect confirmation-state changes for tracked transactions.
-- [ ] Surface read-only balance and transaction snapshots for reconciliation.
+- [x] Read current wallet balance through approved local interfaces.
+- [x] Read transaction summaries relevant to MoneyBot-recorded spends and receipts.
+- [x] Normalize tx metadata for ledger comparison.
+- [x] Detect confirmation-state changes for tracked transactions.
+- [x] Surface read-only balance and transaction snapshots for reconciliation.
 
 ## 4.3 Hard boundaries
 
-- [ ] Do not broadcast transactions.
-- [ ] Do not unlock the wallet.
-- [ ] Do not expose wallet secrets, RPC cookies, or passphrases.
-- [ ] Do not expose arbitrary raw RPC capability.
-- [ ] Do not mutate wallet state.
+- [x] Do not broadcast transactions.
+- [x] Do not unlock the wallet.
+- [x] Do not expose wallet secrets, RPC cookies, or passphrases.
+- [x] Do not expose arbitrary raw RPC capability.
+- [x] Do not mutate wallet state.
 
 ## 4.4 Implementation tasks
 
-- [ ] Decide whether to integrate through `wallet_governor_service`, a dedicated read-only adapter, or both.
-- [ ] Define typed balance and transaction observation models.
-- [ ] Add tx lookup by recorded txid or ledger reference.
-- [ ] Add confirmation-status normalization.
-- [ ] Add mismatch detection against ledger-recorded amounts and fees.
-- [ ] Add read-only snapshot archival where helpful.
-- [ ] Add audit events for balance/tx observation failures.
+- [x] Decide whether to integrate through `wallet_governor_service`, a dedicated read-only adapter, or both.
+- [x] Define typed balance and transaction observation models.
+- [x] Add tx lookup by recorded txid or ledger reference.
+- [x] Add confirmation-status normalization.
+- [x] Add mismatch detection against ledger-recorded amounts and fees.
+- [x] Add read-only snapshot archival where helpful.
+- [x] Add audit events for balance/tx observation failures.
 
 ## 4.5 Tests
 
-- [ ] Read-only balance fetch succeeds.
-- [ ] Transaction lookup succeeds for known txid.
-- [ ] Missing txid returns a safe structured result.
-- [ ] Mismatched amount/fee is surfaced deterministically.
-- [ ] Observation failures generate audit records.
-- [ ] No spend-capable path exists through the plugin API.
+- [x] Read-only balance fetch succeeds.
+- [x] Transaction lookup succeeds for known txid.
+- [x] Missing txid returns a safe structured result.
+- [x] Mismatched amount/fee is surfaced deterministically.
+- [x] Observation failures generate audit records.
+- [x] No spend-capable path exists through the plugin API.
 
 ## 4.6 Acceptance criteria
 
-- [ ] Revenue reconciliation can inspect wallet state without spend authority.
-- [ ] Ledger and wallet mismatches are surfaced explicitly.
-- [ ] The plugin is provably read-only.
+- [x] Revenue reconciliation can inspect wallet state without spend authority.
+- [x] Ledger and wallet mismatches are surfaced explicitly.
+- [x] The plugin is provably read-only.
 
 ---
 
@@ -302,52 +302,52 @@ Provide a bounded, mostly read-only inbox observation layer so MoneyBot can trac
 
 ## 5.2 Supported responsibilities
 
-- [ ] Read inbound messages from a dedicated bot mailbox.
-- [ ] Normalize headers, sender, thread identifiers, timestamps, and safe body excerpts.
-- [ ] Classify common message types deterministically where possible.
-  - [ ] payout notice
-  - [ ] positive response
-  - [ ] rejection
-  - [ ] opt-out
-  - [ ] complaint
-  - [ ] unknown
-- [ ] Link messages to known opportunity, experiment, or thread IDs where possible.
-- [ ] Surface follow-up-relevant state to planning/review skills.
+- [x] Read inbound messages from a dedicated bot mailbox.
+- [x] Normalize headers, sender, thread identifiers, timestamps, and safe body excerpts.
+- [x] Classify common message types deterministically where possible.
+  - [x] payout notice
+  - [x] positive response
+  - [x] rejection
+  - [x] opt-out
+  - [x] complaint
+  - [x] unknown
+- [x] Link messages to known opportunity, experiment, or thread IDs where possible.
+- [x] Surface follow-up-relevant state to planning/review skills.
 
 ## 5.3 Hard boundaries
 
-- [ ] Do not read the operator's personal inbox.
-- [ ] Do not expose mailbox credentials to the LLM.
-- [ ] Do not auto-send mail.
-- [ ] Do not auto-reply.
-- [ ] Do not silently ingest unsupported attachment types.
+- [x] Do not read the operator's personal inbox.
+- [x] Do not expose mailbox credentials to the LLM.
+- [x] Do not auto-send mail.
+- [x] Do not auto-reply.
+- [x] Do not silently ingest unsupported attachment types.
 
 ## 5.4 Implementation tasks
 
-- [ ] Define config for the dedicated bot mailbox only.
-- [ ] Define typed inbound message, thread summary, and classification result models.
-- [ ] Add read-only inbox polling/fetch helpers.
-- [ ] Add thread-linking heuristics using message IDs and known references.
-- [ ] Add deterministic classification helpers for common reply categories.
-- [ ] Add evidence archival for headers, bodies, and safe attachment metadata.
-- [ ] Add quarantine handoff for attachments when needed.
-- [ ] Add audit events for fetch failures and parse failures.
+- [x] Define config for the dedicated bot mailbox only.
+- [x] Define typed inbound message, thread summary, and classification result models.
+- [x] Add read-only inbox polling/fetch helpers.
+- [x] Add thread-linking heuristics using message IDs and known references.
+- [x] Add deterministic classification helpers for common reply categories.
+- [x] Add evidence archival for headers, bodies, and safe attachment metadata.
+- [x] Add quarantine handoff for attachments when needed.
+- [x] Add audit events for fetch failures and parse failures.
 
 ## 5.5 Tests
 
-- [ ] Payout notice is classified correctly.
-- [ ] Opt-out message is classified correctly.
-- [ ] Complaint message is classified correctly.
-- [ ] Unknown message stays unknown.
-- [ ] Personal-mailbox config is rejected.
-- [ ] Unsupported attachment type is quarantined or rejected safely.
-- [ ] Thread linkage is preserved.
+- [x] Payout notice is classified correctly.
+- [x] Opt-out message is classified correctly.
+- [x] Complaint message is classified correctly.
+- [x] Unknown message stays unknown.
+- [x] Personal-mailbox config is rejected.
+- [x] Unsupported attachment type is quarantined or rejected safely.
+- [x] Thread linkage is preserved.
 
 ## 5.6 Acceptance criteria
 
-- [ ] Follow-up and reconciliation skills can consume inbound state safely.
-- [ ] No send capability is added.
-- [ ] Inbox evidence and audit records are durable and linkable.
+- [x] Follow-up and reconciliation skills can consume inbound state safely.
+- [x] No send capability is added.
+- [x] Inbox evidence and audit records are durable and linkable.
 
 ---
 
@@ -671,10 +671,10 @@ Provide deterministic local export and summary generation for experiment, payout
 
 ## Phase A - P0 safety and prerequisite plugins
 
-- [ ] `operator_profile_store`
-- [ ] `rules_snapshot_gateway`
-- [ ] `wallet_observer_plugin`
-- [ ] `inbox_observer_plugin`
+- [x] `operator_profile_store`
+- [x] `rules_snapshot_gateway`
+- [x] `wallet_observer_plugin`
+- [x] `inbox_observer_plugin`
 
 ## Phase B - P1 execution-readiness plugins
 

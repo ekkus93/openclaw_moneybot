@@ -164,6 +164,86 @@ class StrategyLessonCategory(StrEnum):
     RISK = "risk"
 
 
+class ProfileAttributeAvailability(StrEnum):
+    """Availability states for operator-profile fields."""
+
+    CONFIGURED = "configured"
+    UNKNOWN = "unknown"
+    REDACTED = "redacted"
+
+
+class SnapshotFreshness(StrEnum):
+    """Freshness classification for captured snapshots."""
+
+    FRESH = "fresh"
+    STALE = "stale"
+    UNKNOWN = "unknown"
+
+
+class InboundMessageClassification(StrEnum):
+    """Deterministic inbound mailbox classifications."""
+
+    PAYOUT_NOTICE = "payout_notice"
+    POSITIVE_RESPONSE = "positive_response"
+    REJECTION = "rejection"
+    OPT_OUT = "opt_out"
+    COMPLAINT = "complaint"
+    UNKNOWN = "unknown"
+
+
+class OpportunitySimilarity(StrEnum):
+    """Similarity bands for indexed opportunity comparisons."""
+
+    EXACT = "exact"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class ArtifactRenderOutcome(StrEnum):
+    """Deterministic artifact-rendering outcomes."""
+
+    RENDERED = "rendered"
+    REJECTED = "rejected"
+    NEEDS_REVIEW = "needs_review"
+
+
+class DeadlineState(StrEnum):
+    """Normalized deadline tracking states."""
+
+    UPCOMING = "upcoming"
+    OVERDUE = "overdue"
+    COOLING_DOWN = "cooling_down"
+    UNCERTAIN = "uncertain"
+    CONFLICTING = "conflicting"
+
+
+class QuarantineScanStatus(StrEnum):
+    """Safe quarantine pipeline states."""
+
+    STAGED = "staged"
+    REJECTED = "rejected"
+    PROMOTED = "promoted"
+    NEEDS_REVIEW = "needs_review"
+
+
+class CounterpartyEvidenceTier(StrEnum):
+    """Evidence quality tiers for public counterparty snapshots."""
+
+    STRONG = "strong"
+    PARTIAL = "partial"
+    WEAK = "weak"
+    INCOMPLETE = "incomplete"
+
+
+class ExportJobStatus(StrEnum):
+    """Metrics export lifecycle states."""
+
+    COMPLETED = "completed"
+    REJECTED = "rejected"
+    BOUNDED = "bounded"
+
+
 class EmailMode(StrEnum):
     """Email operating modes."""
 
@@ -226,3 +306,13 @@ class RecordType(StrEnum):
     DELIVERABLE_QUALITY = "deliverable_quality"
     FOLLOWUP_PLAN = "followup_plan"
     STRATEGY_SUMMARY = "strategy_summary"
+    OPERATOR_PROFILE_SNAPSHOT = "operator_profile_snapshot"
+    RULE_SNAPSHOT = "rule_snapshot"
+    WALLET_OBSERVATION = "wallet_observation"
+    INBOX_OBSERVATION = "inbox_observation"
+    OPPORTUNITY_INDEX = "opportunity_index"
+    RENDERED_ARTIFACT = "rendered_artifact"
+    DEADLINE_EVENT = "deadline_event"
+    QUARANTINE_SCAN = "quarantine_scan"
+    COUNTERPARTY_SNAPSHOT = "counterparty_snapshot"
+    METRICS_EXPORT = "metrics_export"
