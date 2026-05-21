@@ -18,13 +18,22 @@ from openclaw_moneybot.shared import (
     MoneyBotPolicyConfig,
     WalletGovernorConfig,
 )
+from openclaw_moneybot.skills.account_eligibility_checker import AccountEligibilityChecker
 from openclaw_moneybot.skills.budget_and_roi_planner import BudgetAndRoiPlanner
+from openclaw_moneybot.skills.counterparty_risk_profiler import CounterpartyRiskProfiler
+from openclaw_moneybot.skills.deliverable_quality_checker import DeliverableQualityChecker
+from openclaw_moneybot.skills.duplicate_opportunity_detector import (
+    DuplicateOpportunityDetector,
+)
 from openclaw_moneybot.skills.email_drafter import EmailDrafter
 from openclaw_moneybot.skills.experiment_reviewer import ExperimentReviewer
 from openclaw_moneybot.skills.ledger_skill.service import LedgerService
 from openclaw_moneybot.skills.moneybot_policy_guard import MoneyBotPolicyGuard
 from openclaw_moneybot.skills.opportunity_scout import OpportunityScout
 from openclaw_moneybot.skills.receipt_and_evidence_archiver import ReceiptAndEvidenceArchiver
+from openclaw_moneybot.skills.revenue_reconciler import RevenueReconciler
+from openclaw_moneybot.skills.strategy_memory_summarizer import StrategyMemorySummarizer
+from openclaw_moneybot.skills.submission_package_builder import SubmissionPackageBuilder
 from openclaw_moneybot.skills.tos_legal_checker import TosLegalChecker
 from openclaw_moneybot.skills.wallet_governor_client import WalletGovernorClientSkill
 
@@ -58,12 +67,19 @@ def test_build_orchestrator_wires_expected_component_types(tmp_path: Path) -> No
 
     assert isinstance(orchestrator.ledger_service, LedgerService)
     assert isinstance(orchestrator.scout, OpportunityScout)
+    assert isinstance(orchestrator.duplicate_detector, DuplicateOpportunityDetector)
+    assert isinstance(orchestrator.eligibility_checker, AccountEligibilityChecker)
     assert isinstance(orchestrator.policy_guard, MoneyBotPolicyGuard)
     assert isinstance(orchestrator.tos_checker, TosLegalChecker)
     assert isinstance(orchestrator.budget_planner, BudgetAndRoiPlanner)
+    assert isinstance(orchestrator.counterparty_risk_profiler, CounterpartyRiskProfiler)
+    assert isinstance(orchestrator.submission_package_builder, SubmissionPackageBuilder)
+    assert isinstance(orchestrator.deliverable_quality_checker, DeliverableQualityChecker)
     assert isinstance(orchestrator.email_drafter, EmailDrafter)
     assert isinstance(orchestrator.wallet_client, WalletGovernorClientSkill)
     assert isinstance(orchestrator.reviewer, ExperimentReviewer)
+    assert isinstance(orchestrator.revenue_reconciler, RevenueReconciler)
+    assert isinstance(orchestrator.strategy_memory_summarizer, StrategyMemorySummarizer)
     assert isinstance(orchestrator.archiver, ReceiptAndEvidenceArchiver)
 
 

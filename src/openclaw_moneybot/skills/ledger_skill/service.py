@@ -128,6 +128,9 @@ class LedgerService:
     def get_opportunity(self, opportunity_id: str) -> Opportunity | None:
         return self.repository.get_opportunity(opportunity_id)
 
+    def list_opportunities(self) -> list[Opportunity]:
+        return self.repository.list_opportunities()
+
     def get_policy_decision(self, policy_decision_id: str) -> PolicyDecision | None:
         return self.repository.get_policy_decision(policy_decision_id)
 

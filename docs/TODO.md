@@ -4,6 +4,22 @@ This is the top-level implementation tracker for the project. Use it to manage o
 
 For detailed implementation checklists, see the skill and plugin TODO files under `docs/OPENCLAW_MONEYBOT_SKILLS_TODOS/`.
 
+## Current status
+
+- [x] Core phases 0-15 are implemented.
+- [x] The SKILLS1 first-party skill wave is implemented and validated:
+  - [x] `account_eligibility_checker`
+  - [x] `terms_change_monitor`
+  - [x] `submission_package_builder`
+  - [x] `revenue_reconciler`
+  - [x] `counterparty_risk_profiler`
+  - [x] `duplicate_opportunity_detector`
+  - [x] `timebox_and_queue_planner`
+  - [x] `deliverable_quality_checker`
+  - [x] `payout_followup_planner`
+  - [x] `strategy_memory_summarizer`
+- [x] The repository currently passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest`.
+
 ## Read first
 
 - `docs/OPENCLAW_MONEYBOT_PROJECT_SPEC.md`

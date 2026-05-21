@@ -68,6 +68,102 @@ class ConfidenceLevel(StrEnum):
     HIGH = "high"
 
 
+class EligibilityDecisionType(StrEnum):
+    """Eligibility-check outcomes."""
+
+    ELIGIBLE = "eligible"
+    BLOCKED = "blocked"
+    NEEDS_REVIEW = "needs_review"
+    INCOMPLETE = "incomplete"
+
+
+class TermsChangeSeverity(StrEnum):
+    """Severity levels for terms-change monitoring."""
+
+    NONE = "none"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    BLOCK = "block"
+
+
+class SubmissionReadinessStatus(StrEnum):
+    """Submission-package readiness outcomes."""
+
+    READY = "ready"
+    NEEDS_REVIEW = "needs_review"
+    BLOCKED = "blocked"
+
+
+class ReconciliationStatus(StrEnum):
+    """Expected-versus-observed payout reconciliation outcomes."""
+
+    MATCHED = "matched"
+    PARTIAL = "partial"
+    MISSING = "missing"
+    LATE = "late"
+    UNDERPAID = "underpaid"
+    OVERPAID_NEEDS_REVIEW = "overpaid_needs_review"
+    AMBIGUOUS_NEEDS_REVIEW = "ambiguous_needs_review"
+
+
+class CounterpartyRiskTier(StrEnum):
+    """Counterparty risk buckets."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class DuplicateConfidence(StrEnum):
+    """Confidence for duplicate-opportunity detection."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class QueuePriority(StrEnum):
+    """Queue-planning priorities."""
+
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    DEFER = "defer"
+
+
+class DeliverableValidationOutcome(StrEnum):
+    """Deliverable quality-check outcomes."""
+
+    PASSED = "passed"
+    FAILED = "failed"
+    NEEDS_REVIEW = "needs_review"
+
+
+class PayoutFollowupRecommendation(StrEnum):
+    """Allowed payout follow-up recommendations."""
+
+    WAIT = "wait"
+    GATHER_MISSING_PROOF = "gather_missing_proof"
+    DRAFT_FOLLOWUP = "draft_followup"
+    HUMAN_REVIEW = "human_review"
+    STOP_AND_RECORD_LOSS = "stop_and_record_loss"
+
+
+class StrategyLessonCategory(StrEnum):
+    """Structured lesson categories for reusable strategy memory."""
+
+    SCOUTING = "scouting"
+    BUDGETING = "budgeting"
+    COUNTERPARTY = "counterparty"
+    QUEUE = "queue"
+    EXECUTION = "execution"
+    PAYOUT = "payout"
+    EVIDENCE = "evidence"
+    RISK = "risk"
+
+
 class EmailMode(StrEnum):
     """Email operating modes."""
 
@@ -120,3 +216,13 @@ class RecordType(StrEnum):
     EVIDENCE = "evidence"
     EXPERIMENT_REVIEW = "experiment_review"
     AUDIT_EVENT = "audit_event"
+    ACCOUNT_ELIGIBILITY = "account_eligibility"
+    TERMS_CHANGE = "terms_change"
+    SUBMISSION_PACKAGE = "submission_package"
+    PAYOUT_RECONCILIATION = "payout_reconciliation"
+    COUNTERPARTY_PROFILE = "counterparty_profile"
+    DUPLICATE_ANALYSIS = "duplicate_analysis"
+    QUEUE_PLAN = "queue_plan"
+    DELIVERABLE_QUALITY = "deliverable_quality"
+    FOLLOWUP_PLAN = "followup_plan"
+    STRATEGY_SUMMARY = "strategy_summary"

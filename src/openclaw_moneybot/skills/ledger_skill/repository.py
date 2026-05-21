@@ -965,6 +965,16 @@ class LedgerRepository:
             ).fetchone()
         return self._load_model(row, Opportunity)
 
+    def list_opportunities(self) -> list[Opportunity]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT raw_json FROM opportunities ORDER BY created_at ASC"
+            ).fetchall()
+        return [
+            Opportunity.model_validate_json(str(row["raw_json"]))
+            for row in rows
+        ]
+
     def get_policy_decision(self, policy_decision_id: str) -> PolicyDecision | None:
         with self._connect() as connection:
             row = connection.execute(

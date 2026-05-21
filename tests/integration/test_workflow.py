@@ -13,6 +13,7 @@ from openclaw_moneybot.skills.budget_and_roi_planner.models import (
     BudgetPlanRequest,
     BudgetPlanResult,
 )
+from openclaw_moneybot.skills.deliverable_quality_checker import DeliverableArtifact
 from openclaw_moneybot.skills.experiment_reviewer import ExperimentReviewRequest
 from openclaw_moneybot.skills.ledger_skill.service import LedgerService
 from openclaw_moneybot.skills.moneybot_policy_guard import MoneyBotPolicyGuard
@@ -133,6 +134,7 @@ def test_initial_policy_block_stops_before_downstream_work(tmp_path: Path) -> No
 
     assert result.status == "block"
     assert result.stop_stage == "initial_policy"
+    assert result.initial_policy_decision_id is not None
     assert result.tos_legal_check_id is None
     assert result.budget_plan_id is None
     assert result.execution_policy_decision_id is None
@@ -146,6 +148,41 @@ def test_initial_policy_block_stops_before_downstream_work(tmp_path: Path) -> No
         == []
     )
     assert result.evidence_archive_ids
+
+
+def test_eligibility_block_stops_before_policy_and_budget(tmp_path: Path) -> None:
+    orchestrator, ledger_service = make_orchestrator(tmp_path, spend_enabled=False)
+
+    result = orchestrator.run_dry_run(
+        make_request(
+            mission="Reject a personal-account-only opportunity.",
+            source_documents=[
+                make_source_document(extra_text="Requires personal account and PayPal payout.")
+            ],
+        )
+    )
+
+    assert result.status == "blocked"
+    assert result.stop_stage == "eligibility"
+    assert result.initial_policy_decision_id is None
+    assert result.budget_plan_id is None
+    assert result.eligibility_id is not None
+    assert ledger_service.get_opportunity(result.selected_opportunity_id) is not None
+
+
+def test_eligibility_review_stops_safely_before_budget(tmp_path: Path) -> None:
+    orchestrator, _ = make_orchestrator(tmp_path, spend_enabled=False)
+
+    result = orchestrator.run_dry_run(
+        make_request(
+            mission="Pause for ambiguous KYC requirements.",
+            source_documents=[make_source_document(extra_text="Requires KYC tax form.")],
+        )
+    )
+
+    assert result.status == "needs_review"
+    assert result.stop_stage == "eligibility"
+    assert result.budget_plan_id is None
 
 
 def test_initial_policy_needs_review_stops_before_downstream_work(tmp_path: Path) -> None:
@@ -168,6 +205,7 @@ def test_initial_policy_needs_review_stops_before_downstream_work(tmp_path: Path
 
     assert result.status == "needs_review"
     assert result.stop_stage == "initial_policy"
+    assert result.initial_policy_decision_id is not None
     assert result.tos_legal_check_id is None
     assert result.budget_plan_id is None
     assert result.experiment_review_id is None
@@ -382,6 +420,70 @@ def test_profitable_workflow_leaves_traceable_review_and_email_artifacts(
     assert ledger_service.list_email_records_for_opportunity(result.selected_opportunity_id)
     assert snapshot_payload["wallet_transaction_ids"] == []
     assert result.email_draft_id in snapshot_payload["email_draft_ids"]
+
+
+def test_approved_workflow_produces_submission_package_and_reconciliation(tmp_path: Path) -> None:
+    orchestrator, _ = make_orchestrator(tmp_path, spend_enabled=False)
+
+    result = orchestrator.run_dry_run(
+        make_request(
+            source_documents=[
+                make_source_document(
+                    extra_text=(
+                        "Required fields: name, email\n"
+                        "Attachments: screenshot\n"
+                        "Submit at https://example.com/submit\n"
+                        "Deadline: 2026-01-05"
+                    )
+                )
+            ],
+            submission_field_values={"name": "Maintainer", "email": "maintainer@example.com"},
+            submission_artifacts=[
+                DeliverableArtifact(
+                    artifact_name="screenshot",
+                    content_text="real screenshot evidence",
+                    evidence_archive_id="artifact_manual",
+                )
+            ],
+            observed_revenue_usd=25.0,
+        )
+    )
+
+    assert result.status == "completed"
+    assert result.submission_package_id is not None
+    assert result.deliverable_quality_id is not None
+    assert result.payout_reconciliation_id is not None
+    assert result.strategy_summary_id is not None
+
+
+def test_execution_stops_when_submission_package_has_unresolved_items(tmp_path: Path) -> None:
+    orchestrator, ledger_service = make_orchestrator(tmp_path, spend_enabled=False)
+
+    result = orchestrator.run_dry_run(
+        make_request(
+            source_documents=[
+                make_source_document(
+                    extra_text="Please complete the required fields before submitting."
+                )
+            ]
+        )
+    )
+
+    assert result.status == "needs_review"
+    assert result.stop_stage == "submission_package"
+    assert result.submission_package_id is not None
+    assert result.experiment_review_id is not None
+    assert ledger_service.get_experiment_review(result.experiment_review_id) is not None
+
+
+def test_missing_payout_creates_reconciliation_and_review_linkage(tmp_path: Path) -> None:
+    orchestrator, _ = make_orchestrator(tmp_path, spend_enabled=False)
+
+    result = orchestrator.run_dry_run(make_request())
+
+    assert result.payout_reconciliation_id is not None
+    assert result.experiment_review_id is not None
+    assert result.status == "completed"
 
 
 def test_followup_review_of_costly_execution_with_missing_evidence_requires_human_review(

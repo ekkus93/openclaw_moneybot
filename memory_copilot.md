@@ -95,3 +95,18 @@
 - Finished the `docs/CODE_REVIEW3_TODO.md` implementation pass across real BTC address validation, network-aware wallet safety, destination blocklisting, client quote fail-closed handling, explicit backend balance-failure auditing, spend-evidence type allowlisting, and exact satoshi accounting.
 - Added a centralized shared Bitcoin validator used by the wallet service, wallet client preflight, and Bitcoin Core backend send preflight, with regtest constrained to explicit `bcrt1...` addresses and regression coverage for malformed, checksum-bad, mixed-case, blocked, and network-mismatched destinations.
 - Added exact `amount_sats` and `fee_sats` storage plus integer-based ledger aggregation, review3 regression tests, and the review-fix docs; the repository now passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 326 passing tests.
+
+## 2026-05-21T03:56:21Z - GPT-5.4 - Added new skills implementation tracker
+- Created `docs/SKILLS1_TODO.md` as a comprehensive first-party roadmap for the next wave of bounded MoneyBot skills.
+- The tracker prioritizes `account_eligibility_checker`, `terms_change_monitor`, `submission_package_builder`, and `revenue_reconciler` first, then adds supporting skills for counterparty risk, duplicate detection, queue planning, deliverable validation, payout follow-up planning, and strategy summarization.
+- The document keeps the scope aligned with the project’s safety model by requiring typed contracts, fail-closed behavior, ledger/evidence linkage, and no direct wallet-send, email-send, or browser-submit authority in the new skills.
+
+## 2026-05-21T03:59:09Z - GPT-5.4 - Added new plugins implementation tracker
+- Created `docs/PLUGINS1_TODO.md` as a comprehensive first-party roadmap for the next plugin/service wave that supports the new skills without expanding unsafe authority.
+- The tracker prioritizes `operator_profile_store`, `rules_snapshot_gateway`, `wallet_observer_plugin`, and `inbox_observer_plugin`, then adds bounded local plugins for opportunity indexing, artifact rendering, deadline scheduling, download quarantine, counterparty snapshots, and metrics export.
+- The document keeps plugin scope aligned with the project architecture by requiring localhost/read-only boundaries where appropriate, typed contracts, allowlists, fail-closed behavior, and ledger/evidence linkage rather than direct wallet-send, email-send, or unrestricted browser/shell power.
+
+## 2026-05-21T04:28:39Z - GPT-5.4 - Completed SKILLS1 implementation pass
+- Finished the `docs/SKILLS1_TODO.md` implementation pass across ten first-party skills: eligibility gating, terms monitoring, submission packaging, revenue reconciliation, counterparty profiling, duplicate detection, queue planning, deliverable validation, payout follow-up planning, and strategy summarization.
+- Wired the new skills into orchestration and integration helpers with durable ledger/evidence linkage, added the supporting unit and integration coverage, and updated `docs/SKILLS1_TODO.md` plus `docs/TODO.md` to reflect the completed skill wave.
+- The repository now passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 381 passing tests at the end of this pass.

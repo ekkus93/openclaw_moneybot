@@ -45,10 +45,16 @@ from openclaw_moneybot.shared.types import (
     RiskLevel,
     TosDecisionType,
 )
+from openclaw_moneybot.skills.account_eligibility_checker import AccountEligibilityChecker
 from openclaw_moneybot.skills.budget_and_roi_planner import BudgetAndRoiPlanner
 from openclaw_moneybot.skills.budget_and_roi_planner.models import (
     BudgetPlanRequest,
     BudgetPlanResult,
+)
+from openclaw_moneybot.skills.counterparty_risk_profiler import CounterpartyRiskProfiler
+from openclaw_moneybot.skills.deliverable_quality_checker import DeliverableQualityChecker
+from openclaw_moneybot.skills.duplicate_opportunity_detector import (
+    DuplicateOpportunityDetector,
 )
 from openclaw_moneybot.skills.email_drafter import EmailDrafter
 from openclaw_moneybot.skills.experiment_reviewer import ExperimentReviewer
@@ -60,6 +66,9 @@ from openclaw_moneybot.skills.moneybot_policy_guard.models import (
 )
 from openclaw_moneybot.skills.opportunity_scout import OpportunityScout, ScoutSourceDocument
 from openclaw_moneybot.skills.receipt_and_evidence_archiver import ReceiptAndEvidenceArchiver
+from openclaw_moneybot.skills.revenue_reconciler import RevenueReconciler
+from openclaw_moneybot.skills.strategy_memory_summarizer import StrategyMemorySummarizer
+from openclaw_moneybot.skills.submission_package_builder import SubmissionPackageBuilder
 from openclaw_moneybot.skills.tos_legal_checker import TosLegalChecker
 from openclaw_moneybot.skills.tos_legal_checker.models import (
     TosLegalCheckRequest,
@@ -424,6 +433,8 @@ def make_orchestrator(
     orchestrator = MoneyBotOrchestrator(
         ledger_service=ledger_service,
         scout=OpportunityScout(),
+        duplicate_detector=DuplicateOpportunityDetector(ledger_service),
+        eligibility_checker=AccountEligibilityChecker(archive_config, ledger_service),
         policy_guard=cast(
             MoneyBotPolicyGuard,
             policy_guard or MoneyBotPolicyGuard(policy_config),
@@ -433,9 +444,14 @@ def make_orchestrator(
             BudgetAndRoiPlanner,
             budget_planner or BudgetAndRoiPlanner(policy_config, ledger_service),
         ),
+        counterparty_risk_profiler=CounterpartyRiskProfiler(archive_config, ledger_service),
+        submission_package_builder=SubmissionPackageBuilder(archive_config, ledger_service),
+        deliverable_quality_checker=DeliverableQualityChecker(archive_config, ledger_service),
         email_drafter=EmailDrafter(archive_config, ledger_service),
         wallet_client=wallet_client,
         reviewer=ExperimentReviewer(archive_config, ledger_service),
+        revenue_reconciler=RevenueReconciler(archive_config, ledger_service),
+        strategy_memory_summarizer=StrategyMemorySummarizer(archive_config, ledger_service),
         archiver=ReceiptAndEvidenceArchiver(archive_config, ledger_service),
     )
     return orchestrator, ledger_service
