@@ -142,3 +142,13 @@
 - Finished the `docs/INT_TEST2_TODO.md` implementation pass by adding the Phase C integration coverage for realistic metrics exports, replay/idempotency of packaging and render flows, repeated terms-change and reconciliation requests, and repeated bounded export requests.
 - Added reusable integration helpers for deterministic operator profiles, rules snapshot pairs, submission-template fixtures, and realistic mixed ledger history seeding, and fixed `metrics_export_plugin` so experiment-review exports resolve the underlying opportunity ID from integrated review payloads.
 - The repository now passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 575 passing tests, and `docs/INT_TEST2_TODO.md` is fully checked off.
+
+## 2026-05-21T07:00:50Z - GPT-5.4 - Added bounded Playwright Firefox browser execution
+- Extended `browser_governor` with a disabled-by-default Playwright+Firefox execution path that keeps browser control behind the existing governor boundary instead of exposing it to a skill directly.
+- The new execution flow uses explicit host allowlists, bot-owned profile directories, typed bounded steps (`fill`, `click`, `wait_for_text`), replay-safe audit records, and archived before/after page text plus HTML snapshots.
+- Added the Playwright dependency, config validation, README operator guidance for `playwright install firefox`, and unit coverage for successful execution, replay, allowlist rejection, and backend-failure handling; the full repository now passes `ruff`, `mypy`, and `pytest` with 582 passing tests.
+
+## 2026-05-21T08:55:28Z - GPT-5.4 - Added Brave Search plugin
+- Implemented a disabled-by-default `brave_search_plugin` for hosted web search using the Brave Search API instead of self-hosted search infrastructure.
+- The plugin uses a configurable Brave API URL, an environment-variable credential (`BRAVE_SEARCH_API_KEY` by default), bounded result counts, archived raw response snapshots, ledger-linked `web_search` records, and read-only health reporting that surfaces missing credentials safely.
+- Updated shared config/types/plugin exports, the architecture and README docs, and unit coverage for successful queries, disabled/missing-key behavior, transport failures, and malformed payloads; the repository now passes `ruff`, `mypy`, and `pytest` with 591 passing tests.

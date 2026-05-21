@@ -8,7 +8,12 @@ from pathlib import Path
 from openclaw_moneybot.plugins.browser_governor import (
     BrowserActionCompletionRequest,
     BrowserActionRequest,
+    BrowserAutomationBackend,
+    BrowserAutomationError,
+    BrowserExecutionArtifacts,
+    BrowserExecutionRequest,
     BrowserGovernorService,
+    BrowserPageSnapshot,
 )
 from openclaw_moneybot.shared import (
     ArchiveConfig,
@@ -34,6 +39,9 @@ def make_service(
     *,
     enabled: bool,
     allow_policy: bool = True,
+    execution_enabled: bool = False,
+    allowed_hosts: list[str] | None = None,
+    automation_backend: BrowserAutomationBackend | None = None,
 ) -> BrowserGovernorService:
     ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
     ledger_service.create_opportunity(
@@ -70,9 +78,15 @@ def make_service(
         ledger_service,
     )
     return BrowserGovernorService(
-        BrowserGovernorConfig(enabled=enabled, allowed_profile_ids=["moneybot-default"]),
+        BrowserGovernorConfig(
+            enabled=enabled,
+            allowed_profile_ids=["moneybot-default"],
+            execution_enabled=execution_enabled,
+            allowed_hosts=[] if allowed_hosts is None else allowed_hosts,
+        ),
         ledger_service,
         archiver,
+        automation_backend=automation_backend,
     )
 
 
@@ -91,6 +105,64 @@ def make_prepare_request(**overrides: object) -> BrowserActionRequest:
     return BrowserActionRequest.model_validate(payload)
 
 
+def make_execution_request(**overrides: object) -> BrowserExecutionRequest:
+    payload: dict[str, object] = {
+        "action_id": "browser-exec-1",
+        "opportunity_id": "opp_browser",
+        "policy_decision_id": "policy_browser",
+        "action_type": ActionType.BROWSER_SUBMIT,
+        "profile_id": "moneybot-default",
+        "target_url": "https://example.com/form",
+        "purpose": "Submit one approved form.",
+        "steps": [
+            {"kind": "fill", "selector": "#email", "text": "bot@example.com"},
+            {"kind": "click", "selector": "#submit"},
+            {"kind": "wait_for_text", "text": "Submitted"},
+        ],
+    }
+    payload.update(overrides)
+    return BrowserExecutionRequest.model_validate(payload)
+
+
+class FakeAutomationBackend:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def execute(
+        self,
+        config: BrowserGovernorConfig,
+        request: BrowserExecutionRequest,
+    ) -> BrowserExecutionArtifacts:
+        self.calls += 1
+        assert config.browser_engine == "firefox"
+        assert request.profile_id == "moneybot-default"
+        return BrowserExecutionArtifacts(
+            before=BrowserPageSnapshot(
+                url=str(request.target_url),
+                page_text="Visible form before submit.",
+                html="<html><body>Visible form before submit.</body></html>",
+                page_title="Before",
+            ),
+            after=BrowserPageSnapshot(
+                url="https://example.com/confirmation",
+                page_text="Submitted successfully.",
+                html="<html><body>Submitted successfully.</body></html>",
+                page_title="After",
+            ),
+            result_summary="Executed 3 bounded browser step(s) with Playwright Firefox.",
+            applied_step_count=3,
+        )
+
+
+class FailingAutomationBackend:
+    def execute(
+        self,
+        config: BrowserGovernorConfig,
+        request: BrowserExecutionRequest,
+    ) -> BrowserExecutionArtifacts:
+        raise BrowserAutomationError(f"boom for {request.action_id}")
+
+
 def test_prepare_rejects_when_browser_governor_disabled(tmp_path: Path) -> None:
     service = make_service(tmp_path, enabled=False)
 
@@ -98,6 +170,98 @@ def test_prepare_rejects_when_browser_governor_disabled(tmp_path: Path) -> None:
 
     assert result.status == "rejected"
     assert result.reason == "browser_disabled"
+
+
+def test_execute_action_runs_bounded_backend_and_archives_linked_evidence(tmp_path: Path) -> None:
+    backend = FakeAutomationBackend()
+    service = make_service(
+        tmp_path,
+        enabled=True,
+        execution_enabled=True,
+        allowed_hosts=["example.com"],
+        automation_backend=backend,
+    )
+
+    result = service.execute_action(make_execution_request())
+    evidence = service.ledger_service.list_evidence_for_related(
+        related_type=RecordType.OPPORTUNITY,
+        related_id="opp_browser",
+    )
+
+    assert result.status == "completed"
+    assert result.before_evidence_id is not None
+    assert result.after_evidence_id is not None
+    assert result.final_url == "https://example.com/confirmation"
+    assert result.result_summary == "Executed 3 bounded browser step(s) with Playwright Firefox."
+    assert backend.calls == 1
+    assert {
+        record.evidence_type
+        for record in evidence
+        if record.evidence_type.startswith("browser_")
+    } >= {
+        "browser_before_action",
+        "browser_before_html_snapshot",
+        "browser_after_action",
+        "browser_after_html_snapshot",
+    }
+
+
+def test_execute_action_reuses_prior_automation_result_for_matching_replay(tmp_path: Path) -> None:
+    backend = FakeAutomationBackend()
+    service = make_service(
+        tmp_path,
+        enabled=True,
+        execution_enabled=True,
+        allowed_hosts=["example.com"],
+        automation_backend=backend,
+    )
+
+    first = service.execute_action(make_execution_request(action_id="browser-exec-replay"))
+    second = service.execute_action(make_execution_request(action_id="browser-exec-replay"))
+
+    assert first.audit_record_id == second.audit_record_id
+    assert first.before_evidence_id == second.before_evidence_id
+    assert first.after_evidence_id == second.after_evidence_id
+    assert backend.calls == 1
+
+
+def test_execute_action_rejects_when_live_execution_is_disabled(tmp_path: Path) -> None:
+    service = make_service(tmp_path, enabled=True)
+
+    result = service.execute_action(make_execution_request())
+
+    assert result.status == "rejected"
+    assert result.reason == "browser_execution_disabled"
+
+
+def test_execute_action_rejects_non_allowlisted_target_host(tmp_path: Path) -> None:
+    service = make_service(
+        tmp_path,
+        enabled=True,
+        execution_enabled=True,
+        allowed_hosts=["example.net"],
+        automation_backend=FakeAutomationBackend(),
+    )
+
+    result = service.execute_action(make_execution_request())
+
+    assert result.status == "rejected"
+    assert result.reason == "target_host_not_allowlisted"
+
+
+def test_execute_action_records_backend_failures_as_rejections(tmp_path: Path) -> None:
+    service = make_service(
+        tmp_path,
+        enabled=True,
+        execution_enabled=True,
+        allowed_hosts=["example.com"],
+        automation_backend=FailingAutomationBackend(),
+    )
+
+    result = service.execute_action(make_execution_request(action_id="browser-exec-fail"))
+
+    assert result.status == "rejected"
+    assert result.reason == "browser_execution_failed"
 
 
 def test_prepare_rejects_unsafe_browser_flags(tmp_path: Path) -> None:

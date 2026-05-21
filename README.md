@@ -94,6 +94,15 @@ email:
 browser_governor:
   enabled: false
   allowed_profile_ids: ["moneybot-default"]
+  execution_enabled: false
+  browser_engine: "firefox"
+  allowed_hosts: ["example.com"]
+  profile_root: "data/browser_profiles"
+brave_search:
+  enabled: false
+  api_base_url: "https://api.search.brave.com/res/v1/web/search"
+  api_key_env_var: "BRAVE_SEARCH_API_KEY"
+  max_results: 10
 ```
 
 2. Build the orchestrator from config and run a mission:
@@ -135,6 +144,18 @@ result = orchestrator.run_dry_run(
 )
 
 print(result.model_dump())
+```
+
+For live browser execution, install the Playwright Firefox runtime locally:
+
+```bash
+uv run playwright install firefox
+```
+
+For Brave Search, set the hosted API credential in your environment before enabling the plugin:
+
+```bash
+export BRAVE_SEARCH_API_KEY="your-token"
 ```
 
 For an automated reference run, the integration coverage in `tests/integration/test_workflow.py` exercises:

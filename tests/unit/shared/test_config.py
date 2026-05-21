@@ -8,6 +8,7 @@ import pytest
 
 from openclaw_moneybot.shared.config import (
     AppConfig,
+    BraveSearchConfig,
     BrowserGovernorConfig,
     EmailConfig,
     WalletGovernorConfig,
@@ -128,6 +129,9 @@ def test_browser_governor_defaults_disabled() -> None:
 
     assert config.enabled is False
     assert config.allowed_profile_ids == ["moneybot-default"]
+    assert config.execution_enabled is False
+    assert config.browser_engine == "firefox"
+    assert config.allowed_hosts == []
 
 
 def test_wallet_config_rejects_unsupported_url_scheme() -> None:
@@ -148,6 +152,29 @@ def test_email_config_rejects_non_positive_daily_cap_for_capped_send() -> None:
 def test_browser_governor_config_rejects_empty_profile_list() -> None:
     with pytest.raises(ValueError, match="allowed_profile_ids"):
         BrowserGovernorConfig(allowed_profile_ids=[])
+
+
+def test_browser_governor_config_requires_allowed_hosts_for_live_execution() -> None:
+    with pytest.raises(ValueError, match="allowed_hosts"):
+        BrowserGovernorConfig(execution_enabled=True)
+
+
+def test_browser_governor_config_rejects_non_firefox_engine() -> None:
+    with pytest.raises(ValueError, match="browser_engine"):
+        BrowserGovernorConfig(browser_engine="chromium")
+
+
+def test_brave_search_defaults_are_bounded_and_disabled() -> None:
+    config = BraveSearchConfig()
+
+    assert config.enabled is False
+    assert config.api_key_env_var == "BRAVE_SEARCH_API_KEY"
+    assert config.max_results == 10
+
+
+def test_brave_search_config_rejects_non_brave_host() -> None:
+    with pytest.raises(ValueError, match="api.search.brave.com"):
+        BraveSearchConfig(api_base_url="https://example.com/search")
 
 
 def test_load_app_config_rejects_non_mapping_root(tmp_path: Path) -> None:

@@ -13,6 +13,7 @@ authors = [{ name = "Phil" }]
 dependencies = [
   "fastapi>=0.115,<0.116",
   "httpx>=0.28,<0.29",
+  "playwright>=1.55,<2",
   "pydantic>=2.11,<3",
   "PyYAML>=6,<7",
 ]

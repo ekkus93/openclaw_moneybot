@@ -316,3 +316,4 @@ class RecordType(StrEnum):
     QUARANTINE_SCAN = "quarantine_scan"
     COUNTERPARTY_SNAPSHOT = "counterparty_snapshot"
     METRICS_EXPORT = "metrics_export"
+    WEB_SEARCH = "web_search"

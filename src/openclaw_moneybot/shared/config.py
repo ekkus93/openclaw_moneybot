@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import yaml
-from pydantic import Field, ValidationError, ValidationInfo, field_validator
+from pydantic import Field, ValidationError, ValidationInfo, field_validator, model_validator
 
 from openclaw_moneybot.shared.base import MoneyBotModel
 from openclaw_moneybot.shared.bitcoin import normalize_btc_address_for_comparison
@@ -118,15 +118,42 @@ class BrowserGovernorConfig(MoneyBotModel):
 
     enabled: bool = False
     allowed_profile_ids: list[str] = Field(default_factory=lambda: ["moneybot-default"])
+    execution_enabled: bool = False
+    browser_engine: str = "firefox"
+    headless: bool = True
+    allowed_hosts: list[str] = Field(default_factory=list)
+    profile_root: Path = Path("data/browser_profiles")
+    default_timeout_ms: int = Field(default=10_000, gt=0, le=120_000)
+    navigation_timeout_ms: int = Field(default=15_000, gt=0, le=120_000)
+    max_steps: int = Field(default=12, gt=0, le=50)
 
-    @field_validator("allowed_profile_ids")
+    @field_validator("allowed_profile_ids", "allowed_hosts")
     @classmethod
-    def validate_allowed_profile_ids(cls, value: list[str]) -> list[str]:
-        """Require at least one bot-owned profile identifier."""
-        if not value:
+    def normalize_browser_lists(cls, value: list[str], info: ValidationInfo) -> list[str]:
+        """Normalize browser governor string lists and keep profile IDs non-empty."""
+        normalized = [item.strip().lower() for item in value if item.strip()]
+        if info.field_name == "allowed_profile_ids" and not normalized:
             msg = "allowed_profile_ids must contain at least one bot-owned profile."
             raise ValueError(msg)
-        return value
+        return normalized
+
+    @field_validator("browser_engine")
+    @classmethod
+    def validate_browser_engine(cls, value: str) -> str:
+        """Restrict the live automation engine to Firefox."""
+        normalized = value.strip().lower()
+        if normalized != "firefox":
+            msg = "browser_engine must be firefox."
+            raise ValueError(msg)
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_execution_settings(self) -> BrowserGovernorConfig:
+        """Require explicit host allowlists before live automation is enabled."""
+        if self.execution_enabled and not self.allowed_hosts:
+            msg = "allowed_hosts must be configured when browser execution is enabled."
+            raise ValueError(msg)
+        return self
 
 
 class OperatorProfileStoreConfig(MoneyBotModel):
@@ -285,6 +312,42 @@ class MetricsExportConfig(MoneyBotModel):
     max_rows: int = Field(default=1_000, gt=0)
 
 
+class BraveSearchConfig(MoneyBotModel):
+    """Brave Search plugin configuration."""
+
+    enabled: bool = False
+    api_base_url: str = "https://api.search.brave.com/res/v1/web/search"
+    api_key_env_var: str = "BRAVE_SEARCH_API_KEY"
+    timeout_seconds: float = Field(default=10.0, gt=0, le=60.0)
+    max_results: int = Field(default=10, gt=0, le=20)
+    default_country: str = "us"
+    default_search_lang: str = "en"
+    safesearch: str = "moderate"
+
+    @field_validator("api_base_url")
+    @classmethod
+    def validate_brave_api_url(cls, value: str) -> str:
+        """Require the hosted Brave Search HTTPS endpoint."""
+        parsed = urlparse(value)
+        if parsed.scheme != "https":
+            msg = "api_base_url must be an https URL"
+            raise ValueError(msg)
+        if parsed.hostname != "api.search.brave.com":
+            msg = "api_base_url must point to api.search.brave.com"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("api_key_env_var")
+    @classmethod
+    def normalize_brave_env_var(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("default_country", "default_search_lang", "safesearch")
+    @classmethod
+    def normalize_brave_strings(cls, value: str) -> str:
+        return value.strip().lower()
+
+
 class AppConfig(MoneyBotModel):
     """Top-level MoneyBot configuration."""
 
@@ -310,6 +373,7 @@ class AppConfig(MoneyBotModel):
         default_factory=CounterpartySnapshotConfig
     )
     metrics_export: MetricsExportConfig = Field(default_factory=MetricsExportConfig)
+    brave_search: BraveSearchConfig = Field(default_factory=BraveSearchConfig)
 
 
 def load_app_config(path: Path) -> AppConfig:

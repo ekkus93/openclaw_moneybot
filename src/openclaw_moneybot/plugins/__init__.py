@@ -5,6 +5,13 @@ from openclaw_moneybot.plugins.artifact_renderer_plugin import (
     ArtifactRenderRequest,
     ArtifactRenderResult,
 )
+from openclaw_moneybot.plugins.brave_search_plugin import (
+    BraveSearchPlugin,
+    BraveSearchPluginError,
+    BraveSearchRequest,
+    BraveSearchResult,
+    BraveSearchResultItem,
+)
 from openclaw_moneybot.plugins.browser_governor import (
     BrowserActionCompletionRequest,
     BrowserActionRequest,
@@ -86,6 +93,11 @@ __all__ = [
     "BrowserActionRequest",
     "BrowserActionResult",
     "BrowserGovernorService",
+    "BraveSearchPlugin",
+    "BraveSearchPluginError",
+    "BraveSearchRequest",
+    "BraveSearchResult",
+    "BraveSearchResultItem",
     "CounterpartySnapshotPlugin",
     "CounterpartySnapshotRequest",
     "CounterpartySnapshotResult",
