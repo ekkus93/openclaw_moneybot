@@ -70,3 +70,60 @@ def test_missing_old_snapshot_fails_closed(tmp_path: Path) -> None:
     assert result.requires_recheck is True
     assert result.severity is TermsChangeSeverity.HIGH
     assert "missing_prior_snapshot" in result.changed_fields
+
+
+def test_malformed_prior_snapshot_text_falls_back_safely(tmp_path: Path) -> None:
+    result = make_monitor(tmp_path).evaluate(
+        make_request(prior_rules_text="   ", prior_budget_plan_id="budget_001")
+    )
+
+    assert result.severity is TermsChangeSeverity.HIGH
+    assert result.requires_budget_recheck is True
+    assert result.requires_policy_recheck is True
+
+
+def test_identical_rules_yield_no_change_severity(tmp_path: Path) -> None:
+    current = "Payout $25.\nDeadline: 2026-01-02.\nAutomation allowed."
+    result = make_monitor(tmp_path).evaluate(
+        make_request(prior_rules_text=current, current_rules_text=current)
+    )
+
+    assert result.change_detected is False
+    assert result.severity is TermsChangeSeverity.NONE
+    assert result.summary == "No material changes detected."
+
+
+def test_blocking_phrase_wins_over_other_legal_risk_changes(tmp_path: Path) -> None:
+    result = make_monitor(tmp_path).evaluate(
+        make_request(
+            current_rules_text=(
+                "Payout $25.\nDeadline: 2026-01-02.\n"
+                "Automation prohibited. No bots. KYC required."
+            )
+        )
+    )
+
+    assert result.severity is TermsChangeSeverity.BLOCK
+    assert "automation_policy" in result.changed_fields
+    assert "kyc_tax_requirement" in result.changed_fields
+
+
+def test_summary_and_reasons_stay_deterministic_for_nonblocking_changes(tmp_path: Path) -> None:
+    result = make_monitor(tmp_path).evaluate(
+        make_request(
+            current_rules_text=(
+                "Payout $25.\nDeadline: 2026-02-01.\nAutomation allowed.\n"
+                "Payout by PayPal only.\nRefunds may apply."
+            )
+        )
+    )
+
+    assert result.changed_fields == [
+        "payout_method",
+        "submission_deadline",
+        "refund_chargeback",
+    ]
+    assert result.summary == (
+        "Detected payout_method, submission_deadline, refund_chargeback "
+        "changes with medium severity."
+    )

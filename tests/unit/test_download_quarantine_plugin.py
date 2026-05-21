@@ -126,3 +126,123 @@ def test_promotion_preserves_hash_identity_and_provenance(tmp_path: Path) -> Non
     evidence = ledger_service.get_evidence_record(promoted.promoted_evidence_id or "")
     assert promoted.status is QuarantineScanStatus.PROMOTED
     assert evidence is not None
+
+
+def build_zip(*entries: tuple[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name, contents in entries:
+            archive.writestr(name, contents)
+    return buffer.getvalue()
+
+
+def test_promote_rejects_unknown_scan_id(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    with pytest.raises(ValueError, match="Unknown quarantine scan"):
+        plugin.promote(
+            QuarantinePromoteRequest(
+                scan_id="missing",
+                related_type=RecordType.OPPORTUNITY,
+                related_id="opp_001",
+                evidence_type="quarantined_download",
+            )
+        )
+
+
+def test_promote_rejects_non_staged_metadata_status(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+    staged = plugin.ingest(make_request())
+    metadata_path = plugin.config.quarantine_root / staged.scan_id / "metadata.json"
+    metadata_path.write_text(
+        '{"file_name":"proof.txt","status":"rejected","mime_type":"text/plain","content_sha256":"abc"}',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Only staged files may be promoted"):
+        plugin.promote(
+            QuarantinePromoteRequest(
+                scan_id=staged.scan_id,
+                related_type=RecordType.OPPORTUNITY,
+                related_id="opp_001",
+                evidence_type="quarantined_download",
+            )
+        )
+
+
+def test_host_not_allowlisted_branch_is_returned(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    result = plugin.ingest(make_request(source_url="https://evil.example/file.txt"))
+
+    assert result.status is QuarantineScanStatus.REJECTED
+    assert result.reason == "host_not_allowlisted"
+
+
+def test_extension_not_allowed_branch_is_returned(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    result = plugin.ingest(make_request(file_name="proof.exe", mime_type="text/plain"))
+
+    assert result.status is QuarantineScanStatus.REJECTED
+    assert result.reason == "extension_not_allowed"
+
+
+def test_mime_not_allowed_branch_is_returned(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    result = plugin.ingest(
+        make_request(file_name="proof.txt", mime_type="application/octet-stream")
+    )
+
+    assert result.status is QuarantineScanStatus.REJECTED
+    assert result.reason == "mime_type_not_allowed"
+
+
+def test_executable_signature_branch_is_returned(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    result = plugin.ingest(
+        make_request(
+            file_name="script.txt",
+            content_bytes=b"#!/bin/sh\necho hi\n",
+            mime_type="text/plain",
+        )
+    )
+
+    assert result.status is QuarantineScanStatus.REJECTED
+    assert result.reason == "executable_content_blocked"
+
+
+def test_validate_zip_rejects_excessive_nested_size(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    reason = plugin._validate_zip(build_zip(("a.txt", b"12345678901")))
+
+    assert reason == "zip_nested_size_exceeded"
+
+
+def test_validate_zip_rejects_absolute_paths(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    reason = plugin._validate_zip(build_zip(("/tmp/a.txt", b"1")))
+
+    assert reason == "zip_path_traversal"
+
+
+def test_validate_zip_rejects_traversal_paths(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    reason = plugin._validate_zip(build_zip(("../a.txt", b"1")))
+
+    assert reason == "zip_path_traversal"
+
+
+def test_safe_name_rejects_absolute_paths() -> None:
+    with pytest.raises(ValueError, match="quarantine root"):
+        DownloadQuarantinePlugin._safe_name("/tmp/proof.txt")
+
+
+def test_safe_name_rejects_traversal_paths() -> None:
+    with pytest.raises(ValueError, match="quarantine root"):
+        DownloadQuarantinePlugin._safe_name("../proof.txt")

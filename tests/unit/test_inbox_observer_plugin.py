@@ -125,3 +125,61 @@ def test_thread_linkage_is_preserved(tmp_path: Path) -> None:
 
     assert result.messages[0].linked_reference_ids == ["opp_123"]
     assert result.thread_summaries[0].linked_reference_ids == ["opp_123"]
+
+
+def test_empty_message_body_stays_unknown_deterministically(tmp_path: Path) -> None:
+    result = make_plugin(tmp_path).observe(
+        InboxObservationRequest(
+            mailbox_address="bot@moneybot.local",
+            messages=[make_message(subject="", body="")],
+        )
+    )
+
+    assert result.messages[0].classification is InboundMessageClassification.UNKNOWN
+
+
+def test_malformed_attachment_metadata_does_not_crash_observation(tmp_path: Path) -> None:
+    message = InboxMessageInput.model_construct(
+        message_id="msg_001",
+        thread_id="thread_001",
+        sender_email="sender@example.com",
+        subject="Status update",
+        body="Generic body",
+        received_at=datetime(2026, 1, 1, tzinfo=UTC),
+        known_reference_ids=[],
+        attachments=[InboxAttachment.model_construct(filename="", size_bytes=1, mime_type=None)],
+    )
+
+    result = make_plugin(tmp_path).observe(
+        InboxObservationRequest(
+            mailbox_address="bot@moneybot.local",
+            messages=[message],
+        )
+    )
+
+    assert result.messages[0].attachment_actions[""] == "quarantined_unsupported"
+
+
+def test_body_excerpt_truncation_stays_at_configured_boundary(tmp_path: Path) -> None:
+    plugin = InboxObserverPlugin(
+        InboxObserverConfig(
+            enabled=True,
+            mailbox_address="bot@moneybot.local",
+            max_body_excerpt_chars=12,
+        ),
+        ArchiveConfig(base_directory=tmp_path / "archive"),
+        LedgerService.from_db_path(tmp_path / "moneybot.sqlite3"),
+    )
+
+    result = plugin.observe(
+        InboxObservationRequest(
+            mailbox_address="bot@moneybot.local",
+            messages=[make_message(body="0123456789abcdef")],
+        )
+    )
+    evidence = plugin.ledger_service.get_evidence_record(result.messages[0].evidence_archive_ids[0])
+
+    assert evidence is not None
+    assert '"body_excerpt": "0123456789ab"' in Path(evidence.archive_path).read_text(
+        encoding="utf-8"
+    )

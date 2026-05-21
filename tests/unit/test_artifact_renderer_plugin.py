@@ -104,3 +104,108 @@ def test_manifest_and_checksums_are_stable_across_repeated_renders(tmp_path: Pat
     )
 
     assert first.checksums == second.checksums
+
+
+def test_malformed_required_fields_type_is_rejected(tmp_path: Path) -> None:
+    plugin = make_plugin(tmp_path)
+    (plugin.config.template_root / "bad.json").write_text(
+        json.dumps(
+            {
+                "output_filename": "submission.txt",
+                "required_fields": "name",
+                "body_template": "Name: {name}",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="required_fields must be a list"):
+        plugin.render(
+            ArtifactRenderRequest(
+                related_record_id="opp_001",
+                template_name="bad",
+                field_values={"name": "Bot"},
+            )
+        )
+
+
+@pytest.mark.parametrize("placeholder", ["TODO", "TBD"])
+def test_placeholder_markers_are_rejected(tmp_path: Path, placeholder: str) -> None:
+    with pytest.raises(ValueError, match="placeholder markers"):
+        make_plugin(tmp_path).render(
+            ArtifactRenderRequest(
+                related_record_id="opp_001",
+                template_name="submission",
+                field_values={"name": "Bot", "summary": placeholder},
+            )
+        )
+
+
+def test_unknown_evidence_reference_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Unknown evidence reference"):
+        make_plugin(tmp_path).render(
+            ArtifactRenderRequest(
+                related_record_id="opp_001",
+                template_name="submission",
+                field_values={"name": "Bot", "summary": "Ready"},
+                evidence_archive_ids=["missing_evidence"],
+            )
+        )
+
+
+def test_template_payload_must_be_a_json_object(tmp_path: Path) -> None:
+    plugin = make_plugin(tmp_path)
+    (plugin.config.template_root / "bad.json").write_text(
+        '["not", "an", "object"]',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="JSON object"):
+        plugin.render(
+            ArtifactRenderRequest(
+                related_record_id="opp_001",
+                template_name="bad",
+                field_values={"name": "Bot", "summary": "Ready"},
+            )
+        )
+
+
+def test_template_path_escape_attempt_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="approved template root"):
+        make_plugin(tmp_path).render(
+            ArtifactRenderRequest(
+                related_record_id="opp_001",
+                template_name="../escape",
+                field_values={"name": "Bot", "summary": "Ready"},
+            )
+        )
+
+
+def test_absolute_output_subdir_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="approved render root"):
+        make_plugin(tmp_path).render(
+            ArtifactRenderRequest(
+                related_record_id="opp_001",
+                template_name="submission",
+                output_subdir="/tmp/escape",
+                field_values={"name": "Bot", "summary": "Ready"},
+            )
+        )
+
+
+def test_resolved_render_path_escape_is_rejected(tmp_path: Path) -> None:
+    plugin = make_plugin(tmp_path)
+    outside_root = tmp_path / "outside"
+    outside_root.mkdir()
+    plugin.config.render_root.mkdir()
+    (plugin.config.render_root / "linked").symlink_to(outside_root, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="approved render root"):
+        plugin.render(
+            ArtifactRenderRequest(
+                related_record_id="opp_001",
+                template_name="submission",
+                output_subdir="linked",
+                field_values={"name": "Bot", "summary": "Ready"},
+            )
+        )

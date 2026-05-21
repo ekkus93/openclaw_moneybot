@@ -18,6 +18,18 @@ def _normalized(value: str | None) -> str:
     return "" if value is None else " ".join(value.lower().split())
 
 
+def _max_confidence(
+    current: DuplicateConfidence,
+    candidate: DuplicateConfidence,
+) -> DuplicateConfidence:
+    order = {
+        DuplicateConfidence.LOW: 0,
+        DuplicateConfidence.MEDIUM: 1,
+        DuplicateConfidence.HIGH: 2,
+    }
+    return current if order[current] >= order[candidate] else candidate
+
+
 class DuplicateOpportunityDetector:
     """Detect reposted or substantially identical opportunities."""
 
@@ -62,7 +74,7 @@ class DuplicateOpportunityDetector:
             if title and title == _normalized(existing.title):
                 matched_ids.append(existing.opportunity_id)
                 match_reasons.append("normalized_title_match")
-                confidence = max(confidence, DuplicateConfidence.MEDIUM)
+                confidence = _max_confidence(confidence, DuplicateConfidence.MEDIUM)
                 continue
             similarity = SequenceMatcher(
                 None,
@@ -76,7 +88,7 @@ class DuplicateOpportunityDetector:
             ):
                 matched_ids.append(existing.opportunity_id)
                 match_reasons.append("near_duplicate_repost")
-                confidence = max(confidence, DuplicateConfidence.HIGH)
+                confidence = _max_confidence(confidence, DuplicateConfidence.HIGH)
         is_duplicate = bool(matched_ids)
         if not is_duplicate and (not candidate.title or not candidate.description):
             confidence = DuplicateConfidence.MEDIUM

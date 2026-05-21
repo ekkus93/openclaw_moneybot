@@ -120,3 +120,16 @@
 - Implemented the final PLUGINS1 plugins `counterparty_snapshot_plugin` and `metrics_export_plugin`, then closed the remaining documentation and tracker work for the full first-party plugin wave.
 - The plugin inventory is now documented in the architecture/spec docs, `docs/PLUGINS1_TODO.md` is fully checked off, and `docs/TODO.md` now records the completed PLUGINS1 wave alongside SKILLS1.
 - The repository passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 448 passing tests at the end of the full plugin implementation pass.
+
+## 2026-05-21T05:58:52Z - GPT-5.4 - Current unit coverage hotspots
+- A fresh coverage run after the full PLUGINS1 pass shows the main remaining branch-heavy unit-test gaps are `account_eligibility_checker/runner.py` (70%), `duplicate_opportunity_detector/runner.py` (73%), `opportunity_index_plugin/service.py` (76%), `metrics_export_plugin/service.py` (78%), and `counterparty_snapshot_plugin/service.py` (83%).
+- Lower-priority but still worthwhile follow-ups include `artifact_renderer_plugin/service.py` (82%), `download_quarantine_plugin/service.py` (84%), `inbox_observer_plugin/service.py` (87%), and `terms_change_monitor/runner.py` (86%).
+
+## 2026-05-21T05:58:52Z - GPT-5.4 - Added UNIT_TEST2 follow-up tracker
+- Created `docs/UNIT_TEST2_TODO.md` as the next unit-test planning document after the post-PLUGINS1 coverage review.
+- The new tracker prioritizes branch-heavy coverage for `account_eligibility_checker`, `metrics_export_plugin`, `opportunity_index_plugin`, `duplicate_opportunity_detector`, and `counterparty_snapshot_plugin`, with secondary follow-ups for renderer/quarantine/inbox/terms-monitor edge cases.
+
+## 2026-05-21T06:17:32Z - GPT-5.4 - Completed UNIT_TEST2 targeted coverage pass
+- Finished the `docs/UNIT_TEST2_TODO.md` implementation pass across the planned hotspot modules and secondary edge-case follow-ups, including new direct branch tests for eligibility gating, duplicate matching, opportunity indexing, metrics export, counterparty snapshots, artifact rendering, download quarantine, inbox observation, and terms-change monitoring.
+- Tightened one coupled bug uncovered by the new tests in `duplicate_opportunity_detector` by replacing lexicographic confidence escalation with an explicit severity ordering, keeping duplicate decisions deterministic.
+- The repository now passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, `uv run --python 3.11 pytest`, and a follow-up coverage run at 95% total coverage; the targeted modules now report 100%, 100%, 98%, 97%, 96%, 99%, 98%, 87%, and 94% coverage respectively for the planned UNIT_TEST2 set.
