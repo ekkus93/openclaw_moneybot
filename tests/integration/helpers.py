@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Protocol, TypedDict, cast
 
 import httpx
 from fastapi.testclient import TestClient
@@ -12,6 +13,11 @@ from fastapi.testclient import TestClient
 from openclaw_moneybot.orchestration import MoneyBotOrchestrator
 from openclaw_moneybot.plugins.browser_governor import BrowserGovernorService
 from openclaw_moneybot.plugins.email_governor import EmailGovernorService, FakeEmailTransport
+from openclaw_moneybot.plugins.rules_snapshot_gateway import (
+    RulesSnapshotCaptureRequest,
+    RulesSnapshotCaptureResult,
+    RulesSnapshotGateway,
+)
 from openclaw_moneybot.plugins.wallet_governor_service import (
     FakeWalletBackend,
     FakeWalletBackendState,
@@ -33,6 +39,7 @@ from openclaw_moneybot.shared import (
 from openclaw_moneybot.shared.config import (
     BrowserGovernorConfig,
     MoneyBotPolicyConfig,
+    RulesSnapshotGatewayConfig,
     WalletGovernorConfig,
 )
 from openclaw_moneybot.shared.types import (
@@ -46,6 +53,7 @@ from openclaw_moneybot.shared.types import (
     TosDecisionType,
 )
 from openclaw_moneybot.skills.account_eligibility_checker import AccountEligibilityChecker
+from openclaw_moneybot.skills.account_eligibility_checker.models import OperatorProfile
 from openclaw_moneybot.skills.budget_and_roi_planner import BudgetAndRoiPlanner
 from openclaw_moneybot.skills.budget_and_roi_planner.models import (
     BudgetPlanRequest,
@@ -58,6 +66,10 @@ from openclaw_moneybot.skills.duplicate_opportunity_detector import (
 )
 from openclaw_moneybot.skills.email_drafter import EmailDrafter
 from openclaw_moneybot.skills.experiment_reviewer import ExperimentReviewer
+from openclaw_moneybot.skills.experiment_reviewer.models import (
+    ExperimentReviewRequest,
+    ExperimentReviewResult,
+)
 from openclaw_moneybot.skills.ledger_skill.service import LedgerService
 from openclaw_moneybot.skills.moneybot_policy_guard import MoneyBotPolicyGuard
 from openclaw_moneybot.skills.moneybot_policy_guard.models import (
@@ -66,8 +78,17 @@ from openclaw_moneybot.skills.moneybot_policy_guard.models import (
 )
 from openclaw_moneybot.skills.opportunity_scout import OpportunityScout, ScoutSourceDocument
 from openclaw_moneybot.skills.receipt_and_evidence_archiver import ReceiptAndEvidenceArchiver
-from openclaw_moneybot.skills.revenue_reconciler import RevenueReconciler
+from openclaw_moneybot.skills.revenue_reconciler import (
+    ReconciliationObservation,
+    RevenueReconciler,
+    RevenueReconciliationRequest,
+)
+from openclaw_moneybot.skills.revenue_reconciler.models import RevenueReconciliationResult
 from openclaw_moneybot.skills.strategy_memory_summarizer import StrategyMemorySummarizer
+from openclaw_moneybot.skills.strategy_memory_summarizer.models import (
+    StrategyMemorySummaryRequest,
+    StrategyMemorySummaryResult,
+)
 from openclaw_moneybot.skills.submission_package_builder import SubmissionPackageBuilder
 from openclaw_moneybot.skills.tos_legal_checker import TosLegalChecker
 from openclaw_moneybot.skills.tos_legal_checker.models import (
@@ -88,6 +109,17 @@ class TosEvaluator(Protocol):
 
 class BudgetEvaluator(Protocol):
     def evaluate(self, request: BudgetPlanRequest) -> BudgetPlanResult: ...
+
+
+class MetricsHistorySeed(TypedDict):
+    opportunity_id: str
+    policy: PolicyDecision
+    tos: TosLegalCheck
+    budget: BudgetPlan
+    evidence: EvidenceRecord
+    review: ExperimentReviewResult
+    reconciliation: RevenueReconciliationResult
+    summary: StrategyMemorySummaryResult
 
 
 def fixture_text(name: str) -> str:
@@ -143,6 +175,82 @@ def make_source_document(
         payment_method=payment_method,
         content_text=content_text,
     )
+
+
+def make_operator_profile(**overrides: object) -> OperatorProfile:
+    payload: dict[str, object] = {
+        "region": "united states",
+        "age_years": 30,
+        "supported_payout_methods": ["paypal", "bank_wire"],
+        "supported_assets": ["btc"],
+        "operating_systems": ["linux", "macos", "windows"],
+        "available_hardware": ["gpu"],
+        "private_infrastructure_available": True,
+        "repository_history_available": True,
+        "prior_contribution_tags": ["oss"],
+        "profile_reputation_available": True,
+    }
+    payload.update(overrides)
+    return OperatorProfile.model_validate(payload)
+
+
+def write_submission_template(
+    template_root: Path,
+    *,
+    template_name: str = "submission",
+    required_fields: list[str] | None = None,
+    body_template: str | None = None,
+) -> Path:
+    template_root.mkdir(parents=True, exist_ok=True)
+    field_names = required_fields or ["name", "email"]
+    template_path = template_root / f"{template_name}.json"
+    template_path.write_text(
+        json.dumps(
+            {
+                "output_filename": "submission.txt",
+                "required_fields": field_names,
+                "body_template": body_template
+                or "".join(f"{field.title()}: {{{field}}}\n" for field in field_names),
+            }
+        ),
+        encoding="utf-8",
+    )
+    return template_path
+
+
+def seed_rules_snapshot_pair(
+    ledger_service: LedgerService,
+    archive_config: ArchiveConfig,
+    *,
+    opportunity_id: str = "opp_001",
+    source_url: str = "https://example.com/rules",
+    first_text: str = "Payout is $25.\nAutomation allowed.",
+    second_text: str = "Payout is $10.\nAutomation prohibited.",
+) -> tuple[RulesSnapshotCaptureResult, RulesSnapshotCaptureResult]:
+    gateway = RulesSnapshotGateway(
+        RulesSnapshotGatewayConfig(enabled=True, allowed_hosts=["example.com"]),
+        archive_config,
+        ledger_service,
+    )
+    first = gateway.capture(
+        RulesSnapshotCaptureRequest(
+            opportunity_id=opportunity_id,
+            source_url=source_url,
+            content_text=first_text,
+            content_type="text/plain",
+            idempotency_key=f"rules:{opportunity_id}:first",
+        )
+    )
+    second = gateway.capture(
+        RulesSnapshotCaptureRequest(
+            opportunity_id=opportunity_id,
+            source_url=source_url,
+            content_text=second_text,
+            content_type="text/plain",
+            idempotency_key=f"rules:{opportunity_id}:second",
+        )
+    )
+    return first, second
 
 
 def seed_opportunity(
@@ -529,3 +637,101 @@ def make_prewrite_record(ledger_service: LedgerService, *, related_id: str) -> s
         idempotency_key=f"prewrite:{related_id}",
     )
     return write.ledger_event_id
+
+
+def seed_realistic_metrics_history(
+    ledger_service: LedgerService,
+    archive_config: ArchiveConfig,
+    *,
+    opportunity_id: str = "opp_001",
+    category: str = "bounty",
+    expected_amount: float = 20.0,
+    revenue_usd: float = 20.0,
+    observed_amount: float | None = 20.0,
+    current_date: datetime | None = None,
+) -> MetricsHistorySeed:
+    current = current_date or datetime(2026, 1, 3, tzinfo=UTC)
+    seed_opportunity(ledger_service, opportunity_id=opportunity_id, category=category)
+    policy = seed_policy_decision(
+        ledger_service,
+        policy_decision_id=f"policy_{opportunity_id}",
+        opportunity_id=opportunity_id,
+    )
+    tos = seed_tos_legal_check(
+        ledger_service,
+        tos_legal_check_id=f"tos_{opportunity_id}",
+        opportunity_id=opportunity_id,
+    )
+    evidence = seed_evidence_record(
+        ledger_service,
+        evidence_id=f"artifact_{opportunity_id}",
+        related_record_id=opportunity_id,
+    )
+    budget = seed_budget_plan(
+        ledger_service,
+        budget_plan_id=f"budget_{opportunity_id}",
+        opportunity_id=opportunity_id,
+        policy_decision_id=policy.policy_decision_id,
+        tos_legal_check_id=tos.tos_legal_check_id,
+        expected_gross_revenue_usd=expected_amount,
+    )
+    review = ExperimentReviewer(archive_config, ledger_service).review(
+        ExperimentReviewRequest(
+            opportunity_id=opportunity_id,
+            budget_plan_id=budget.budget_plan_id,
+            review_reason="integration_metrics_history",
+            current_date=current,
+            revenue_usd=revenue_usd,
+            time_spent_hours=2.0,
+            success_metric_met=revenue_usd >= expected_amount,
+            evidence_archive_ids=[evidence.evidence_id],
+        )
+    )
+    observations: list[ReconciliationObservation] = []
+    if observed_amount is not None:
+        observations.append(
+            ReconciliationObservation(
+                observation_id=f"obs_{opportunity_id}",
+                source_type="receipt",
+                reference_id=f"receipt_{opportunity_id}",
+                amount=observed_amount,
+                currency_or_asset="USD",
+                observed_at=current,
+                counterparty="Example Vendor",
+                evidence_archive_id=evidence.evidence_id,
+            )
+        )
+    reconciliation = RevenueReconciler(archive_config, ledger_service).reconcile(
+        RevenueReconciliationRequest(
+            opportunity_id=opportunity_id,
+            expected_amount=expected_amount,
+            currency_or_asset="USD",
+            current_date=current,
+            expected_date=datetime(2026, 1, 2, tzinfo=UTC),
+            observations=observations,
+            evidence_archive_ids=[evidence.evidence_id],
+        )
+    )
+    summary = StrategyMemorySummarizer(archive_config, ledger_service).summarize(
+        StrategyMemorySummaryRequest(
+            opportunity_id=opportunity_id,
+            experiment_review_id=review.experiment_review_id,
+            scope="opportunity",
+            net_usd=review.net_usd,
+            roi_percent=review.roi_percent,
+            time_spent_hours=2.0,
+            reconciliation_status=reconciliation.status,
+            counterparty_risk_tier=None,
+            evidence_archive_ids=reconciliation.evidence_archive_ids,
+        )
+    )
+    return {
+        "opportunity_id": opportunity_id,
+        "policy": policy,
+        "tos": tos,
+        "budget": budget,
+        "evidence": evidence,
+        "review": review,
+        "reconciliation": reconciliation,
+        "summary": summary,
+    }

@@ -354,26 +354,26 @@ src/openclaw_moneybot/skills/ledger_skill/
 
 ## 7.2 Experiment review export integration
 
-- [ ] Add integration test: create a realistic experiment lifecycle, then export experiment reviews as JSON and CSV.
-- [ ] Assert:
-  - [ ] exported rows match the underlying integrated ledger history
-  - [ ] output files are written under the approved export root
-  - [ ] export evidence/ledger metadata is recorded
+- [x] Add integration test: create a realistic experiment lifecycle, then export experiment reviews as JSON and CSV.
+- [x] Assert:
+  - [x] exported rows match the underlying integrated ledger history
+  - [x] output files are written under the approved export root
+  - [x] export evidence/ledger metadata is recorded
 
 ## 7.3 Payout reconciliation export integration
 
-- [ ] Add integration test: build realistic reconciliation records and export payout reconciliation metrics.
-- [ ] Assert:
-  - [ ] status filtering works against real integrated records
-  - [ ] summary counts are deterministic
-  - [ ] missing optional typed records do not break export generation
+- [x] Add integration test: build realistic reconciliation records and export payout reconciliation metrics.
+- [x] Assert:
+  - [x] status filtering works against real integrated records
+  - [x] summary counts are deterministic
+  - [x] missing optional typed records do not break export generation
 
 ## 7.4 Strategy summary export integration
 
-- [ ] Add integration test: build realistic strategy-summary records and export them with category filtering.
-- [ ] Assert:
-  - [ ] what-worked / what-failed counts match the integrated inputs
-  - [ ] malformed or unrelated ledger history is ignored safely
+- [x] Add integration test: build realistic strategy-summary records and export them with category filtering.
+- [x] Assert:
+  - [x] what-worked / what-failed counts match the integrated inputs
+  - [x] malformed or unrelated ledger history is ignored safely
 
 ---
 
@@ -393,24 +393,24 @@ tests/integration/test_plugin_phase_c_integration.py
 
 ## 8.2 Packaging and rendering replay
 
-- [ ] Add integration test: replay the same submission-package and render request and verify no inconsistent duplicate durable records are created.
-- [ ] Assert:
-  - [ ] repeated outputs are either reused or remain deterministic
-  - [ ] archive and ledger linkage stays stable
+- [x] Add integration test: replay the same submission-package and render request and verify no inconsistent duplicate durable records are created.
+- [x] Assert:
+  - [x] repeated outputs are either reused or remain deterministic
+  - [x] archive and ledger linkage stays stable
 
 ## 8.3 Terms-change and reconciliation replay
 
-- [ ] Add integration test: replay the same terms-change evaluation and payout reconciliation request.
-- [ ] Assert:
-  - [ ] deterministic results are preserved
-  - [ ] duplicate or contradictory records are not created
+- [x] Add integration test: replay the same terms-change evaluation and payout reconciliation request.
+- [x] Assert:
+  - [x] deterministic results are preserved
+  - [x] duplicate or contradictory records are not created
 
 ## 8.4 Metrics export replay
 
-- [ ] Add integration test: run the same bounded export request twice and verify stable output content and durable metadata behavior.
-- [ ] Assert:
-  - [ ] no unsafe path drift occurs
-  - [ ] output naming/content rules remain deterministic
+- [x] Add integration test: run the same bounded export request twice and verify stable output content and durable metadata behavior.
+- [x] Assert:
+  - [x] no unsafe path drift occurs
+  - [x] output naming/content rules remain deterministic
 
 ---
 
@@ -418,20 +418,20 @@ tests/integration/test_plugin_phase_c_integration.py
 
 ## 9.1 Scenario builders and helpers
 
-- [ ] Add or refine shared integration helpers for:
-  - [ ] creating realistic opportunities with linked rule snapshots
-  - [ ] building deterministic operator profiles for eligibility tests
-  - [ ] creating reusable evidence and archive fixtures for package/render flows
-  - [ ] seeding wallet observations, reconciliation inputs, and strategy summaries
-  - [ ] building realistic mixed ledger histories for metrics export
+- [x] Add or refine shared integration helpers for:
+  - [x] creating realistic opportunities with linked rule snapshots
+  - [x] building deterministic operator profiles for eligibility tests
+  - [x] creating reusable evidence and archive fixtures for package/render flows
+  - [x] seeding wallet observations, reconciliation inputs, and strategy summaries
+  - [x] building realistic mixed ledger histories for metrics export
 
 ## 9.2 Quality and safety rules
 
-- [ ] Keep all new integration tests offline, local-only, and deterministic.
-- [ ] Avoid any live browser, live email, or live Bitcoin Core dependency.
-- [ ] Assert exact durable records and linkage where policy or audit behavior matters.
-- [ ] Prefer realistic local service boundaries over transport shims when the wrapper boundary is the thing being tested.
-- [ ] Reuse existing integration helpers where possible instead of duplicating setup logic.
+- [x] Keep all new integration tests offline, local-only, and deterministic.
+- [x] Avoid any live browser, live email, or live Bitcoin Core dependency.
+- [x] Assert exact durable records and linkage where policy or audit behavior matters.
+- [x] Prefer realistic local service boundaries over transport shims when the wrapper boundary is the thing being tested.
+- [x] Reuse existing integration helpers where possible instead of duplicating setup logic.
 
 ---
 
@@ -439,18 +439,18 @@ tests/integration/test_plugin_phase_c_integration.py
 
 ## 10.1 Validation tasks
 
-- [ ] Run `uv run --python 3.11 ruff check .`
-- [ ] Run `uv run --python 3.11 mypy .`
-- [ ] Run `uv run --python 3.11 pytest`
-- [ ] Confirm the new integration tests stay offline and deterministic under repeated local runs.
+- [x] Run `uv run --python 3.11 ruff check .`
+- [x] Run `uv run --python 3.11 mypy .`
+- [x] Run `uv run --python 3.11 pytest`
+- [x] Confirm the new integration tests stay offline and deterministic under repeated local runs.
 
 ## 10.2 Acceptance criteria
 
-- [ ] Eligibility decisions are covered at the integrated workflow boundary, including safe stop behavior.
-- [ ] Rules-change monitoring is covered with durable budget/policy recheck propagation.
-- [ ] Submission packaging, rendering, archive, and ledger linkage are covered in one realistic flow.
-- [ ] Quarantine promotion is covered as the only safe path into downstream evidence use.
-- [ ] Payout observation, reconciliation, and follow-up planning are covered in one realistic flow.
-- [ ] Counterparty snapshot and risk profiling are covered as an integrated due-diligence path.
-- [ ] Metrics export is covered against realistic mixed ledger history rather than isolated fixtures only.
-- [ ] Replay/idempotency is covered for the new integration paths where duplicate durable state would be risky.
+- [x] Eligibility decisions are covered at the integrated workflow boundary, including safe stop behavior.
+- [x] Rules-change monitoring is covered with durable budget/policy recheck propagation.
+- [x] Submission packaging, rendering, archive, and ledger linkage are covered in one realistic flow.
+- [x] Quarantine promotion is covered as the only safe path into downstream evidence use.
+- [x] Payout observation, reconciliation, and follow-up planning are covered in one realistic flow.
+- [x] Counterparty snapshot and risk profiling are covered as an integrated due-diligence path.
+- [x] Metrics export is covered against realistic mixed ledger history rather than isolated fixtures only.
+- [x] Replay/idempotency is covered for the new integration paths where duplicate durable state would be risky.

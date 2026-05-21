@@ -367,6 +367,10 @@ def _record_payload(event: LedgerEventEntry) -> dict[str, object]:
 
 
 def _opportunity_id_for_event(event: LedgerEventEntry) -> str:
+    payload = _record_payload(event)
+    opportunity_id = payload.get("opportunity_id")
+    if isinstance(opportunity_id, str):
+        return opportunity_id
     related_record_id = event.payload.get("related_record_id")
     if isinstance(related_record_id, str):
         return related_record_id

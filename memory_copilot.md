@@ -137,3 +137,8 @@
 - Finished the `docs/UNIT_TEST2_TODO.md` implementation pass across the planned hotspot modules and secondary edge-case follow-ups, including new direct branch tests for eligibility gating, duplicate matching, opportunity indexing, metrics export, counterparty snapshots, artifact rendering, download quarantine, inbox observation, and terms-change monitoring.
 - Tightened one coupled bug uncovered by the new tests in `duplicate_opportunity_detector` by replacing lexicographic confidence escalation with an explicit severity ordering, keeping duplicate decisions deterministic.
 - The repository now passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, `uv run --python 3.11 pytest`, and a follow-up coverage run at 95% total coverage; the targeted modules now report 100%, 100%, 98%, 97%, 96%, 99%, 98%, 87%, and 94% coverage respectively for the planned UNIT_TEST2 set.
+
+## 2026-05-21T06:44:14Z - GPT-5.4 - Completed INT_TEST2 integration pass
+- Finished the `docs/INT_TEST2_TODO.md` implementation pass by adding the Phase C integration coverage for realistic metrics exports, replay/idempotency of packaging and render flows, repeated terms-change and reconciliation requests, and repeated bounded export requests.
+- Added reusable integration helpers for deterministic operator profiles, rules snapshot pairs, submission-template fixtures, and realistic mixed ledger history seeding, and fixed `metrics_export_plugin` so experiment-review exports resolve the underlying opportunity ID from integrated review payloads.
+- The repository now passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 575 passing tests, and `docs/INT_TEST2_TODO.md` is fully checked off.
