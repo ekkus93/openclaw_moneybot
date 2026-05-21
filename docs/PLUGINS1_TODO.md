@@ -33,22 +33,22 @@ P2 = analytics, indexing, and quality-of-life plugins
 
 # 0. Global rules for all new plugins
 
-- [ ] Keep every new plugin/service **narrow** and separately testable.
-- [ ] Do not install third-party plugins, hosted agents, or externally managed services.
-- [ ] Prefer local Python modules or localhost-only services over network-exposed components.
-- [ ] Keep any HTTP service bound to `127.0.0.1` unless there is a documented reason not to.
-- [ ] Do not give any new plugin direct wallet-send authority.
-- [ ] Do not give any new plugin direct unrestricted email-send authority.
-- [ ] Do not give any new plugin unrestricted browser automation or unrestricted shell access.
-- [ ] Fail closed on malformed input, unsupported actions, missing configuration, ambiguous authority, or unverifiable external data.
-- [ ] Require typed request/response models for every plugin boundary.
-- [ ] Require deterministic validation for safety-critical behavior.
-- [ ] Keep secrets out of prompts, logs, error payloads, and persisted evidence.
-- [ ] Keep all durable writes linked through the ledger and evidence archive.
-- [ ] Add unit tests for happy paths, blocked paths, and malformed-input paths.
-- [ ] Add integration tests for every plugin that changes orchestration, ledger linkage, archive linkage, or local service boundaries.
-- [ ] Prefer read-only adapters before adding any state-changing adapter.
-- [ ] Use allowlists for filesystems, URLs, content types, and operations whenever a plugin touches external inputs.
+- [x] Keep every new plugin/service **narrow** and separately testable.
+- [x] Do not install third-party plugins, hosted agents, or externally managed services.
+- [x] Prefer local Python modules or localhost-only services over network-exposed components.
+- [x] Keep any HTTP service bound to `127.0.0.1` unless there is a documented reason not to.
+- [x] Do not give any new plugin direct wallet-send authority.
+- [x] Do not give any new plugin direct unrestricted email-send authority.
+- [x] Do not give any new plugin unrestricted browser automation or unrestricted shell access.
+- [x] Fail closed on malformed input, unsupported actions, missing configuration, ambiguous authority, or unverifiable external data.
+- [x] Require typed request/response models for every plugin boundary.
+- [x] Require deterministic validation for safety-critical behavior.
+- [x] Keep secrets out of prompts, logs, error payloads, and persisted evidence.
+- [x] Keep all durable writes linked through the ledger and evidence archive.
+- [x] Add unit tests for happy paths, blocked paths, and malformed-input paths.
+- [x] Add integration tests for every plugin that changes orchestration, ledger linkage, archive linkage, or local service boundaries.
+- [x] Prefer read-only adapters before adding any state-changing adapter.
+- [x] Use allowlists for filesystems, URLs, content types, and operations whenever a plugin touches external inputs.
 
 ---
 
@@ -58,28 +58,28 @@ P2 = analytics, indexing, and quality-of-life plugins
 
 - [x] Confirm that this wave is limited to **first-party** plugins only.
 - [x] Confirm the initial implementation order for the plugin wave.
-- [ ] Recommended order:
+- [x] Recommended order:
   - [x] `operator_profile_store`
   - [x] `rules_snapshot_gateway`
   - [x] `wallet_observer_plugin`
   - [x] `inbox_observer_plugin`
-  - [ ] `opportunity_index_plugin`
-  - [ ] `artifact_renderer_plugin`
-  - [ ] `deadline_scheduler_plugin`
-  - [ ] `download_quarantine_plugin`
-  - [ ] `counterparty_snapshot_plugin`
-  - [ ] `metrics_export_plugin`
-- [ ] Mark which plugins are required for the default workflow and which remain optional helpers.
+  - [x] `opportunity_index_plugin`
+  - [x] `artifact_renderer_plugin`
+  - [x] `deadline_scheduler_plugin`
+  - [x] `download_quarantine_plugin`
+  - [x] `counterparty_snapshot_plugin`
+  - [x] `metrics_export_plugin`
+- [x] Mark which plugins are required for the default workflow and which remain optional helpers.
 
 ## 1.2 Shared plugin conventions
 
 - [x] Decide where each plugin should live in the repo structure.
   - [x] local Python module under `src/openclaw_moneybot/plugins/`
-  - [ ] localhost-only service wrapper where process separation is desirable
+  - [x] localhost-only service wrapper where process separation is desirable
 - [x] Define standard plugin config loading patterns.
 - [x] Define standard health-check behavior for service-style plugins.
-- [ ] Define standard error model and error-code conventions for plugin failures.
-- [ ] Define standard idempotency requirements for any plugin that persists state.
+- [x] Define standard error model and error-code conventions for plugin failures.
+- [x] Define standard idempotency requirements for any plugin that persists state.
 - [x] Define standard audit-event conventions for plugin reads, writes, and rejections.
 
 ## 1.3 Shared contracts and enums
@@ -99,12 +99,12 @@ P2 = analytics, indexing, and quality-of-life plugins
 
 ## 1.4 Shared security controls
 
-- [ ] Define path allowlists for every plugin that reads or writes files.
+- [x] Define path allowlists for every plugin that reads or writes files.
 - [x] Define host/domain allowlists for every plugin that fetches remote content.
 - [x] Define content-type allowlists for downloads and imported artifacts.
 - [x] Define maximum payload/file sizes.
-- [ ] Define per-plugin timeouts and retry rules.
-- [ ] Define redaction rules for inbound content, account data, and receipts.
+- [x] Define per-plugin timeouts and retry rules.
+- [x] Define redaction rules for inbound content, account data, and receipts.
 - [x] Decide which plugins must operate in read-only mode by default.
 
 ## 1.5 Shared ledger and evidence preparation
@@ -121,23 +121,23 @@ P2 = analytics, indexing, and quality-of-life plugins
   - [x] quarantine scan results
   - [x] counterparty snapshot records
   - [x] metrics export jobs
-- [ ] Define which plugin outputs must be archived as evidence.
-- [ ] Define retention expectations for snapshot-style plugin outputs.
+- [x] Define which plugin outputs must be archived as evidence.
+- [x] Define retention expectations for snapshot-style plugin outputs.
 
 ## 1.6 Orchestration wiring plan
 
-- [ ] Map each plugin to the skills that depend on it.
-  - [ ] `account_eligibility_checker` -> `operator_profile_store`
-  - [ ] `terms_change_monitor` -> `rules_snapshot_gateway`
-  - [ ] `revenue_reconciler` -> `wallet_observer_plugin`
-  - [ ] `payout_followup_planner` -> `inbox_observer_plugin`
-  - [ ] `duplicate_opportunity_detector` -> `opportunity_index_plugin`
-  - [ ] `submission_package_builder` -> `artifact_renderer_plugin`
-  - [ ] `timebox_and_queue_planner` -> `deadline_scheduler_plugin`
-  - [ ] `tos_legal_checker` and `submission_package_builder` -> `download_quarantine_plugin`
-  - [ ] `counterparty_risk_profiler` -> `counterparty_snapshot_plugin`
-  - [ ] `experiment_reviewer` and `strategy_memory_summarizer` -> `metrics_export_plugin`
-- [ ] Define fail-closed workflow stop points when a required plugin is unavailable or returns stale/unsafe data.
+- [x] Map each plugin to the skills that depend on it.
+  - [x] `account_eligibility_checker` -> `operator_profile_store`
+  - [x] `terms_change_monitor` -> `rules_snapshot_gateway`
+  - [x] `revenue_reconciler` -> `wallet_observer_plugin`
+  - [x] `payout_followup_planner` -> `inbox_observer_plugin`
+  - [x] `duplicate_opportunity_detector` -> `opportunity_index_plugin`
+  - [x] `submission_package_builder` -> `artifact_renderer_plugin`
+  - [x] `timebox_and_queue_planner` -> `deadline_scheduler_plugin`
+  - [x] `tos_legal_checker` and `submission_package_builder` -> `download_quarantine_plugin`
+  - [x] `counterparty_risk_profiler` -> `counterparty_snapshot_plugin`
+  - [x] `experiment_reviewer` and `strategy_memory_summarizer` -> `metrics_export_plugin`
+- [x] Define fail-closed workflow stop points when a required plugin is unavailable or returns stale/unsafe data.
 
 ---
 
@@ -542,40 +542,40 @@ Collect and normalize public counterparty evidence snapshots so risk profiling c
 
 ## 10.2 Supported responsibilities
 
-- [ ] Capture public profile/about/payment-proof pages from allowlisted sources.
-- [ ] Normalize stable identity and reputation indicators.
-- [ ] Archive public evidence snapshots and hashes.
-- [ ] Surface freshness and provenance metadata.
-- [ ] Support deterministic comparison of repeated observations over time.
+- [x] Capture public profile/about/payment-proof pages from allowlisted sources.
+- [x] Normalize stable identity and reputation indicators.
+- [x] Archive public evidence snapshots and hashes.
+- [x] Surface freshness and provenance metadata.
+- [x] Support deterministic comparison of repeated observations over time.
 
 ## 10.3 Hard boundaries
 
-- [ ] Do not log in to personal accounts.
-- [ ] Do not scrape disallowed or non-allowlisted sites.
-- [ ] Do not bypass robots/terms restrictions that the project should respect.
-- [ ] Do not treat unverifiable claims as facts.
+- [x] Do not log in to personal accounts.
+- [x] Do not scrape disallowed or non-allowlisted sites.
+- [x] Do not bypass robots/terms restrictions that the project should respect.
+- [x] Do not treat unverifiable claims as facts.
 
 ## 10.4 Implementation tasks
 
-- [ ] Define allowlisted source categories.
-- [ ] Define typed snapshot request/result models.
-- [ ] Add field extraction for stable public indicators.
-- [ ] Add provenance and freshness tracking.
-- [ ] Add comparison helpers for changed public signals.
-- [ ] Add evidence archival and ledger linkage.
+- [x] Define allowlisted source categories.
+- [x] Define typed snapshot request/result models.
+- [x] Add field extraction for stable public indicators.
+- [x] Add provenance and freshness tracking.
+- [x] Add comparison helpers for changed public signals.
+- [x] Add evidence archival and ledger linkage.
 
 ## 10.5 Tests
 
-- [ ] Supported public snapshot capture succeeds.
-- [ ] Non-allowlisted source is rejected.
-- [ ] Missing expected public fields are surfaced as incomplete.
-- [ ] Freshness metadata is preserved.
-- [ ] Repeated capture comparison behaves deterministically.
+- [x] Supported public snapshot capture succeeds.
+- [x] Non-allowlisted source is rejected.
+- [x] Missing expected public fields are surfaced as incomplete.
+- [x] Freshness metadata is preserved.
+- [x] Repeated capture comparison behaves deterministically.
 
 ## 10.6 Acceptance criteria
 
-- [ ] Counterparty-risk analysis can rely on archived public evidence.
-- [ ] The plugin stays within low-risk public-data boundaries.
+- [x] Counterparty-risk analysis can rely on archived public evidence.
+- [x] The plugin stays within low-risk public-data boundaries.
 
 ---
 
@@ -587,39 +587,39 @@ Provide deterministic local export and summary generation for experiment, payout
 
 ## 11.2 Supported responsibilities
 
-- [ ] Export predefined accounting/review/report datasets.
-- [ ] Produce bounded summary inputs for review and strategy skills.
-- [ ] Track export job metadata and artifact paths.
-- [ ] Support CSV/JSON outputs where already accepted by the repo.
-- [ ] Provide filters for date range, opportunity class, and outcome category.
+- [x] Export predefined accounting/review/report datasets.
+- [x] Produce bounded summary inputs for review and strategy skills.
+- [x] Track export job metadata and artifact paths.
+- [x] Support CSV/JSON outputs where already accepted by the repo.
+- [x] Provide filters for date range, opportunity class, and outcome category.
 
 ## 11.3 Hard boundaries
 
-- [ ] Do not expose arbitrary SQL or arbitrary filesystem read access.
-- [ ] Do not export secrets or raw sensitive config values.
-- [ ] Do not allow unbounded full-ledger dumps through the skill interface by default.
+- [x] Do not expose arbitrary SQL or arbitrary filesystem read access.
+- [x] Do not export secrets or raw sensitive config values.
+- [x] Do not allow unbounded full-ledger dumps through the skill interface by default.
 
 ## 11.4 Implementation tasks
 
-- [ ] Define approved export shapes and filter options.
-- [ ] Define typed export request/result models.
-- [ ] Add bounded query builders over existing ledger APIs/helpers.
-- [ ] Add output file generation with stable ordering.
-- [ ] Add evidence/archive linkage for exported reports where needed.
-- [ ] Add audit events for export jobs and failures.
+- [x] Define approved export shapes and filter options.
+- [x] Define typed export request/result models.
+- [x] Add bounded query builders over existing ledger APIs/helpers.
+- [x] Add output file generation with stable ordering.
+- [x] Add evidence/archive linkage for exported reports where needed.
+- [x] Add audit events for export jobs and failures.
 
 ## 11.5 Tests
 
-- [ ] Approved export succeeds with stable output ordering.
-- [ ] Unsupported filter is rejected.
-- [ ] Sensitive fields are excluded.
-- [ ] Oversized export request is rejected or bounded safely.
-- [ ] Export metadata and audit linkage are preserved.
+- [x] Approved export succeeds with stable output ordering.
+- [x] Unsupported filter is rejected.
+- [x] Sensitive fields are excluded.
+- [x] Oversized export request is rejected or bounded safely.
+- [x] Export metadata and audit linkage are preserved.
 
 ## 11.6 Acceptance criteria
 
-- [ ] Review and strategy flows can consume bounded historical summaries safely.
-- [ ] Export behavior is deterministic and auditable.
+- [x] Review and strategy flows can consume bounded historical summaries safely.
+- [x] Export behavior is deterministic and auditable.
 
 ---
 
@@ -627,43 +627,43 @@ Provide deterministic local export and summary generation for experiment, payout
 
 ## 12.1 Documentation
 
-- [ ] Add or update plugin-specific docs for every new plugin.
-  - [ ] goal
-  - [ ] authority boundaries
-  - [ ] inputs/outputs
-  - [ ] config
-  - [ ] failure modes
-  - [ ] tests
-  - [ ] acceptance criteria
-- [ ] Update architecture docs if any new plugin changes the supported service/plugin map.
-- [ ] Document which plugins are optional, disabled by default, or read-only only.
+- [x] Add or update plugin-specific docs for every new plugin.
+  - [x] goal
+  - [x] authority boundaries
+  - [x] inputs/outputs
+  - [x] config
+  - [x] failure modes
+  - [x] tests
+  - [x] acceptance criteria
+- [x] Update architecture docs if any new plugin changes the supported service/plugin map.
+- [x] Document which plugins are optional, disabled by default, or read-only only.
 
 ## 12.2 Quality gates
 
-- [ ] Add unit tests for each new plugin module.
-- [ ] Add integration tests for service boundaries and orchestration handoffs.
-- [ ] Add fixture coverage for malformed inputs and hostile/untrusted external content.
-- [ ] Run:
-  - [ ] `uv run --python 3.11 ruff check .`
-  - [ ] `uv run --python 3.11 mypy .`
-  - [ ] `uv run --python 3.11 pytest`
+- [x] Add unit tests for each new plugin module.
+- [x] Add integration tests for service boundaries and orchestration handoffs.
+- [x] Add fixture coverage for malformed inputs and hostile/untrusted external content.
+- [x] Run:
+  - [x] `uv run --python 3.11 ruff check .`
+  - [x] `uv run --python 3.11 mypy .`
+  - [x] `uv run --python 3.11 pytest`
 
 ## 12.3 Safety review pass
 
-- [ ] Verify no new plugin bypasses `wallet_governor_service`.
-- [ ] Verify no new plugin bypasses `ledger_skill` or approved ledger APIs for durable records.
-- [ ] Verify no new plugin bypasses `receipt_and_evidence_archiver` for evidence storage.
-- [ ] Verify no new plugin adds hidden send, submit, or login capabilities.
-- [ ] Verify all new plugins fail closed when unavailable or misconfigured.
-- [ ] Verify allowlists, size limits, and path checks exist anywhere external content is handled.
+- [x] Verify no new plugin bypasses `wallet_governor_service`.
+- [x] Verify no new plugin bypasses `ledger_skill` or approved ledger APIs for durable records.
+- [x] Verify no new plugin bypasses `receipt_and_evidence_archiver` for evidence storage.
+- [x] Verify no new plugin adds hidden send, submit, or login capabilities.
+- [x] Verify all new plugins fail closed when unavailable or misconfigured.
+- [x] Verify allowlists, size limits, and path checks exist anywhere external content is handled.
 
 ## 12.4 Orchestration and rollout
 
-- [ ] Add feature flags or config gating for optional plugins.
-- [ ] Ensure optional plugin absence does not create unsafe fallback behavior.
-- [ ] Ensure required plugin absence blocks dependent skills cleanly.
-- [ ] Add startup validation for required plugin configs.
-- [ ] Add health reporting for service-style plugins.
+- [x] Add feature flags or config gating for optional plugins.
+- [x] Ensure optional plugin absence does not create unsafe fallback behavior.
+- [x] Ensure required plugin absence blocks dependent skills cleanly.
+- [x] Add startup validation for required plugin configs.
+- [x] Add health reporting for service-style plugins.
 
 ---
 
@@ -685,26 +685,26 @@ Provide deterministic local export and summary generation for experiment, payout
 
 ## Phase C - P2 intelligence and reporting plugins
 
-- [ ] `counterparty_snapshot_plugin`
-- [ ] `metrics_export_plugin`
+- [x] `counterparty_snapshot_plugin`
+- [x] `metrics_export_plugin`
 
 ## Phase D - Final hardening
 
-- [ ] update docs
-- [ ] run lint/type/tests
-- [ ] complete integration coverage
-- [ ] verify fail-closed behavior
-- [ ] update master TODOs if needed
+- [x] update docs
+- [x] run lint/type/tests
+- [x] complete integration coverage
+- [x] verify fail-closed behavior
+- [x] update master TODOs if needed
 
 ---
 
 # 14. Final acceptance criteria
 
-- [ ] All new plugins are first-party and repository-owned.
-- [ ] All new plugins have narrow, documented authority boundaries.
-- [ ] No new plugin exposes spend, login, send, or submission power without an existing governor boundary.
-- [ ] Every plugin has typed contracts, explicit error behavior, and tests.
-- [ ] Every plugin that handles external content uses allowlists, size limits, and path safety checks.
-- [ ] Plugin outputs can be linked to ledger and evidence records where applicable.
-- [ ] Optional plugins are disabled or read-only by default when appropriate.
-- [ ] The plugin wave improves eligibility checks, terms freshness, payout follow-up, duplicate detection, submission packaging, and review analytics without expanding unsafe autonomy.
+- [x] All new plugins are first-party and repository-owned.
+- [x] All new plugins have narrow, documented authority boundaries.
+- [x] No new plugin exposes spend, login, send, or submission power without an existing governor boundary.
+- [x] Every plugin has typed contracts, explicit error behavior, and tests.
+- [x] Every plugin that handles external content uses allowlists, size limits, and path safety checks.
+- [x] Plugin outputs can be linked to ledger and evidence records where applicable.
+- [x] Optional plugins are disabled or read-only by default when appropriate.
+- [x] The plugin wave improves eligibility checks, terms freshness, payout follow-up, duplicate detection, submission packaging, and review analytics without expanding unsafe autonomy.

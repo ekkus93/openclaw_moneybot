@@ -11,6 +11,11 @@ from openclaw_moneybot.plugins.browser_governor import (
     BrowserActionResult,
     BrowserGovernorService,
 )
+from openclaw_moneybot.plugins.counterparty_snapshot_plugin import (
+    CounterpartySnapshotPlugin,
+    CounterpartySnapshotRequest,
+    CounterpartySnapshotResult,
+)
 from openclaw_moneybot.plugins.deadline_scheduler_plugin import (
     DeadlineQueryRequest,
     DeadlineQueryResult,
@@ -39,6 +44,11 @@ from openclaw_moneybot.plugins.inbox_observer_plugin import (
     InboxObservationRequest,
     InboxObservationResult,
     InboxObserverPlugin,
+)
+from openclaw_moneybot.plugins.metrics_export_plugin import (
+    MetricsExportPlugin,
+    MetricsExportRequest,
+    MetricsExportResult,
 )
 from openclaw_moneybot.plugins.operator_profile_store import (
     OperatorProfileStore,
@@ -76,6 +86,9 @@ __all__ = [
     "BrowserActionRequest",
     "BrowserActionResult",
     "BrowserGovernorService",
+    "CounterpartySnapshotPlugin",
+    "CounterpartySnapshotRequest",
+    "CounterpartySnapshotResult",
     "DeadlineQueryRequest",
     "DeadlineQueryResult",
     "DeadlineScheduleRequest",
@@ -93,6 +106,9 @@ __all__ = [
     "InboxObservationRequest",
     "InboxObservationResult",
     "InboxObserverPlugin",
+    "MetricsExportPlugin",
+    "MetricsExportRequest",
+    "MetricsExportResult",
     "OperatorProfileStore",
     "OperatorProfileStoreReadRequest",
     "OperatorProfileStoreReadResult",

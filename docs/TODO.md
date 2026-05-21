@@ -18,6 +18,17 @@ For detailed implementation checklists, see the skill and plugin TODO files unde
   - [x] `deliverable_quality_checker`
   - [x] `payout_followup_planner`
   - [x] `strategy_memory_summarizer`
+- [x] The PLUGINS1 first-party plugin wave is implemented and validated:
+  - [x] `operator_profile_store`
+  - [x] `rules_snapshot_gateway`
+  - [x] `wallet_observer_plugin`
+  - [x] `inbox_observer_plugin`
+  - [x] `opportunity_index_plugin`
+  - [x] `artifact_renderer_plugin`
+  - [x] `deadline_scheduler_plugin`
+  - [x] `download_quarantine_plugin`
+  - [x] `counterparty_snapshot_plugin`
+  - [x] `metrics_export_plugin`
 - [x] The repository currently passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest`.
 
 ## Read first

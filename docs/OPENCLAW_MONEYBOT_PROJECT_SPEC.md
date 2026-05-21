@@ -527,6 +527,17 @@ openclaw-moneybot/
     wallet_governor_service/
     ledger_api/
     email_governor/
+    browser_governor/
+    operator_profile_store/
+    rules_snapshot_gateway/
+    wallet_observer_plugin/
+    inbox_observer_plugin/
+    opportunity_index_plugin/
+    artifact_renderer_plugin/
+    deadline_scheduler_plugin/
+    download_quarantine_plugin/
+    counterparty_snapshot_plugin/
+    metrics_export_plugin/
   src/
     openclaw_moneybot/
       policy/

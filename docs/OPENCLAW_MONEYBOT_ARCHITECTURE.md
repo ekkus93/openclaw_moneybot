@@ -108,6 +108,29 @@ browser_governor
 
 Not every service is required in v1, but the architecture should leave clean boundaries for them.
 
+Implemented helper plugins for the first-party plugin wave:
+
+```text
+operator_profile_store
+rules_snapshot_gateway
+wallet_observer_plugin
+inbox_observer_plugin
+opportunity_index_plugin
+artifact_renderer_plugin
+deadline_scheduler_plugin
+download_quarantine_plugin
+counterparty_snapshot_plugin
+metrics_export_plugin
+```
+
+Plugin rollout rules:
+
+- These helper plugins are optional for the default workflow and are gated by explicit config sections with `enabled` flags.
+- Service-style separation remains reserved for components that need process isolation (`wallet_governor_service`, `ledger_api`, `email_governor`, `browser_governor`); the PLUGINS1 helpers stay as local Python modules.
+- Read-only-by-default helpers include `wallet_observer_plugin` and `opportunity_index_plugin`; stateful helpers may write only to approved local paths plus the ledger/evidence archive.
+- Plugin failures are fail-closed: invalid input, stale snapshots, quarantine rejection, or missing required helper data must block the dependent skill path instead of silently falling back.
+- Plugins do not implement internal retry loops; callers provide any timeout policy, and persisted plugin operations must remain idempotent through deterministic file roots and ledger-linked records.
+
 ### 2.5 SQLite Ledger
 
 The ledger is the authoritative local database.

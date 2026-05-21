@@ -115,3 +115,8 @@
 - Implemented and validated the second plugin wave from `docs/PLUGINS1_TODO.md`: `opportunity_index_plugin`, `artifact_renderer_plugin`, `deadline_scheduler_plugin`, and `download_quarantine_plugin`.
 - Added typed models, plugin docs, and unit/integration coverage for deterministic similarity indexing, bounded local artifact rendering, fail-closed deadline scheduling, and quarantined download promotion into the evidence archive.
 - Updated the PLUGINS1 tracker to mark all Phase B tasks complete, and the repository now passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 436 passing tests.
+
+## 2026-05-21T05:47:51Z - GPT-5.4 - Completed the full PLUGINS1 wave
+- Implemented the final PLUGINS1 plugins `counterparty_snapshot_plugin` and `metrics_export_plugin`, then closed the remaining documentation and tracker work for the full first-party plugin wave.
+- The plugin inventory is now documented in the architecture/spec docs, `docs/PLUGINS1_TODO.md` is fully checked off, and `docs/TODO.md` now records the completed PLUGINS1 wave alongside SKILLS1.
+- The repository passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 448 passing tests at the end of the full plugin implementation pass.
