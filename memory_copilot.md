@@ -129,6 +129,10 @@
 - Created `docs/UNIT_TEST2_TODO.md` as the next unit-test planning document after the post-PLUGINS1 coverage review.
 - The new tracker prioritizes branch-heavy coverage for `account_eligibility_checker`, `metrics_export_plugin`, `opportunity_index_plugin`, `duplicate_opportunity_detector`, and `counterparty_snapshot_plugin`, with secondary follow-ups for renderer/quarantine/inbox/terms-monitor edge cases.
 
+## 2026-05-21T06:19:52Z - GPT-5.4 - Added INT_TEST2 integration follow-up tracker
+- Created `docs/INT_TEST2_TODO.md` as the next integration-test planning document after reviewing the remaining cross-skill and cross-plugin gaps.
+- The new tracker prioritizes eligibility-gated workflow stops, rules-change recheck propagation, submission package to render/archive linkage, quarantine promotion boundaries, payout reconciliation loops, counterparty due-diligence flows, realistic metrics export coverage, and replay/idempotency checks.
+
 ## 2026-05-21T06:17:32Z - GPT-5.4 - Completed UNIT_TEST2 targeted coverage pass
 - Finished the `docs/UNIT_TEST2_TODO.md` implementation pass across the planned hotspot modules and secondary edge-case follow-ups, including new direct branch tests for eligibility gating, duplicate matching, opportunity indexing, metrics export, counterparty snapshots, artifact rendering, download quarantine, inbox observation, and terms-change monitoring.
 - Tightened one coupled bug uncovered by the new tests in `duplicate_opportunity_detector` by replacing lexicographic confidence escalation with an explicit severity ordering, keeping duplicate decisions deterministic.
