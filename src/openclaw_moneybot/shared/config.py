@@ -390,6 +390,132 @@ class WikipediaResearchConfig(MoneyBotModel):
         return normalized
 
 
+class ArxivResearchConfig(MoneyBotModel):
+    """arXiv research plugin configuration."""
+
+    enabled: bool = False
+    api_base_url: str = "https://export.arxiv.org/api/query"
+    timeout_seconds: float = Field(default=10.0, gt=0, le=60.0)
+    max_results: int = Field(default=10, gt=0, le=20)
+    max_summary_chars: int = Field(default=2_000, gt=0, le=10_000)
+    default_sort_by: str = "relevance"
+    default_sort_order: str = "descending"
+
+    @field_validator("api_base_url")
+    @classmethod
+    def validate_arxiv_api_url(cls, value: str) -> str:
+        """Require the hosted arXiv API endpoint."""
+        parsed = urlparse(value)
+        if parsed.scheme != "https":
+            msg = "arXiv API URLs must be https URLs"
+            raise ValueError(msg)
+        if parsed.hostname != "export.arxiv.org":
+            msg = "arXiv API URLs must point to export.arxiv.org"
+            raise ValueError(msg)
+        if not parsed.path.endswith("/api/query"):
+            msg = "arXiv API URLs must point to the /api/query endpoint"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("default_sort_by")
+    @classmethod
+    def normalize_arxiv_sort_by(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"relevance", "lastupdateddate", "submitteddate"}:
+            msg = "default_sort_by must be relevance, lastupdateddate, or submitteddate"
+            raise ValueError(msg)
+        return normalized
+
+    @field_validator("default_sort_order")
+    @classmethod
+    def normalize_arxiv_sort_order(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"ascending", "descending"}:
+            msg = "default_sort_order must be ascending or descending"
+            raise ValueError(msg)
+        return normalized
+
+
+class OpenAlexResearchConfig(MoneyBotModel):
+    """OpenAlex research plugin configuration."""
+
+    enabled: bool = False
+    api_base_url: str = "https://api.openalex.org/works"
+    api_key_env_var: str = "OPENALEX_API_KEY"
+    timeout_seconds: float = Field(default=10.0, gt=0, le=60.0)
+    max_results: int = Field(default=10, gt=0, le=20)
+    max_abstract_chars: int = Field(default=2_000, gt=0, le=10_000)
+
+    @field_validator("api_base_url")
+    @classmethod
+    def validate_openalex_api_url(cls, value: str) -> str:
+        """Require the hosted OpenAlex works endpoint."""
+        parsed = urlparse(value)
+        if parsed.scheme != "https":
+            msg = "OpenAlex API URLs must be https URLs"
+            raise ValueError(msg)
+        if parsed.hostname != "api.openalex.org":
+            msg = "OpenAlex API URLs must point to api.openalex.org"
+            raise ValueError(msg)
+        if not parsed.path.endswith("/works"):
+            msg = "OpenAlex API URLs must point to the /works endpoint"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("api_key_env_var")
+    @classmethod
+    def normalize_openalex_env_var(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            msg = "api_key_env_var must not be empty"
+            raise ValueError(msg)
+        return normalized
+
+
+class BiomedicalResearchConfig(MoneyBotModel):
+    """PubMed and Europe PMC research plugin configuration."""
+
+    enabled: bool = False
+    pubmed_search_api_base_url: str = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+    pubmed_fetch_api_base_url: str = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+    europe_pmc_search_api_base_url: str = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+    timeout_seconds: float = Field(default=10.0, gt=0, le=60.0)
+    max_results: int = Field(default=10, gt=0, le=20)
+    max_abstract_chars: int = Field(default=2_000, gt=0, le=10_000)
+
+    @field_validator("pubmed_search_api_base_url", "pubmed_fetch_api_base_url")
+    @classmethod
+    def validate_pubmed_api_urls(cls, value: str) -> str:
+        """Require the hosted NCBI E-utilities endpoints."""
+        parsed = urlparse(value)
+        if parsed.scheme != "https":
+            msg = "PubMed API URLs must be https URLs"
+            raise ValueError(msg)
+        if parsed.hostname != "eutils.ncbi.nlm.nih.gov":
+            msg = "PubMed API URLs must point to eutils.ncbi.nlm.nih.gov"
+            raise ValueError(msg)
+        if not parsed.path.startswith("/entrez/eutils/"):
+            msg = "PubMed API URLs must point to E-utilities endpoints"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("europe_pmc_search_api_base_url")
+    @classmethod
+    def validate_europe_pmc_api_url(cls, value: str) -> str:
+        """Require the hosted Europe PMC search endpoint."""
+        parsed = urlparse(value)
+        if parsed.scheme != "https":
+            msg = "Europe PMC API URLs must be https URLs"
+            raise ValueError(msg)
+        if parsed.hostname != "www.ebi.ac.uk":
+            msg = "Europe PMC API URLs must point to www.ebi.ac.uk"
+            raise ValueError(msg)
+        if not parsed.path.endswith("/europepmc/webservices/rest/search"):
+            msg = "Europe PMC API URLs must point to the search endpoint"
+            raise ValueError(msg)
+        return value
+
+
 class AppConfig(MoneyBotModel):
     """Top-level MoneyBot configuration."""
 
@@ -417,6 +543,9 @@ class AppConfig(MoneyBotModel):
     metrics_export: MetricsExportConfig = Field(default_factory=MetricsExportConfig)
     brave_search: BraveSearchConfig = Field(default_factory=BraveSearchConfig)
     wikipedia_research: WikipediaResearchConfig = Field(default_factory=WikipediaResearchConfig)
+    arxiv_research: ArxivResearchConfig = Field(default_factory=ArxivResearchConfig)
+    openalex_research: OpenAlexResearchConfig = Field(default_factory=OpenAlexResearchConfig)
+    biomedical_research: BiomedicalResearchConfig = Field(default_factory=BiomedicalResearchConfig)
 
 
 def load_app_config(path: Path) -> AppConfig:

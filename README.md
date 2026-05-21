@@ -111,6 +111,26 @@ wikipedia_research:
   summary_api_base_url: "https://en.wikipedia.org/api/rest_v1/page/summary"
   max_results: 10
   max_extract_chars: 2000
+arxiv_research:
+  enabled: false
+  api_base_url: "https://export.arxiv.org/api/query"
+  max_results: 10
+  max_summary_chars: 2000
+  default_sort_by: "relevance"
+  default_sort_order: "descending"
+openalex_research:
+  enabled: false
+  api_base_url: "https://api.openalex.org/works"
+  api_key_env_var: "OPENALEX_API_KEY"
+  max_results: 10
+  max_abstract_chars: 2000
+biomedical_research:
+  enabled: false
+  pubmed_search_api_base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+  pubmed_fetch_api_base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+  europe_pmc_search_api_base_url: "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+  max_results: 10
+  max_abstract_chars: 2000
 ```
 
 2. Build the orchestrator from config and run a mission:
@@ -172,6 +192,15 @@ source-domain filters rather than introducing a separate news API boundary.
 
 Wikipedia research is available through a separate read-only plugin that supports bounded
 article search plus page-summary fetches from Wikipedia-only endpoints.
+
+arXiv research is available through a separate read-only plugin that supports bounded
+paper search plus paper metadata and abstract lookup through the hosted arXiv API.
+
+OpenAlex research is available through a separate read-only plugin that supports bounded
+scholarly work search and work lookup through the hosted OpenAlex works API.
+
+Biomedical research is available through a combined read-only plugin that supports bounded
+paper search and paper lookup against both PubMed and Europe PMC.
 
 For an automated reference run, the integration coverage in `tests/integration/test_workflow.py` exercises:
 

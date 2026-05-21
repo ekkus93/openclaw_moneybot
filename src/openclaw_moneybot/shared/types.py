@@ -318,3 +318,6 @@ class RecordType(StrEnum):
     METRICS_EXPORT = "metrics_export"
     WEB_SEARCH = "web_search"
     WIKIPEDIA_RESEARCH = "wikipedia_research"
+    ARXIV_RESEARCH = "arxiv_research"
+    OPENALEX_RESEARCH = "openalex_research"
+    BIOMEDICAL_RESEARCH = "biomedical_research"

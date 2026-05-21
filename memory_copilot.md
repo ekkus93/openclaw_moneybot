@@ -166,3 +166,22 @@
 ## 2026-05-21T21:14:26Z - GPT-5.4 - Published Wikipedia research plugin changes
 - Committed the validated Wikipedia research plugin batch, including the shared config/type/export wiring, README and architecture updates, and the new unit coverage for bounded Wikipedia search and page-summary fetches.
 - Pushed the updated `copilot` branch to GitHub so it now includes both the earlier Brave news-search commit and the Wikipedia research plugin commit.
+
+## 2026-05-21T21:20:51Z - GPT-5.4 - Added arXiv research plugin
+- Implemented a disabled-by-default `arxiv_research_plugin` so MoneyBot can do bounded research-paper discovery and paper lookups against arXiv through a read-only plugin boundary.
+- The plugin supports bounded search queries plus direct paper lookup by arXiv ID, normalizes Atom feed results into paper metadata and clipped abstracts, archives raw XML response snapshots, and records ledger-linked `arxiv_research` entries.
+- Added shared config/types/plugin exports, README and architecture updates, and unit coverage for search, paper lookup, disabled-mode handling, malformed XML payloads, and transport failures; the full repository now passes `ruff`, `mypy`, and `pytest` with 607 passing tests.
+
+## 2026-05-21T21:29:55Z - GPT-5.4 - Added OpenAlex research plugin
+- Implemented a disabled-by-default `openalex_research_plugin` so MoneyBot can do bounded scholarly-work discovery and work lookups against OpenAlex through a read-only plugin boundary.
+- The plugin supports bounded works search plus direct work lookup, normalizes OpenAlex results into paper metadata with clipped reconstructed abstracts, archives raw JSON response snapshots, and records ledger-linked `openalex_research` entries.
+- Added shared config/types/plugin exports, README and architecture updates, and unit coverage for search, work lookup, disabled-mode handling, missing API keys, malformed payloads, and transport failures; the full repository now passes `ruff`, `mypy`, and `pytest` with 615 passing tests.
+
+## 2026-05-21T21:40:37Z - GPT-5.4 - Added combined biomedical research plugin
+- Implemented a disabled-by-default `biomedical_research_plugin` so MoneyBot can do bounded biomedical paper search and paper lookups through a single read-only plugin boundary that supports both PubMed and Europe PMC.
+- The plugin supports provider-selected search and paper lookup flows, normalizes PubMed XML and Europe PMC JSON into shared paper metadata with clipped abstracts, archives raw provider responses, and records ledger-linked `biomedical_research` entries.
+- Added shared config/types/plugin exports, README and architecture updates, and unit coverage for PubMed search and paper lookup, Europe PMC search, disabled-mode handling, malformed payloads, and transport failures; the full repository now passes `ruff`, `mypy`, and `pytest` with 623 passing tests.
+
+## 2026-05-21T21:55:08Z - GPT-5.4 - Published research plugin batch
+- Committed the validated research-plugin batch covering `arxiv_research_plugin`, `openalex_research_plugin`, and the combined `biomedical_research_plugin`, along with the shared config/type/export wiring, README and architecture updates, and new unit coverage.
+- Pushed the updated `copilot` branch to GitHub so it now includes the post-Wikipedia research plugin expansion for arXiv, OpenAlex, PubMed, and Europe PMC.

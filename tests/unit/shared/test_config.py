@@ -8,9 +8,12 @@ import pytest
 
 from openclaw_moneybot.shared.config import (
     AppConfig,
+    ArxivResearchConfig,
+    BiomedicalResearchConfig,
     BraveSearchConfig,
     BrowserGovernorConfig,
     EmailConfig,
+    OpenAlexResearchConfig,
     WalletGovernorConfig,
     WikipediaResearchConfig,
     load_app_config,
@@ -192,6 +195,53 @@ def test_wikipedia_research_defaults_are_bounded_and_disabled() -> None:
 def test_wikipedia_research_config_rejects_non_wikipedia_hosts() -> None:
     with pytest.raises(ValueError, match="wikipedia.org"):
         WikipediaResearchConfig(api_base_url="https://example.com/w/api.php")
+
+
+def test_arxiv_research_defaults_are_bounded_and_disabled() -> None:
+    config = ArxivResearchConfig()
+
+    assert config.enabled is False
+    assert config.api_base_url == "https://export.arxiv.org/api/query"
+    assert config.max_results == 10
+    assert config.max_summary_chars == 2_000
+    assert config.default_sort_by == "relevance"
+    assert config.default_sort_order == "descending"
+
+
+def test_arxiv_research_config_rejects_non_arxiv_hosts() -> None:
+    with pytest.raises(ValueError, match="export.arxiv.org"):
+        ArxivResearchConfig(api_base_url="https://example.com/api/query")
+
+
+def test_openalex_research_defaults_are_bounded_and_disabled() -> None:
+    config = OpenAlexResearchConfig()
+
+    assert config.enabled is False
+    assert config.api_base_url == "https://api.openalex.org/works"
+    assert config.api_key_env_var == "OPENALEX_API_KEY"
+    assert config.max_results == 10
+    assert config.max_abstract_chars == 2_000
+
+
+def test_openalex_research_config_rejects_non_openalex_hosts() -> None:
+    with pytest.raises(ValueError, match="api.openalex.org"):
+        OpenAlexResearchConfig(api_base_url="https://example.com/works")
+
+
+def test_biomedical_research_defaults_are_bounded_and_disabled() -> None:
+    config = BiomedicalResearchConfig()
+
+    assert config.enabled is False
+    assert config.pubmed_search_api_base_url.endswith("/esearch.fcgi")
+    assert config.pubmed_fetch_api_base_url.endswith("/efetch.fcgi")
+    assert config.europe_pmc_search_api_base_url.endswith("/europepmc/webservices/rest/search")
+    assert config.max_results == 10
+    assert config.max_abstract_chars == 2_000
+
+
+def test_biomedical_research_config_rejects_non_pubmed_hosts() -> None:
+    with pytest.raises(ValueError, match="eutils.ncbi.nlm.nih.gov"):
+        BiomedicalResearchConfig(pubmed_search_api_base_url="https://example.com/esearch.fcgi")
 
 
 def test_load_app_config_rejects_non_mapping_root(tmp_path: Path) -> None:

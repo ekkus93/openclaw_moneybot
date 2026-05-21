@@ -123,6 +123,9 @@ counterparty_snapshot_plugin
 metrics_export_plugin
 brave_search_plugin
 wikipedia_research_plugin
+arxiv_research_plugin
+openalex_research_plugin
+biomedical_research_plugin
 ```
 
 Plugin rollout rules:
