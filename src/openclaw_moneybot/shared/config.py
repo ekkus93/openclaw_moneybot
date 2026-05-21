@@ -355,6 +355,41 @@ class BraveSearchConfig(MoneyBotModel):
         return value.strip().lower()
 
 
+class WikipediaResearchConfig(MoneyBotModel):
+    """Wikipedia research plugin configuration."""
+
+    enabled: bool = False
+    api_base_url: str = "https://en.wikipedia.org/w/api.php"
+    summary_api_base_url: str = "https://en.wikipedia.org/api/rest_v1/page/summary"
+    timeout_seconds: float = Field(default=10.0, gt=0, le=60.0)
+    max_results: int = Field(default=10, gt=0, le=20)
+    max_extract_chars: int = Field(default=2_000, gt=0, le=10_000)
+    default_language: str = "en"
+
+    @field_validator("api_base_url", "summary_api_base_url")
+    @classmethod
+    def validate_wikipedia_urls(cls, value: str) -> str:
+        """Require HTTPS Wikipedia endpoints."""
+        parsed = urlparse(value)
+        if parsed.scheme != "https":
+            msg = "Wikipedia API URLs must be https URLs"
+            raise ValueError(msg)
+        hostname = parsed.hostname or ""
+        if not hostname.endswith(".wikipedia.org"):
+            msg = "Wikipedia API URLs must point to wikipedia.org hosts"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("default_language")
+    @classmethod
+    def normalize_wikipedia_language(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            msg = "default_language must not be empty"
+            raise ValueError(msg)
+        return normalized
+
+
 class AppConfig(MoneyBotModel):
     """Top-level MoneyBot configuration."""
 
@@ -381,6 +416,7 @@ class AppConfig(MoneyBotModel):
     )
     metrics_export: MetricsExportConfig = Field(default_factory=MetricsExportConfig)
     brave_search: BraveSearchConfig = Field(default_factory=BraveSearchConfig)
+    wikipedia_research: WikipediaResearchConfig = Field(default_factory=WikipediaResearchConfig)
 
 
 def load_app_config(path: Path) -> AppConfig:

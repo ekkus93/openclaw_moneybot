@@ -12,6 +12,7 @@ from openclaw_moneybot.shared.config import (
     BrowserGovernorConfig,
     EmailConfig,
     WalletGovernorConfig,
+    WikipediaResearchConfig,
     load_app_config,
 )
 from openclaw_moneybot.shared.errors import ErrorCode, MoneyBotError
@@ -177,6 +178,20 @@ def test_brave_search_defaults_are_bounded_and_disabled() -> None:
 def test_brave_search_config_rejects_non_brave_host() -> None:
     with pytest.raises(ValueError, match="api.search.brave.com"):
         BraveSearchConfig(api_base_url="https://example.com/search")
+
+
+def test_wikipedia_research_defaults_are_bounded_and_disabled() -> None:
+    config = WikipediaResearchConfig()
+
+    assert config.enabled is False
+    assert config.default_language == "en"
+    assert config.max_results == 10
+    assert config.max_extract_chars == 2_000
+
+
+def test_wikipedia_research_config_rejects_non_wikipedia_hosts() -> None:
+    with pytest.raises(ValueError, match="wikipedia.org"):
+        WikipediaResearchConfig(api_base_url="https://example.com/w/api.php")
 
 
 def test_load_app_config_rejects_non_mapping_root(tmp_path: Path) -> None:

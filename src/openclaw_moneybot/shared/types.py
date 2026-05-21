@@ -317,3 +317,4 @@ class RecordType(StrEnum):
     COUNTERPARTY_SNAPSHOT = "counterparty_snapshot"
     METRICS_EXPORT = "metrics_export"
     WEB_SEARCH = "web_search"
+    WIKIPEDIA_RESEARCH = "wikipedia_research"

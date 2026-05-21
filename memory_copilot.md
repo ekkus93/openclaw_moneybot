@@ -157,3 +157,12 @@
 - Extended `brave_search_plugin` with a bounded `search_news()` path so MoneyBot can use Brave web search for current-events lookups without introducing a separate news API dependency yet.
 - The news mode adds a dedicated request shape with recency and optional source-domain filters, separate `max_news_results` and `default_news_freshness` config, distinct audit/evidence labeling, and normalized result metadata that marks the query mode as `news`.
 - Added unit coverage for news defaults, source-domain query shaping, and result-count enforcement; the full repository now passes `ruff`, `mypy`, and `pytest` with 593 passing tests.
+
+## 2026-05-21T20:52:53Z - GPT-5.4 - Added Wikipedia research plugin
+- Implemented a disabled-by-default `wikipedia_research_plugin` so MoneyBot can do bounded read-only research against Wikipedia without falling back to general web browsing for encyclopedia-style lookups.
+- The plugin supports bounded article search through the MediaWiki search API and bounded page-summary fetches through the Wikipedia REST summary endpoint, with Wikipedia-only endpoint configuration, archived raw response snapshots, and ledger-linked `wikipedia_research` records.
+- Added shared config/types/plugin exports plus unit coverage for search, summary fetches, disabled-mode handling, malformed payloads, and transport failures; the full repository now passes `ruff`, `mypy`, and `pytest` with 600 passing tests.
+
+## 2026-05-21T21:14:26Z - GPT-5.4 - Published Wikipedia research plugin changes
+- Committed the validated Wikipedia research plugin batch, including the shared config/type/export wiring, README and architecture updates, and the new unit coverage for bounded Wikipedia search and page-summary fetches.
+- Pushed the updated `copilot` branch to GitHub so it now includes both the earlier Brave news-search commit and the Wikipedia research plugin commit.

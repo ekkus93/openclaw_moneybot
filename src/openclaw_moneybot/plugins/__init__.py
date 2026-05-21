@@ -85,6 +85,15 @@ from openclaw_moneybot.plugins.wallet_observer_plugin import (
     WalletTransactionObservationRequest,
     WalletTransactionObservationResult,
 )
+from openclaw_moneybot.plugins.wikipedia_research_plugin import (
+    WikipediaPageRequest,
+    WikipediaPageResult,
+    WikipediaResearchPlugin,
+    WikipediaResearchPluginError,
+    WikipediaSearchRequest,
+    WikipediaSearchResult,
+    WikipediaSearchResultItem,
+)
 
 __all__ = [
     "ArtifactRenderRequest",
@@ -146,4 +155,11 @@ __all__ = [
     "WalletObserverPlugin",
     "WalletTransactionObservationRequest",
     "WalletTransactionObservationResult",
+    "WikipediaPageRequest",
+    "WikipediaPageResult",
+    "WikipediaResearchPlugin",
+    "WikipediaResearchPluginError",
+    "WikipediaSearchRequest",
+    "WikipediaSearchResult",
+    "WikipediaSearchResultItem",
 ]

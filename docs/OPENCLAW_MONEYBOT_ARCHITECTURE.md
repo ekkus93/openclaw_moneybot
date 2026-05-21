@@ -122,6 +122,7 @@ download_quarantine_plugin
 counterparty_snapshot_plugin
 metrics_export_plugin
 brave_search_plugin
+wikipedia_research_plugin
 ```
 
 Plugin rollout rules:

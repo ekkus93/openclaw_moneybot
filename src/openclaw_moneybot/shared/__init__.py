@@ -24,6 +24,7 @@ from openclaw_moneybot.shared.config import (
     RulesSnapshotGatewayConfig,
     WalletGovernorConfig,
     WalletObserverConfig,
+    WikipediaResearchConfig,
     load_app_config,
 )
 from openclaw_moneybot.shared.contracts import (
@@ -77,6 +78,7 @@ __all__ = [
     "OpportunityIndexConfig",
     "PolicyDecision",
     "RulesSnapshotGatewayConfig",
+    "WikipediaResearchConfig",
     "SpendRequest",
     "SpendRequestStatus",
     "TosLegalCheck",

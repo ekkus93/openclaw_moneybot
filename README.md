@@ -105,6 +105,12 @@ brave_search:
   max_results: 10
   max_news_results: 10
   default_news_freshness: "pd"
+wikipedia_research:
+  enabled: false
+  api_base_url: "https://en.wikipedia.org/w/api.php"
+  summary_api_base_url: "https://en.wikipedia.org/api/rest_v1/page/summary"
+  max_results: 10
+  max_extract_chars: 2000
 ```
 
 2. Build the orchestrator from config and run a mission:
@@ -163,6 +169,9 @@ export BRAVE_SEARCH_API_KEY="your-token"
 The same plugin can also be used for current-events/news lookups through a bounded
 `search_news()` path, which stays on Brave web search but applies recency and optional
 source-domain filters rather than introducing a separate news API boundary.
+
+Wikipedia research is available through a separate read-only plugin that supports bounded
+article search plus page-summary fetches from Wikipedia-only endpoints.
 
 For an automated reference run, the integration coverage in `tests/integration/test_workflow.py` exercises:
 
