@@ -1,10 +1,29 @@
 """MoneyBot plugin and service implementations."""
 
+from openclaw_moneybot.plugins.artifact_renderer_plugin import (
+    ArtifactRendererPlugin,
+    ArtifactRenderRequest,
+    ArtifactRenderResult,
+)
 from openclaw_moneybot.plugins.browser_governor import (
     BrowserActionCompletionRequest,
     BrowserActionRequest,
     BrowserActionResult,
     BrowserGovernorService,
+)
+from openclaw_moneybot.plugins.deadline_scheduler_plugin import (
+    DeadlineQueryRequest,
+    DeadlineQueryResult,
+    DeadlineScheduleRequest,
+    DeadlineScheduleResult,
+    DeadlineSchedulerPlugin,
+)
+from openclaw_moneybot.plugins.download_quarantine_plugin import (
+    DownloadQuarantinePlugin,
+    QuarantineIngestRequest,
+    QuarantineIngestResult,
+    QuarantinePromoteRequest,
+    QuarantinePromoteResult,
 )
 from openclaw_moneybot.plugins.email_governor import (
     EmailGovernorService,
@@ -28,6 +47,14 @@ from openclaw_moneybot.plugins.operator_profile_store import (
     OperatorProfileStoreWriteRequest,
     OperatorProfileStoreWriteResult,
 )
+from openclaw_moneybot.plugins.opportunity_index_plugin import (
+    OpportunityIndexEntry,
+    OpportunityIndexPlugin,
+    OpportunityIndexRefreshResult,
+    OpportunitySimilarityMatch,
+    OpportunitySimilarityQueryRequest,
+    OpportunitySimilarityQueryResult,
+)
 from openclaw_moneybot.plugins.rules_snapshot_gateway import (
     RulesSnapshotCaptureRequest,
     RulesSnapshotCaptureResult,
@@ -42,10 +69,19 @@ from openclaw_moneybot.plugins.wallet_observer_plugin import (
 )
 
 __all__ = [
+    "ArtifactRenderRequest",
+    "ArtifactRenderResult",
+    "ArtifactRendererPlugin",
     "BrowserActionCompletionRequest",
     "BrowserActionRequest",
     "BrowserActionResult",
     "BrowserGovernorService",
+    "DeadlineQueryRequest",
+    "DeadlineQueryResult",
+    "DeadlineScheduleRequest",
+    "DeadlineScheduleResult",
+    "DeadlineSchedulerPlugin",
+    "DownloadQuarantinePlugin",
     "EmailGovernorService",
     "EmailReplyRequest",
     "EmailReplyResult",
@@ -62,6 +98,16 @@ __all__ = [
     "OperatorProfileStoreReadResult",
     "OperatorProfileStoreWriteRequest",
     "OperatorProfileStoreWriteResult",
+    "OpportunityIndexEntry",
+    "OpportunityIndexPlugin",
+    "OpportunityIndexRefreshResult",
+    "OpportunitySimilarityMatch",
+    "OpportunitySimilarityQueryRequest",
+    "OpportunitySimilarityQueryResult",
+    "QuarantineIngestRequest",
+    "QuarantineIngestResult",
+    "QuarantinePromoteRequest",
+    "QuarantinePromoteResult",
     "RulesSnapshotCaptureRequest",
     "RulesSnapshotCaptureResult",
     "RulesSnapshotGateway",

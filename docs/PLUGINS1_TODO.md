@@ -359,40 +359,40 @@ Provide a local structured index for opportunities, rules snapshots, outcomes, a
 
 ## 6.2 Supported responsibilities
 
-- [ ] Index opportunity titles, normalized URLs, counterparties, tags, reward ranges, and source hashes.
-- [ ] Index relevant rule hashes and snapshot IDs.
-- [ ] Index outcome labels and review summaries.
-- [ ] Provide deterministic duplicate and similarity queries.
-- [ ] Provide lightweight local search helpers for prior experiments.
+- [x] Index opportunity titles, normalized URLs, counterparties, tags, reward ranges, and source hashes.
+- [x] Index relevant rule hashes and snapshot IDs.
+- [x] Index outcome labels and review summaries.
+- [x] Provide deterministic duplicate and similarity queries.
+- [x] Provide lightweight local search helpers for prior experiments.
 
 ## 6.3 Hard boundaries
 
-- [ ] Do not expose arbitrary full-database SQL.
-- [ ] Do not permit destructive reindex operations without explicit operator action.
-- [ ] Do not mix unrelated repositories or personal data sources.
+- [x] Do not expose arbitrary full-database SQL.
+- [x] Do not permit destructive reindex operations without explicit operator action.
+- [x] Do not mix unrelated repositories or personal data sources.
 
 ## 6.4 Implementation tasks
 
-- [ ] Decide whether to implement as SQLite-side indexed tables, FTS-backed helpers, or a small local service facade.
-- [ ] Define typed index/update/query models.
-- [ ] Add normalized URL/counterparty/title canonicalization.
-- [ ] Add similarity scoring rules.
-- [ ] Add duplicate candidate explanation output.
-- [ ] Add incremental update hooks from ledger/evidence events.
-- [ ] Add safe rebuild tooling for local maintenance.
+- [x] Decide whether to implement as SQLite-side indexed tables, FTS-backed helpers, or a small local service facade.
+- [x] Define typed index/update/query models.
+- [x] Add normalized URL/counterparty/title canonicalization.
+- [x] Add similarity scoring rules.
+- [x] Add duplicate candidate explanation output.
+- [x] Add incremental update hooks from ledger/evidence events.
+- [x] Add safe rebuild tooling for local maintenance.
 
 ## 6.5 Tests
 
-- [ ] Similar opportunities are surfaced as duplicates.
-- [ ] Distinct opportunities are not over-merged.
-- [ ] Incremental indexing updates results correctly.
-- [ ] Unsafe query shapes are rejected.
-- [ ] Rebuild path preserves determinism.
+- [x] Similar opportunities are surfaced as duplicates.
+- [x] Distinct opportunities are not over-merged.
+- [x] Incremental indexing updates results correctly.
+- [x] Unsafe query shapes are rejected.
+- [x] Rebuild path preserves determinism.
 
 ## 6.6 Acceptance criteria
 
-- [ ] Duplicate-detection and strategy-memory skills have a fast, deterministic local backing index.
-- [ ] Query behavior is bounded and auditable.
+- [x] Duplicate-detection and strategy-memory skills have a fast, deterministic local backing index.
+- [x] Query behavior is bounded and auditable.
 
 ---
 
@@ -404,41 +404,41 @@ Deterministically assemble submission bundles, deliverable manifests, and proof 
 
 ## 7.2 Supported responsibilities
 
-- [ ] Render structured submission packages from approved templates and input data.
-- [ ] Produce deterministic file manifests and checksums.
-- [ ] Bundle references to evidence artifacts, deliverables, and metadata.
-- [ ] Validate required fields before rendering.
-- [ ] Produce a render report for review and archival.
+- [x] Render structured submission packages from approved templates and input data.
+- [x] Produce deterministic file manifests and checksums.
+- [x] Bundle references to evidence artifacts, deliverables, and metadata.
+- [x] Validate required fields before rendering.
+- [x] Produce a render report for review and archival.
 
 ## 7.3 Hard boundaries
 
-- [ ] Do not submit forms or send packages directly.
-- [ ] Do not fetch remote templates from untrusted sources.
-- [ ] Do not render files outside approved workspace paths.
-- [ ] Do not include secrets or rejected evidence artifacts.
+- [x] Do not submit forms or send packages directly.
+- [x] Do not fetch remote templates from untrusted sources.
+- [x] Do not render files outside approved workspace paths.
+- [x] Do not include secrets or rejected evidence artifacts.
 
 ## 7.4 Implementation tasks
 
-- [ ] Define approved local template format(s).
-- [ ] Define typed render request/result models.
-- [ ] Add required-field validation and placeholder validation.
-- [ ] Add deterministic file ordering and checksum generation.
-- [ ] Add manifest generation.
-- [ ] Add archive integration for rendered outputs and manifests.
-- [ ] Add ledger linkage for rendered submission bundles.
+- [x] Define approved local template format(s).
+- [x] Define typed render request/result models.
+- [x] Add required-field validation and placeholder validation.
+- [x] Add deterministic file ordering and checksum generation.
+- [x] Add manifest generation.
+- [x] Add archive integration for rendered outputs and manifests.
+- [x] Add ledger linkage for rendered submission bundles.
 
 ## 7.5 Tests
 
-- [ ] Valid render request produces expected package outputs.
-- [ ] Missing required fields are rejected.
-- [ ] Unknown template reference is rejected.
-- [ ] Out-of-bounds output path is rejected.
-- [ ] Manifest and checksums are stable across repeated renders.
+- [x] Valid render request produces expected package outputs.
+- [x] Missing required fields are rejected.
+- [x] Unknown template reference is rejected.
+- [x] Out-of-bounds output path is rejected.
+- [x] Manifest and checksums are stable across repeated renders.
 
 ## 7.6 Acceptance criteria
 
-- [ ] Submission and proof packages are deterministic, reviewable, and archived.
-- [ ] The plugin never performs the actual submission step.
+- [x] Submission and proof packages are deterministic, reviewable, and archived.
+- [x] The plugin never performs the actual submission step.
 
 ---
 
@@ -450,40 +450,40 @@ Track opportunity deadlines, follow-up windows, cooldown periods, and review che
 
 ## 8.2 Supported responsibilities
 
-- [ ] Store normalized deadlines and reminder checkpoints.
-- [ ] Track deadline source/provenance.
-- [ ] Track cooldown and retry windows.
-- [ ] Surface overdue, upcoming, and stale items.
-- [ ] Expose queue-planning summaries for orchestrator/skills.
+- [x] Store normalized deadlines and reminder checkpoints.
+- [x] Track deadline source/provenance.
+- [x] Track cooldown and retry windows.
+- [x] Surface overdue, upcoming, and stale items.
+- [x] Expose queue-planning summaries for orchestrator/skills.
 
 ## 8.3 Hard boundaries
 
-- [ ] Do not send emails or notifications directly unless explicitly routed through an approved governor later.
-- [ ] Do not infer deadlines from ambiguous text without marking them uncertain.
-- [ ] Do not silently drop expired or conflicting deadlines.
+- [x] Do not send emails or notifications directly unless explicitly routed through an approved governor later.
+- [x] Do not infer deadlines from ambiguous text without marking them uncertain.
+- [x] Do not silently drop expired or conflicting deadlines.
 
 ## 8.4 Implementation tasks
 
-- [ ] Define typed deadline item and reminder summary models.
-- [ ] Add timezone-aware normalization rules.
-- [ ] Add provenance and confidence metadata.
-- [ ] Add overdue and upcoming query helpers.
-- [ ] Add conflict detection for competing deadlines.
-- [ ] Add audit events for changed or invalidated deadlines.
-- [ ] Add evidence linkage back to source snapshots.
+- [x] Define typed deadline item and reminder summary models.
+- [x] Add timezone-aware normalization rules.
+- [x] Add provenance and confidence metadata.
+- [x] Add overdue and upcoming query helpers.
+- [x] Add conflict detection for competing deadlines.
+- [x] Add audit events for changed or invalidated deadlines.
+- [x] Add evidence linkage back to source snapshots.
 
 ## 8.5 Tests
 
-- [ ] Explicit deadline parsing succeeds.
-- [ ] Ambiguous deadline becomes review-required or uncertain.
-- [ ] Overdue item detection works.
-- [ ] Cooldown window tracking works.
-- [ ] Conflicting deadlines are surfaced explicitly.
+- [x] Explicit deadline parsing succeeds.
+- [x] Ambiguous deadline becomes review-required or uncertain.
+- [x] Overdue item detection works.
+- [x] Cooldown window tracking works.
+- [x] Conflicting deadlines are surfaced explicitly.
 
 ## 8.6 Acceptance criteria
 
-- [ ] Queue-planning and follow-up skills have deterministic schedule state.
-- [ ] Ambiguous dates fail closed instead of becoming fake certainty.
+- [x] Queue-planning and follow-up skills have deterministic schedule state.
+- [x] Ambiguous dates fail closed instead of becoming fake certainty.
 
 ---
 
@@ -495,42 +495,42 @@ Safely ingest downloaded files and attachments into a bounded quarantine pipelin
 
 ## 9.2 Supported responsibilities
 
-- [ ] Download from allowlisted URLs or ingest mailbox attachments.
-- [ ] Enforce size, extension, MIME, and magic-byte checks.
-- [ ] Hash and stage files under a quarantine directory.
-- [ ] Record safe metadata and provenance.
-- [ ] Allow deterministic promotion to archived evidence only after validation.
+- [x] Download from allowlisted URLs or ingest mailbox attachments.
+- [x] Enforce size, extension, MIME, and magic-byte checks.
+- [x] Hash and stage files under a quarantine directory.
+- [x] Record safe metadata and provenance.
+- [x] Allow deterministic promotion to archived evidence only after validation.
 
 ## 9.3 Hard boundaries
 
-- [ ] Do not execute downloaded files.
-- [ ] Do not auto-open office documents, PDFs, or binaries.
-- [ ] Do not allow path traversal or archive extraction outside the quarantine root.
-- [ ] Do not allow unsupported executable or script content by default.
+- [x] Do not execute downloaded files.
+- [x] Do not auto-open office documents, PDFs, or binaries.
+- [x] Do not allow path traversal or archive extraction outside the quarantine root.
+- [x] Do not allow unsupported executable or script content by default.
 
 ## 9.4 Implementation tasks
 
-- [ ] Define quarantine root and path rules.
-- [ ] Define typed ingest, scan, and promotion result models.
-- [ ] Add content-type, extension, and signature validation.
-- [ ] Add archive/zip handling rules with entry-count and nested-size caps.
-- [ ] Add hash generation and metadata sidecars.
-- [ ] Add deterministic promotion workflow into the evidence archive.
-- [ ] Add audit events for rejected or suspicious files.
+- [x] Define quarantine root and path rules.
+- [x] Define typed ingest, scan, and promotion result models.
+- [x] Add content-type, extension, and signature validation.
+- [x] Add archive/zip handling rules with entry-count and nested-size caps.
+- [x] Add hash generation and metadata sidecars.
+- [x] Add deterministic promotion workflow into the evidence archive.
+- [x] Add audit events for rejected or suspicious files.
 
 ## 9.5 Tests
 
-- [ ] Safe small file ingestion succeeds.
-- [ ] Unsupported executable content is rejected.
-- [ ] Oversized file is rejected.
-- [ ] Path traversal attempt is rejected.
-- [ ] Zip bomb-like input is rejected.
-- [ ] Promotion preserves hash identity and provenance.
+- [x] Safe small file ingestion succeeds.
+- [x] Unsupported executable content is rejected.
+- [x] Oversized file is rejected.
+- [x] Path traversal attempt is rejected.
+- [x] Zip bomb-like input is rejected.
+- [x] Promotion preserves hash identity and provenance.
 
 ## 9.6 Acceptance criteria
 
-- [ ] Attachments and downloads are treated as untrusted until validated.
-- [ ] Dangerous file handling stays constrained and auditable.
+- [x] Attachments and downloads are treated as untrusted until validated.
+- [x] Dangerous file handling stays constrained and auditable.
 
 ---
 
@@ -678,10 +678,10 @@ Provide deterministic local export and summary generation for experiment, payout
 
 ## Phase B - P1 execution-readiness plugins
 
-- [ ] `opportunity_index_plugin`
-- [ ] `artifact_renderer_plugin`
-- [ ] `deadline_scheduler_plugin`
-- [ ] `download_quarantine_plugin`
+- [x] `opportunity_index_plugin`
+- [x] `artifact_renderer_plugin`
+- [x] `deadline_scheduler_plugin`
+- [x] `download_quarantine_plugin`
 
 ## Phase C - P2 intelligence and reporting plugins
 

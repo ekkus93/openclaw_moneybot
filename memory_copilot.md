@@ -110,3 +110,8 @@
 - Finished the `docs/SKILLS1_TODO.md` implementation pass across ten first-party skills: eligibility gating, terms monitoring, submission packaging, revenue reconciliation, counterparty profiling, duplicate detection, queue planning, deliverable validation, payout follow-up planning, and strategy summarization.
 - Wired the new skills into orchestration and integration helpers with durable ledger/evidence linkage, added the supporting unit and integration coverage, and updated `docs/SKILLS1_TODO.md` plus `docs/TODO.md` to reflect the completed skill wave.
 - The repository now passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 381 passing tests at the end of this pass.
+
+## 2026-05-21T05:34:37Z - GPT-5.4 - Completed PLUGINS1 Phase B
+- Implemented and validated the second plugin wave from `docs/PLUGINS1_TODO.md`: `opportunity_index_plugin`, `artifact_renderer_plugin`, `deadline_scheduler_plugin`, and `download_quarantine_plugin`.
+- Added typed models, plugin docs, and unit/integration coverage for deterministic similarity indexing, bounded local artifact rendering, fail-closed deadline scheduling, and quarantined download promotion into the evidence archive.
+- Updated the PLUGINS1 tracker to mark all Phase B tasks complete, and the repository now passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 436 passing tests.

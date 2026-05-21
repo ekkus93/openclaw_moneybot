@@ -197,6 +197,7 @@ class OpportunityIndexConfig(MoneyBotModel):
     """Local opportunity-index configuration."""
 
     enabled: bool = False
+    index_path: Path = Path("data/opportunity_index.json")
     max_results: int = Field(default=25, gt=0)
 
 
@@ -213,6 +214,7 @@ class DeadlineSchedulerConfig(MoneyBotModel):
     """Deadline scheduler configuration."""
 
     enabled: bool = False
+    schedule_path: Path = Path("data/deadline_schedule.json")
     default_timezone: str = "UTC"
     max_items: int = Field(default=500, gt=0)
 
