@@ -321,3 +321,5 @@ class RecordType(StrEnum):
     ARXIV_RESEARCH = "arxiv_research"
     OPENALEX_RESEARCH = "openalex_research"
     BIOMEDICAL_RESEARCH = "biomedical_research"
+    MASTODON_DISCOVERY = "mastodon_discovery"
+    BLUESKY_DISCOVERY = "bluesky_discovery"

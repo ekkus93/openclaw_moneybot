@@ -516,6 +516,73 @@ class BiomedicalResearchConfig(MoneyBotModel):
         return value
 
 
+class MastodonDiscoveryConfig(MoneyBotModel):
+    """Mastodon discovery plugin configuration."""
+
+    enabled: bool = False
+    api_base_url: str = "https://mastodon.social"
+    api_token_env_var: str = "MASTODON_API_TOKEN"
+    require_auth: bool = False
+    timeout_seconds: float = Field(default=10.0, gt=0, le=60.0)
+    max_results: int = Field(default=20, gt=0, le=40)
+
+    @field_validator("api_base_url")
+    @classmethod
+    def validate_mastodon_base_url(cls, value: str) -> str:
+        """Require an HTTPS Mastodon instance root URL."""
+        parsed = urlparse(value)
+        if parsed.scheme != "https":
+            msg = "Mastodon API base URLs must be https URLs"
+            raise ValueError(msg)
+        if parsed.hostname is None:
+            msg = "Mastodon API base URLs must include a hostname"
+            raise ValueError(msg)
+        if parsed.path not in {"", "/"}:
+            msg = "Mastodon API base URLs must point to the instance root"
+            raise ValueError(msg)
+        return value.rstrip("/")
+
+    @field_validator("api_token_env_var")
+    @classmethod
+    def normalize_mastodon_env_var(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            msg = "api_token_env_var must not be empty"
+            raise ValueError(msg)
+        return normalized
+
+
+class BlueskyDiscoveryConfig(MoneyBotModel):
+    """Bluesky discovery plugin configuration."""
+
+    enabled: bool = False
+    api_base_url: str = "https://public.api.bsky.app"
+    default_feed_uri: str = ""
+    timeout_seconds: float = Field(default=10.0, gt=0, le=60.0)
+    max_results: int = Field(default=20, gt=0, le=100)
+
+    @field_validator("api_base_url")
+    @classmethod
+    def validate_bluesky_base_url(cls, value: str) -> str:
+        """Require an HTTPS Bluesky public AppView root URL."""
+        parsed = urlparse(value)
+        if parsed.scheme != "https":
+            msg = "Bluesky API base URLs must be https URLs"
+            raise ValueError(msg)
+        if parsed.hostname != "public.api.bsky.app":
+            msg = "Bluesky API base URLs must point to public.api.bsky.app"
+            raise ValueError(msg)
+        if parsed.path not in {"", "/"}:
+            msg = "Bluesky API base URLs must point to the instance root"
+            raise ValueError(msg)
+        return value.rstrip("/")
+
+    @field_validator("default_feed_uri")
+    @classmethod
+    def normalize_default_feed_uri(cls, value: str) -> str:
+        return value.strip()
+
+
 class AppConfig(MoneyBotModel):
     """Top-level MoneyBot configuration."""
 
@@ -546,6 +613,8 @@ class AppConfig(MoneyBotModel):
     arxiv_research: ArxivResearchConfig = Field(default_factory=ArxivResearchConfig)
     openalex_research: OpenAlexResearchConfig = Field(default_factory=OpenAlexResearchConfig)
     biomedical_research: BiomedicalResearchConfig = Field(default_factory=BiomedicalResearchConfig)
+    mastodon_discovery: MastodonDiscoveryConfig = Field(default_factory=MastodonDiscoveryConfig)
+    bluesky_discovery: BlueskyDiscoveryConfig = Field(default_factory=BlueskyDiscoveryConfig)
 
 
 def load_app_config(path: Path) -> AppConfig:

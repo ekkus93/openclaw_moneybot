@@ -131,6 +131,17 @@ biomedical_research:
   europe_pmc_search_api_base_url: "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
   max_results: 10
   max_abstract_chars: 2000
+mastodon_discovery:
+  enabled: false
+  api_base_url: "https://mastodon.social"
+  api_token_env_var: "MASTODON_API_TOKEN"
+  require_auth: false
+  max_results: 20
+bluesky_discovery:
+  enabled: false
+  api_base_url: "https://public.api.bsky.app"
+  default_feed_uri: "at://did:plc:feed/app.bsky.feed.generator/whats-hot"
+  max_results: 20
 ```
 
 2. Build the orchestrator from config and run a mission:
@@ -201,6 +212,13 @@ scholarly work search and work lookup through the hosted OpenAlex works API.
 
 Biomedical research is available through a combined read-only plugin that supports bounded
 paper search and paper lookup against both PubMed and Europe PMC.
+
+Mastodon discovery is available through a separate read-only plugin that supports bounded
+public timeline sampling from one configured instance, with optional bearer-token auth for
+instances that disable unauthenticated public preview.
+
+Bluesky discovery is available through a separate read-only plugin that supports bounded
+public feed sampling through the public Bluesky AppView API, using one configured feed URI.
 
 For an automated reference run, the integration coverage in `tests/integration/test_workflow.py` exercises:
 

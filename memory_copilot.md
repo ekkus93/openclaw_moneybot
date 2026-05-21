@@ -185,3 +185,17 @@
 ## 2026-05-21T21:55:08Z - GPT-5.4 - Published research plugin batch
 - Committed the validated research-plugin batch covering `arxiv_research_plugin`, `openalex_research_plugin`, and the combined `biomedical_research_plugin`, along with the shared config/type/export wiring, README and architecture updates, and new unit coverage.
 - Pushed the updated `copilot` branch to GitHub so it now includes the post-Wikipedia research plugin expansion for arXiv, OpenAlex, PubMed, and Europe PMC.
+
+## 2026-05-21T22:04:16Z - GPT-5.4 - Added Mastodon discovery plugin
+- Implemented a disabled-by-default `mastodon_discovery_plugin` so MoneyBot can do bounded public timeline sampling against one configured Mastodon instance through a read-only plugin boundary.
+- The plugin supports optional bearer-token auth for instances that disable unauthenticated public preview, normalizes sampled statuses into text/author/tag/link summaries, archives raw timeline responses, and records ledger-linked `mastodon_discovery` entries.
+- Added shared config/types/plugin exports, README and architecture updates, and unit coverage for bounded sampling, optional auth, disabled-mode handling, malformed payloads, and transport failures; the full repository now passes `ruff`, `mypy`, and `pytest` with 631 passing tests.
+
+## 2026-05-21T22:13:47Z - GPT-5.4 - Added Bluesky discovery plugin
+- Implemented a disabled-by-default `bluesky_discovery_plugin` so MoneyBot can do bounded public feed sampling through the public Bluesky AppView API without adding authenticated social-account access.
+- The plugin supports a configured or per-request feed URI, normalizes sampled posts into text/author/link/label summaries, archives raw feed responses, and records ledger-linked `bluesky_discovery` entries.
+- Added shared config/types/plugin exports, README and architecture updates, and unit coverage for bounded sampling, default-feed fallback, disabled-mode handling, malformed payloads, and transport failures; the full repository now passes `ruff`, `mypy`, and `pytest` with 639 passing tests.
+
+## 2026-05-21T22:18:05Z - GPT-5.4 - Published social discovery plugin batch
+- Committed the validated discovery-plugin batch covering `mastodon_discovery_plugin` and `bluesky_discovery_plugin`, along with the shared config/type/export wiring, README and architecture updates, and unit coverage.
+- Pushed the updated `copilot` branch to GitHub so it now includes bounded Mastodon public timeline sampling and Bluesky public feed sampling.

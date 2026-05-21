@@ -23,6 +23,13 @@ from openclaw_moneybot.plugins.biomedical_research_plugin import (
     BiomedicalSearchRequest,
     BiomedicalSearchResult,
 )
+from openclaw_moneybot.plugins.bluesky_discovery_plugin import (
+    BlueskyDiscoveryPlugin,
+    BlueskyDiscoveryPluginError,
+    BlueskyFeedSampleRequest,
+    BlueskyFeedSampleResult,
+    BlueskyPostSample,
+)
 from openclaw_moneybot.plugins.brave_search_plugin import (
     BraveNewsSearchRequest,
     BraveSearchPlugin,
@@ -70,6 +77,13 @@ from openclaw_moneybot.plugins.inbox_observer_plugin import (
     InboxObservationRequest,
     InboxObservationResult,
     InboxObserverPlugin,
+)
+from openclaw_moneybot.plugins.mastodon_discovery_plugin import (
+    MastodonDiscoveryPlugin,
+    MastodonDiscoveryPluginError,
+    MastodonPublicTimelineRequest,
+    MastodonStatusSample,
+    MastodonTimelineSampleResult,
 )
 from openclaw_moneybot.plugins.metrics_export_plugin import (
     MetricsExportPlugin,
@@ -140,6 +154,11 @@ __all__ = [
     "BiomedicalResearchPluginError",
     "BiomedicalSearchRequest",
     "BiomedicalSearchResult",
+    "BlueskyDiscoveryPlugin",
+    "BlueskyDiscoveryPluginError",
+    "BlueskyFeedSampleRequest",
+    "BlueskyFeedSampleResult",
+    "BlueskyPostSample",
     "BrowserActionCompletionRequest",
     "BrowserActionRequest",
     "BrowserActionResult",
@@ -173,6 +192,11 @@ __all__ = [
     "MetricsExportPlugin",
     "MetricsExportRequest",
     "MetricsExportResult",
+    "MastodonDiscoveryPlugin",
+    "MastodonDiscoveryPluginError",
+    "MastodonPublicTimelineRequest",
+    "MastodonStatusSample",
+    "MastodonTimelineSampleResult",
     "OperatorProfileStore",
     "OperatorProfileStoreReadRequest",
     "OperatorProfileStoreReadResult",

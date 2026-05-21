@@ -10,9 +10,11 @@ from openclaw_moneybot.shared.config import (
     AppConfig,
     ArxivResearchConfig,
     BiomedicalResearchConfig,
+    BlueskyDiscoveryConfig,
     BraveSearchConfig,
     BrowserGovernorConfig,
     EmailConfig,
+    MastodonDiscoveryConfig,
     OpenAlexResearchConfig,
     WalletGovernorConfig,
     WikipediaResearchConfig,
@@ -242,6 +244,35 @@ def test_biomedical_research_defaults_are_bounded_and_disabled() -> None:
 def test_biomedical_research_config_rejects_non_pubmed_hosts() -> None:
     with pytest.raises(ValueError, match="eutils.ncbi.nlm.nih.gov"):
         BiomedicalResearchConfig(pubmed_search_api_base_url="https://example.com/esearch.fcgi")
+
+
+def test_mastodon_discovery_defaults_are_bounded_and_disabled() -> None:
+    config = MastodonDiscoveryConfig()
+
+    assert config.enabled is False
+    assert config.api_base_url == "https://mastodon.social"
+    assert config.api_token_env_var == "MASTODON_API_TOKEN"
+    assert config.require_auth is False
+    assert config.max_results == 20
+
+
+def test_mastodon_discovery_config_rejects_non_https_urls() -> None:
+    with pytest.raises(ValueError, match="https"):
+        MastodonDiscoveryConfig(api_base_url="http://mastodon.social")
+
+
+def test_bluesky_discovery_defaults_are_bounded_and_disabled() -> None:
+    config = BlueskyDiscoveryConfig()
+
+    assert config.enabled is False
+    assert config.api_base_url == "https://public.api.bsky.app"
+    assert config.default_feed_uri == ""
+    assert config.max_results == 20
+
+
+def test_bluesky_discovery_config_rejects_non_public_appview_hosts() -> None:
+    with pytest.raises(ValueError, match="public.api.bsky.app"):
+        BlueskyDiscoveryConfig(api_base_url="https://api.bsky.app")
 
 
 def test_load_app_config_rejects_non_mapping_root(tmp_path: Path) -> None:

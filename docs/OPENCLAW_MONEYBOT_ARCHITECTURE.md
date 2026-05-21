@@ -126,6 +126,8 @@ wikipedia_research_plugin
 arxiv_research_plugin
 openalex_research_plugin
 biomedical_research_plugin
+mastodon_discovery_plugin
+bluesky_discovery_plugin
 ```
 
 Plugin rollout rules:
