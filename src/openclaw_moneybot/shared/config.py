@@ -618,6 +618,31 @@ class StockMarketDataConfig(MoneyBotModel):
         return normalized
 
 
+class CryptoMarketDataConfig(MoneyBotModel):
+    """Crypto market data plugin configuration."""
+
+    enabled: bool = False
+    api_base_url: str = "https://api.coingecko.com/api/v3"
+    timeout_seconds: float = Field(default=10.0, gt=0, le=60.0)
+    max_chart_points: int = Field(default=30, gt=0, le=100)
+
+    @field_validator("api_base_url")
+    @classmethod
+    def validate_crypto_market_api_url(cls, value: str) -> str:
+        """Require the hosted CoinGecko API root."""
+        parsed = urlparse(value)
+        if parsed.scheme != "https":
+            msg = "Crypto market API URLs must be https URLs"
+            raise ValueError(msg)
+        if parsed.hostname != "api.coingecko.com":
+            msg = "Crypto market API URLs must point to api.coingecko.com"
+            raise ValueError(msg)
+        if parsed.path not in {"/api/v3", "/api/v3/"}:
+            msg = "Crypto market API URLs must point to the /api/v3 root"
+            raise ValueError(msg)
+        return value.rstrip("/")
+
+
 class AppConfig(MoneyBotModel):
     """Top-level MoneyBot configuration."""
 
@@ -651,6 +676,7 @@ class AppConfig(MoneyBotModel):
     mastodon_discovery: MastodonDiscoveryConfig = Field(default_factory=MastodonDiscoveryConfig)
     bluesky_discovery: BlueskyDiscoveryConfig = Field(default_factory=BlueskyDiscoveryConfig)
     stock_market_data: StockMarketDataConfig = Field(default_factory=StockMarketDataConfig)
+    crypto_market_data: CryptoMarketDataConfig = Field(default_factory=CryptoMarketDataConfig)
 
 
 def load_app_config(path: Path) -> AppConfig:

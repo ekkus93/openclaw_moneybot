@@ -13,6 +13,7 @@ from openclaw_moneybot.shared.config import (
     BlueskyDiscoveryConfig,
     BraveSearchConfig,
     BrowserGovernorConfig,
+    CryptoMarketDataConfig,
     EmailConfig,
     MastodonDiscoveryConfig,
     OpenAlexResearchConfig,
@@ -288,6 +289,19 @@ def test_stock_market_data_defaults_are_bounded_and_disabled() -> None:
 def test_stock_market_data_config_rejects_non_alpha_vantage_hosts() -> None:
     with pytest.raises(ValueError, match="www.alphavantage.co"):
         StockMarketDataConfig(api_base_url="https://example.com/query")
+
+
+def test_crypto_market_data_defaults_are_bounded_and_disabled() -> None:
+    config = CryptoMarketDataConfig()
+
+    assert config.enabled is False
+    assert config.api_base_url == "https://api.coingecko.com/api/v3"
+    assert config.max_chart_points == 30
+
+
+def test_crypto_market_data_config_rejects_non_coingecko_hosts() -> None:
+    with pytest.raises(ValueError, match="api.coingecko.com"):
+        CryptoMarketDataConfig(api_base_url="https://example.com/api/v3")
 
 
 def test_load_app_config_rejects_non_mapping_root(tmp_path: Path) -> None:

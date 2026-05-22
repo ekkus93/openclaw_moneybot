@@ -208,3 +208,16 @@
 ## 2026-05-22T00:55:16Z - GPT-5.4 - Published stock market data plugin
 - Committed the validated `stock_market_data_plugin` batch, including the shared config/type/export wiring, README and architecture updates, and unit coverage for bounded Alpha Vantage quote and daily-bar lookups.
 - Pushed the updated `copilot` branch to GitHub so it now includes the read-only stock market data plugin and the matching README documentation.
+
+## 2026-05-22T01:02:12Z - GPT-5.4 - Added crypto market data plugin
+- Implemented a disabled-by-default `crypto_market_data_plugin` so MoneyBot can do bounded read-only crypto market lookups through CoinGecko without adding trading, exchange, wallet, DeFi, NFT, or token-flow behavior.
+- The plugin supports coin-ID-based spot-price lookup plus recent market-chart points, archives raw CoinGecko responses, and records ledger-linked `crypto_market_data` entries.
+- Added shared config/types/plugin exports, README and architecture updates, and unit coverage for spot-price lookup, recent chart retrieval, disabled-mode handling, provider error payloads, malformed responses, and transport failures; the full repository now passes `ruff`, `mypy`, and `pytest` with 655 passing tests.
+
+## 2026-05-22T01:55:17Z - GPT-5.4 - Added Kuzu rollout guide
+- Added `docs/KUZU.md` with detailed instructions for adopting Kuzu as an internal graph memory module/service rather than as a plugin or canonical store.
+- The guide clearly separates v1 from post-v1 scope, documents future dependency/configuration examples, recommends SQLite remain canonical, and lays out schema, projection, maintenance, provenance, and testing guidance for a later rollout.
+
+## 2026-05-22T01:58:13Z - GPT-5.4 - Published crypto plugin and Kuzu guide
+- Committed the validated `crypto_market_data_plugin` batch together with the new `docs/KUZU.md` rollout guide, including the shared config/type/export wiring, architecture and README updates, and unit coverage.
+- Pushed the updated `copilot` branch to GitHub so it now includes the CoinGecko-backed crypto market data plugin and the detailed Kuzu adoption documentation.

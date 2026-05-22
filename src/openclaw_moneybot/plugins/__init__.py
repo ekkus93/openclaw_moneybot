@@ -49,6 +49,15 @@ from openclaw_moneybot.plugins.counterparty_snapshot_plugin import (
     CounterpartySnapshotRequest,
     CounterpartySnapshotResult,
 )
+from openclaw_moneybot.plugins.crypto_market_data_plugin import (
+    CryptoMarketChartPoint,
+    CryptoMarketChartRequest,
+    CryptoMarketChartResult,
+    CryptoMarketDataPlugin,
+    CryptoMarketDataPluginError,
+    CryptoSpotPriceRequest,
+    CryptoSpotPriceResult,
+)
 from openclaw_moneybot.plugins.deadline_scheduler_plugin import (
     DeadlineQueryRequest,
     DeadlineQueryResult,
@@ -181,6 +190,13 @@ __all__ = [
     "CounterpartySnapshotPlugin",
     "CounterpartySnapshotRequest",
     "CounterpartySnapshotResult",
+    "CryptoMarketChartPoint",
+    "CryptoMarketChartRequest",
+    "CryptoMarketChartResult",
+    "CryptoMarketDataPlugin",
+    "CryptoMarketDataPluginError",
+    "CryptoSpotPriceRequest",
+    "CryptoSpotPriceResult",
     "DeadlineQueryRequest",
     "DeadlineQueryResult",
     "DeadlineScheduleRequest",

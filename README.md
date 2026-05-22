@@ -147,6 +147,10 @@ stock_market_data:
   api_base_url: "https://www.alphavantage.co/query"
   api_key_env_var: "ALPHA_VANTAGE_API_KEY"
   max_daily_bars: 30
+crypto_market_data:
+  enabled: false
+  api_base_url: "https://api.coingecko.com/api/v3"
+  max_chart_points: 30
 ```
 
 2. Build the orchestrator from config and run a mission:
@@ -227,6 +231,10 @@ public feed sampling through the public Bluesky AppView API, using one configure
 
 Stock market data is available through a separate read-only plugin that supports bounded
 single-symbol quote lookups and recent daily OHLCV bars through Alpha Vantage.
+
+Crypto market data is available through a separate read-only plugin that supports bounded
+spot-price lookups and recent market-chart points through CoinGecko using coin IDs such as
+`bitcoin` or `ethereum`.
 
 For an automated reference run, the integration coverage in `tests/integration/test_workflow.py` exercises:
 

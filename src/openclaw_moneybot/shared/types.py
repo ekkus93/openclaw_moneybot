@@ -324,3 +324,4 @@ class RecordType(StrEnum):
     MASTODON_DISCOVERY = "mastodon_discovery"
     BLUESKY_DISCOVERY = "bluesky_discovery"
     STOCK_MARKET_DATA = "stock_market_data"
+    CRYPTO_MARKET_DATA = "crypto_market_data"
