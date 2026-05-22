@@ -199,3 +199,12 @@
 ## 2026-05-21T22:18:05Z - GPT-5.4 - Published social discovery plugin batch
 - Committed the validated discovery-plugin batch covering `mastodon_discovery_plugin` and `bluesky_discovery_plugin`, along with the shared config/type/export wiring, README and architecture updates, and unit coverage.
 - Pushed the updated `copilot` branch to GitHub so it now includes bounded Mastodon public timeline sampling and Bluesky public feed sampling.
+
+## 2026-05-21T22:26:16Z - GPT-5.4 - Added stock market data plugin
+- Implemented a disabled-by-default `stock_market_data_plugin` so MoneyBot can do bounded read-only stock price lookups through Alpha Vantage without adding trading, screening, or execution behavior.
+- The plugin supports single-symbol quote lookup plus recent daily OHLCV bars, archives raw Alpha Vantage responses, and records ledger-linked `stock_market_data` entries.
+- Added shared config/types/plugin exports, README and architecture updates, and unit coverage for quote lookup, daily bars, disabled-mode handling, missing API keys, provider-rate-limit notes, and transport failures; the full repository now passes `ruff`, `mypy`, and `pytest` with 647 passing tests.
+
+## 2026-05-22T00:55:16Z - GPT-5.4 - Published stock market data plugin
+- Committed the validated `stock_market_data_plugin` batch, including the shared config/type/export wiring, README and architecture updates, and unit coverage for bounded Alpha Vantage quote and daily-bar lookups.
+- Pushed the updated `copilot` branch to GitHub so it now includes the read-only stock market data plugin and the matching README documentation.

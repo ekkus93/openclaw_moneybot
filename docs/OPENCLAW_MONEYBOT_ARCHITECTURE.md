@@ -128,6 +128,7 @@ openalex_research_plugin
 biomedical_research_plugin
 mastodon_discovery_plugin
 bluesky_discovery_plugin
+stock_market_data_plugin
 ```
 
 Plugin rollout rules:

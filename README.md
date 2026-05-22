@@ -142,6 +142,11 @@ bluesky_discovery:
   api_base_url: "https://public.api.bsky.app"
   default_feed_uri: "at://did:plc:feed/app.bsky.feed.generator/whats-hot"
   max_results: 20
+stock_market_data:
+  enabled: false
+  api_base_url: "https://www.alphavantage.co/query"
+  api_key_env_var: "ALPHA_VANTAGE_API_KEY"
+  max_daily_bars: 30
 ```
 
 2. Build the orchestrator from config and run a mission:
@@ -219,6 +224,9 @@ instances that disable unauthenticated public preview.
 
 Bluesky discovery is available through a separate read-only plugin that supports bounded
 public feed sampling through the public Bluesky AppView API, using one configured feed URI.
+
+Stock market data is available through a separate read-only plugin that supports bounded
+single-symbol quote lookups and recent daily OHLCV bars through Alpha Vantage.
 
 For an automated reference run, the integration coverage in `tests/integration/test_workflow.py` exercises:
 

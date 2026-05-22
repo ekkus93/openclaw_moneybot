@@ -119,6 +119,15 @@ from openclaw_moneybot.plugins.rules_snapshot_gateway import (
     RulesSnapshotCaptureResult,
     RulesSnapshotGateway,
 )
+from openclaw_moneybot.plugins.stock_market_data_plugin import (
+    StockDailyBar,
+    StockDailyBarsRequest,
+    StockDailyBarsResult,
+    StockMarketDataPlugin,
+    StockMarketDataPluginError,
+    StockQuoteRequest,
+    StockQuoteResult,
+)
 from openclaw_moneybot.plugins.wallet_observer_plugin import (
     WalletBalanceObservationRequest,
     WalletBalanceObservationResult,
@@ -222,6 +231,13 @@ __all__ = [
     "RulesSnapshotCaptureRequest",
     "RulesSnapshotCaptureResult",
     "RulesSnapshotGateway",
+    "StockDailyBar",
+    "StockDailyBarsRequest",
+    "StockDailyBarsResult",
+    "StockMarketDataPlugin",
+    "StockMarketDataPluginError",
+    "StockQuoteRequest",
+    "StockQuoteResult",
     "WalletBalanceObservationRequest",
     "WalletBalanceObservationResult",
     "WalletObserverPlugin",

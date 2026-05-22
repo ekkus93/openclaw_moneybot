@@ -583,6 +583,41 @@ class BlueskyDiscoveryConfig(MoneyBotModel):
         return value.strip()
 
 
+class StockMarketDataConfig(MoneyBotModel):
+    """Stock market data plugin configuration."""
+
+    enabled: bool = False
+    api_base_url: str = "https://www.alphavantage.co/query"
+    api_key_env_var: str = "ALPHA_VANTAGE_API_KEY"
+    timeout_seconds: float = Field(default=10.0, gt=0, le=60.0)
+    max_daily_bars: int = Field(default=30, gt=0, le=100)
+
+    @field_validator("api_base_url")
+    @classmethod
+    def validate_stock_market_api_url(cls, value: str) -> str:
+        """Require the hosted Alpha Vantage query endpoint."""
+        parsed = urlparse(value)
+        if parsed.scheme != "https":
+            msg = "Stock market API URLs must be https URLs"
+            raise ValueError(msg)
+        if parsed.hostname != "www.alphavantage.co":
+            msg = "Stock market API URLs must point to www.alphavantage.co"
+            raise ValueError(msg)
+        if not parsed.path.endswith("/query"):
+            msg = "Stock market API URLs must point to the /query endpoint"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("api_key_env_var")
+    @classmethod
+    def normalize_stock_market_env_var(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            msg = "api_key_env_var must not be empty"
+            raise ValueError(msg)
+        return normalized
+
+
 class AppConfig(MoneyBotModel):
     """Top-level MoneyBot configuration."""
 
@@ -615,6 +650,7 @@ class AppConfig(MoneyBotModel):
     biomedical_research: BiomedicalResearchConfig = Field(default_factory=BiomedicalResearchConfig)
     mastodon_discovery: MastodonDiscoveryConfig = Field(default_factory=MastodonDiscoveryConfig)
     bluesky_discovery: BlueskyDiscoveryConfig = Field(default_factory=BlueskyDiscoveryConfig)
+    stock_market_data: StockMarketDataConfig = Field(default_factory=StockMarketDataConfig)
 
 
 def load_app_config(path: Path) -> AppConfig:

@@ -323,3 +323,4 @@ class RecordType(StrEnum):
     BIOMEDICAL_RESEARCH = "biomedical_research"
     MASTODON_DISCOVERY = "mastodon_discovery"
     BLUESKY_DISCOVERY = "bluesky_discovery"
+    STOCK_MARKET_DATA = "stock_market_data"

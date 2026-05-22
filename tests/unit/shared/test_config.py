@@ -16,6 +16,7 @@ from openclaw_moneybot.shared.config import (
     EmailConfig,
     MastodonDiscoveryConfig,
     OpenAlexResearchConfig,
+    StockMarketDataConfig,
     WalletGovernorConfig,
     WikipediaResearchConfig,
     load_app_config,
@@ -273,6 +274,20 @@ def test_bluesky_discovery_defaults_are_bounded_and_disabled() -> None:
 def test_bluesky_discovery_config_rejects_non_public_appview_hosts() -> None:
     with pytest.raises(ValueError, match="public.api.bsky.app"):
         BlueskyDiscoveryConfig(api_base_url="https://api.bsky.app")
+
+
+def test_stock_market_data_defaults_are_bounded_and_disabled() -> None:
+    config = StockMarketDataConfig()
+
+    assert config.enabled is False
+    assert config.api_base_url == "https://www.alphavantage.co/query"
+    assert config.api_key_env_var == "ALPHA_VANTAGE_API_KEY"
+    assert config.max_daily_bars == 30
+
+
+def test_stock_market_data_config_rejects_non_alpha_vantage_hosts() -> None:
+    with pytest.raises(ValueError, match="www.alphavantage.co"):
+        StockMarketDataConfig(api_base_url="https://example.com/query")
 
 
 def test_load_app_config_rejects_non_mapping_root(tmp_path: Path) -> None:
