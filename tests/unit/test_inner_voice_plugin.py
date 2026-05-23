@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -13,6 +14,7 @@ from openclaw_moneybot.plugins.inner_voice_plugin import (
     ArbiterService,
     DebateResponderOutput,
     DebateResponderRequest,
+    EvidenceSummary,
     InnerVoiceCoordinator,
     InnerVoiceDebateError,
     InnerVoiceDebateRequest,
@@ -22,6 +24,7 @@ from openclaw_moneybot.plugins.inner_voice_plugin import (
     InnerVoiceReviewRequest,
     build_metrics_snapshot,
 )
+from openclaw_moneybot.plugins.inner_voice_plugin.prompting import build_inner_voice_prompt
 from openclaw_moneybot.shared import ArbiterConfig, ArchiveConfig, InnerVoiceConfig
 from openclaw_moneybot.shared.types import (
     ArbiterFinalResolution,
@@ -58,6 +61,7 @@ def make_inner_voice_plugin(
     *,
     provider: ProviderName,
     handler: httpx.BaseTransport,
+    config_overrides: dict[str, object] | None = None,
 ) -> tuple[InnerVoicePlugin, LedgerService]:
     ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
     config = InnerVoiceConfig(
@@ -73,6 +77,7 @@ def make_inner_voice_plugin(
         ),
         api_key_env_var="OPENAI_API_KEY",
         allow_hosted_provider=provider is ProviderName.OPENAI,
+        **(config_overrides or {}),
     )
     plugin = InnerVoicePlugin(
         config,
@@ -171,6 +176,52 @@ def test_openai_inner_voice_review_shapes_request_and_persists_result(
     assert len(evidence) == 2
 
 
+def test_build_inner_voice_prompt_bounds_and_marks_stale_evidence() -> None:
+    old_timestamp = (datetime.now(tz=UTC) - timedelta(days=90)).isoformat()
+    request = make_review_request().model_copy(
+        update={
+            "claim_summary": "A" * 500,
+            "structured_context": {"mission": "x" * 500},
+            "budget_summary": "C" * 2_000,
+            "evidence_summary": [
+                EvidenceSummary(
+                    evidence_id="ev_2",
+                    evidence_type="snapshot",
+                    source_url="https://example.com/rules",
+                    captured_at=old_timestamp,
+                    summary="B" * 800,
+                ),
+                EvidenceSummary(
+                    evidence_id="ev_1",
+                    evidence_type="snapshot",
+                    source_url="https://example.com/rules",
+                    captured_at=old_timestamp,
+                    summary="duplicate should be dropped",
+                ),
+            ],
+        }
+    )
+
+    prompt = build_inner_voice_prompt(
+        request,
+        provider=ProviderName.OLLAMA,
+        model_name="test-model",
+        temperature=0.1,
+        top_p=0.9,
+        max_output_tokens=400,
+        timeout_seconds=10.0,
+        max_input_chars=1_500,
+        max_evidence_items=1,
+        max_chars_per_evidence=120,
+        stale_evidence_days=30,
+    )
+
+    assert len(prompt.system_prompt) + len(prompt.user_prompt) <= 1_500
+    assert prompt.user_prompt.count('"evidence_id"') == 1
+    assert '"freshness_hint": "stale"' in prompt.user_prompt
+    assert "[TRUNCATED:" in prompt.user_prompt
+
+
 def test_ollama_inner_voice_review_shapes_request(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/api/chat"
@@ -208,6 +259,18 @@ def test_ollama_inner_voice_review_shapes_request(tmp_path: Path) -> None:
 
     assert result.recommended_disposition is InnerVoiceDisposition.PROCEED
     assert result.raw_response_summary["prompt_tokens"] == 12
+
+
+def test_inner_voice_health_reports_provider_unreachable(tmp_path: Path) -> None:
+    plugin, _ = make_inner_voice_plugin(
+        tmp_path,
+        provider=ProviderName.OLLAMA,
+        handler=httpx.MockTransport(lambda request: httpx.Response(503)),
+    )
+
+    health = plugin.health()
+
+    assert health.status == "provider_unreachable"
 
 
 def test_llama_server_arbiter_shapes_request_and_parses_result(tmp_path: Path) -> None:
@@ -289,6 +352,37 @@ def test_inner_voice_review_persists_failure_on_malformed_output(
         related_type=RecordType.INNER_VOICE_REVIEW,
         related_id="review_001",
     )
+    assert any(item.evidence_type == "inner_voice_failure" for item in evidence)
+
+
+def test_inner_voice_review_classifies_prompt_too_large_and_persists_failure(
+    tmp_path: Path,
+) -> None:
+    plugin, ledger_service = make_inner_voice_plugin(
+        tmp_path,
+        provider=ProviderName.OLLAMA,
+        handler=httpx.MockTransport(
+            lambda request: pytest.fail("provider should not be called for oversized prompts")
+        ),
+        config_overrides={"max_input_chars": 250},
+    )
+
+    with pytest.raises(InnerVoicePluginError) as error:
+        plugin.review(
+            make_review_request().model_copy(
+                update={
+                    "claim_summary": "C" * 2_000,
+                    "structured_context": {"mission": "y" * 4_000},
+                }
+            ),
+            required=True,
+        )
+
+    evidence = ledger_service.list_evidence_for_related(
+        related_type=RecordType.INNER_VOICE_REVIEW,
+        related_id="review_001",
+    )
+    assert error.value.failure_class == "prompt_too_large"
     assert any(item.evidence_type == "inner_voice_failure" for item in evidence)
 
 

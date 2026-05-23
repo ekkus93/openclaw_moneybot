@@ -37,6 +37,7 @@ class BaseProviderAdapter:
     provider_name: ProviderName
     supports_json_mode: bool = True
     supports_system_prompt: bool = True
+    healthcheck_path: str | None = None
 
     def __init__(
         self,
@@ -79,6 +80,20 @@ class BaseProviderAdapter:
                 enabled=True,
                 read_only=True,
             )
+        if self.healthcheck_path is not None:
+            try:
+                response = self._client.get(
+                    f"{self.base_url}{self.healthcheck_path}",
+                    headers={"Accept": "application/json"},
+                )
+                response.raise_for_status()
+            except (httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError):
+                return PluginHealthResult(
+                    plugin_name="inner_voice_provider",
+                    status="provider_unreachable",
+                    enabled=True,
+                    read_only=True,
+                )
         return PluginHealthResult(
             plugin_name="inner_voice_provider",
             status="ok",
@@ -127,7 +142,7 @@ class OpenAiProviderAdapter(BaseProviderAdapter):
         api_key = os.getenv(self.api_key_env_var)
         if not api_key:
             msg = "OpenAI API key is not configured."
-            raise InnerVoiceProviderError(msg)
+            raise InnerVoiceProviderError(msg, failure_class="invalid_auth")
         payload: dict[str, object] = {
             "model": self.model_name,
             "messages": [
@@ -153,25 +168,31 @@ class OpenAiProviderAdapter(BaseProviderAdapter):
             raw_payload = response.json()
         except (httpx.TimeoutException, httpx.TransportError) as error:
             msg = "OpenAI provider is unavailable."
-            raise InnerVoiceProviderError(msg) from error
-        except (httpx.HTTPStatusError, ValueError) as error:
+            raise InnerVoiceProviderError(msg, failure_class="provider_unavailable") from error
+        except httpx.HTTPStatusError as error:
+            if error.response.status_code in {401, 403}:
+                msg = "OpenAI request failed because authentication was rejected."
+                raise InnerVoiceProviderError(msg, failure_class="invalid_auth") from error
             msg = f"OpenAI request failed: {error}"
-            raise InnerVoiceProviderError(msg) from error
+            raise InnerVoiceProviderError(msg, failure_class="provider_error") from error
+        except ValueError as error:
+            msg = f"OpenAI request failed: {error}"
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output") from error
         if not isinstance(raw_payload, dict):
             msg = "OpenAI response must be a JSON object."
-            raise InnerVoiceProviderError(msg)
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output")
         choices = raw_payload.get("choices")
         if not isinstance(choices, list) or not choices:
             msg = "OpenAI response did not contain choices."
-            raise InnerVoiceProviderError(msg)
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output")
         first_choice = choices[0]
         if not isinstance(first_choice, Mapping):
             msg = "OpenAI response choice was malformed."
-            raise InnerVoiceProviderError(msg)
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output")
         message = first_choice.get("message")
         if not isinstance(message, Mapping):
             msg = "OpenAI response choice is missing a message."
-            raise InnerVoiceProviderError(msg)
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output")
         content = self._string_content(message.get("content"))
         usage = raw_payload.get("usage")
         prompt_tokens: int | None = None
@@ -193,6 +214,7 @@ class OpenAiProviderAdapter(BaseProviderAdapter):
             finish_reason=finish_reason if isinstance(finish_reason, str) else None,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
+            prompt_chars=len(request.system_prompt) + len(request.user_prompt),
             raw_payload=json_mapping(raw_payload),
         )
 
@@ -201,6 +223,7 @@ class OllamaProviderAdapter(BaseProviderAdapter):
     """Direct Ollama chat adapter."""
 
     provider_name = ProviderName.OLLAMA
+    healthcheck_path = "/api/tags"
 
     def generate(self, request: InnerVoicePromptRequest) -> InnerVoiceRawResponse:
         payload: dict[str, object] = {
@@ -230,17 +253,20 @@ class OllamaProviderAdapter(BaseProviderAdapter):
             raw_payload = response.json()
         except (httpx.TimeoutException, httpx.TransportError) as error:
             msg = "Ollama provider is unavailable."
-            raise InnerVoiceProviderError(msg) from error
-        except (httpx.HTTPStatusError, ValueError) as error:
+            raise InnerVoiceProviderError(msg, failure_class="provider_unavailable") from error
+        except httpx.HTTPStatusError as error:
             msg = f"Ollama request failed: {error}"
-            raise InnerVoiceProviderError(msg) from error
+            raise InnerVoiceProviderError(msg, failure_class="provider_error") from error
+        except ValueError as error:
+            msg = f"Ollama request failed: {error}"
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output") from error
         if not isinstance(raw_payload, dict):
             msg = "Ollama response must be a JSON object."
-            raise InnerVoiceProviderError(msg)
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output")
         message = raw_payload.get("message")
         if not isinstance(message, Mapping):
             msg = "Ollama response is missing a message."
-            raise InnerVoiceProviderError(msg)
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output")
         content = self._string_content(message.get("content"))
         parsed_json = self._parse_strict_json_object(content)
         prompt_tokens = raw_payload.get("prompt_eval_count")
@@ -255,6 +281,7 @@ class OllamaProviderAdapter(BaseProviderAdapter):
             else None,
             prompt_tokens=prompt_tokens if isinstance(prompt_tokens, int) else None,
             completion_tokens=completion_tokens if isinstance(completion_tokens, int) else None,
+            prompt_chars=len(request.system_prompt) + len(request.user_prompt),
             raw_payload=json_mapping(raw_payload),
         )
 
@@ -263,6 +290,7 @@ class LlamaServerProviderAdapter(BaseProviderAdapter):
     """Direct OpenAI-compatible llama-server adapter."""
 
     provider_name = ProviderName.LLAMA_SERVER
+    healthcheck_path = "/models"
 
     def generate(self, request: InnerVoicePromptRequest) -> InnerVoiceRawResponse:
         payload: dict[str, object] = {
@@ -287,25 +315,28 @@ class LlamaServerProviderAdapter(BaseProviderAdapter):
             raw_payload = response.json()
         except (httpx.TimeoutException, httpx.TransportError) as error:
             msg = "llama-server provider is unavailable."
-            raise InnerVoiceProviderError(msg) from error
-        except (httpx.HTTPStatusError, ValueError) as error:
+            raise InnerVoiceProviderError(msg, failure_class="provider_unavailable") from error
+        except httpx.HTTPStatusError as error:
             msg = f"llama-server request failed: {error}"
-            raise InnerVoiceProviderError(msg) from error
+            raise InnerVoiceProviderError(msg, failure_class="provider_error") from error
+        except ValueError as error:
+            msg = f"llama-server request failed: {error}"
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output") from error
         if not isinstance(raw_payload, dict):
             msg = "llama-server response must be a JSON object."
-            raise InnerVoiceProviderError(msg)
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output")
         choices = raw_payload.get("choices")
         if not isinstance(choices, list) or not choices:
             msg = "llama-server response did not contain choices."
-            raise InnerVoiceProviderError(msg)
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output")
         first_choice = choices[0]
         if not isinstance(first_choice, Mapping):
             msg = "llama-server response choice was malformed."
-            raise InnerVoiceProviderError(msg)
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output")
         message = first_choice.get("message")
         if not isinstance(message, Mapping):
             msg = "llama-server response choice is missing a message."
-            raise InnerVoiceProviderError(msg)
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output")
         content = self._string_content(message.get("content"))
         usage = raw_payload.get("usage")
         prompt_tokens: int | None = None
@@ -327,6 +358,7 @@ class LlamaServerProviderAdapter(BaseProviderAdapter):
             finish_reason=finish_reason if isinstance(finish_reason, str) else None,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
+            prompt_chars=len(request.system_prompt) + len(request.user_prompt),
             raw_payload=json_mapping(raw_payload),
         )
 

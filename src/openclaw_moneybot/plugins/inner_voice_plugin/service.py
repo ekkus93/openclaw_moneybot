@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 import httpx
-from pydantic import JsonValue
+from pydantic import JsonValue, ValidationError
 
 from openclaw_moneybot.plugins.inner_voice_plugin.errors import (
     InnerVoicePluginError,
@@ -21,6 +21,7 @@ from openclaw_moneybot.plugins.inner_voice_plugin.models import (
     InnerVoiceReviewResult,
 )
 from openclaw_moneybot.plugins.inner_voice_plugin.prompting import (
+    archive_text,
     build_debate_prompt,
     build_inner_voice_prompt,
     render_json,
@@ -84,30 +85,35 @@ class InnerVoicePlugin:
         """Run one structured inner-voice critique pass."""
 
         self._ensure_enabled()
-        prompt = build_inner_voice_prompt(
-            request,
-            provider=self.config.provider,
-            model_name=self.config.model_name,
-            temperature=self.config.temperature,
-            top_p=self.config.top_p,
-            max_output_tokens=self.config.max_output_tokens,
-            timeout_seconds=self.config.timeout_seconds,
-        )
         try:
+            prompt = build_inner_voice_prompt(
+                request,
+                provider=self.config.provider,
+                model_name=self.config.model_name,
+                temperature=self.config.temperature,
+                top_p=self.config.top_p,
+                max_output_tokens=self.config.max_output_tokens,
+                timeout_seconds=self.config.timeout_seconds,
+                max_input_chars=self.config.max_input_chars,
+                max_evidence_items=self.config.max_evidence_items,
+                max_chars_per_evidence=self.config.max_chars_per_evidence,
+                stale_evidence_days=self.config.stale_evidence_days,
+            )
             raw = self._provider.generate(prompt)
             parsed_payload = raw.parsed_json or {}
             output = InnerVoiceReviewOutput.model_validate(parsed_payload)
-        except (InnerVoiceProviderError, ValueError) as error:
+        except (InnerVoiceProviderError, ValidationError, ValueError) as error:
+            failure_class = self._classify_failure(error)
             self._persist_failure(
                 review_id=request.review_id,
                 stage=request.stage.value,
                 subject_type=request.subject_type.value,
                 subject_id=request.subject_id,
-                failure_class="provider_error",
+                failure_class=failure_class,
                 failure_message=str(error),
                 required=required,
             )
-            raise InnerVoicePluginError(str(error)) from error
+            raise InnerVoicePluginError(str(error), failure_class=failure_class) from error
 
         evidence_archive_ids = self._archive_prompt_and_response(
             related_id=request.review_id,
@@ -164,20 +170,25 @@ class InnerVoicePlugin:
         """Generate one bounded inner-voice debate turn."""
 
         self._ensure_enabled()
-        prompt = build_debate_prompt(
-            request,
-            provider=self.config.provider,
-            model_name=self.config.model_name,
-            temperature=self.config.temperature,
-            top_p=self.config.top_p,
-            max_output_tokens=self.config.max_output_tokens,
-            timeout_seconds=self.config.timeout_seconds,
-        )
         try:
+            prompt = build_debate_prompt(
+                request,
+                provider=self.config.provider,
+                model_name=self.config.model_name,
+                temperature=self.config.temperature,
+                top_p=self.config.top_p,
+                max_output_tokens=self.config.max_output_tokens,
+                timeout_seconds=self.config.timeout_seconds,
+                max_input_chars=self.config.max_input_chars,
+                max_evidence_items=self.config.max_evidence_items,
+                max_chars_per_evidence=self.config.max_chars_per_evidence,
+                stale_evidence_days=self.config.stale_evidence_days,
+            )
             raw = self._provider.generate(prompt)
             return DebateResponderOutput.model_validate(raw.parsed_json or {})
-        except (InnerVoiceProviderError, ValueError) as error:
-            raise InnerVoicePluginError(str(error)) from error
+        except (InnerVoiceProviderError, ValidationError, ValueError) as error:
+            failure_class = self._classify_failure(error)
+            raise InnerVoicePluginError(str(error), failure_class=failure_class) from error
 
     @staticmethod
     def make_debate_turn(
@@ -222,9 +233,18 @@ class InnerVoicePlugin:
                 related_type=RecordType.INNER_VOICE_REVIEW,
                 related_id=related_id,
                 evidence_type="inner_voice_prompt",
-                content_text=sanitize_text(render_json(prompt_payload)),
-                notes="Inner voice prompt snapshot",
-                summary_hint="Sanitized inner voice prompt snapshot",
+                content_text=archive_text(
+                    render_json(prompt_payload),
+                    raw_allowed=self.config.archive_raw_prompt,
+                    redaction_mode=self.config.archive_redaction_mode,
+                    max_chars=self.config.max_input_chars,
+                ),
+                notes=(
+                    "Inner voice prompt snapshot"
+                    if self.config.archive_raw_prompt
+                    else "Inner voice prompt summary (raw archival disabled)"
+                ),
+                summary_hint="Inner voice prompt snapshot",
             )
         ).evidence_id
         response_archive_id = self.archiver.archive(
@@ -232,9 +252,18 @@ class InnerVoicePlugin:
                 related_type=RecordType.INNER_VOICE_REVIEW,
                 related_id=related_id,
                 evidence_type="inner_voice_response",
-                content_text=sanitize_text(render_json(response_payload)),
-                notes="Inner voice response snapshot",
-                summary_hint="Sanitized inner voice response snapshot",
+                content_text=archive_text(
+                    render_json(response_payload),
+                    raw_allowed=self.config.archive_raw_response,
+                    redaction_mode=self.config.archive_redaction_mode,
+                    max_chars=self.config.max_input_chars,
+                ),
+                notes=(
+                    "Inner voice response snapshot"
+                    if self.config.archive_raw_response
+                    else "Inner voice response summary (raw archival disabled)"
+                ),
+                summary_hint="Inner voice response snapshot",
             )
         ).evidence_id
         return [prompt_archive_id, response_archive_id]
@@ -246,9 +275,20 @@ class InnerVoicePlugin:
                 "finish_reason": raw.finish_reason,
                 "prompt_tokens": raw.prompt_tokens,
                 "completion_tokens": raw.completion_tokens,
+                "prompt_chars": raw.prompt_chars,
                 "response_chars": len(raw.response_text),
             }
         )
+
+    @staticmethod
+    def _classify_failure(error: Exception) -> str:
+        if isinstance(error, InnerVoiceProviderError):
+            return error.failure_class
+        if isinstance(error, ValidationError):
+            return "schema_validation_failure"
+        if "max_input_chars" in str(error):
+            return "prompt_too_large"
+        return "provider_error"
 
     def _persist_failure(
         self,

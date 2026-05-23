@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
+from datetime import UTC, datetime
 
-from pydantic import Field, HttpUrl, JsonValue
+from pydantic import Field, HttpUrl, JsonValue, field_validator, model_validator
 
 from openclaw_moneybot.shared.base import MoneyBotModel
 from openclaw_moneybot.shared.contracts import LedgerRecord
@@ -31,6 +33,15 @@ class EvidenceSummary(MoneyBotModel):
     captured_at: str
     summary: str = Field(min_length=1, max_length=10_000)
     freshness_hint: str | None = Field(default=None, max_length=256)
+
+    @field_validator("captured_at")
+    @classmethod
+    def validate_captured_at(cls, value: str) -> str:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None or parsed.astimezone(UTC).utcoffset() != parsed.utcoffset():
+            msg = "captured_at must be an ISO 8601 UTC timestamp"
+            raise ValueError(msg)
+        return parsed.astimezone(UTC).isoformat()
 
 
 class InnerVoicePromptRequest(MoneyBotModel):
@@ -62,6 +73,7 @@ class InnerVoiceRawResponse(MoneyBotModel):
     finish_reason: str | None = None
     prompt_tokens: int | None = Field(default=None, ge=0)
     completion_tokens: int | None = Field(default=None, ge=0)
+    prompt_chars: int | None = Field(default=None, ge=0)
     raw_payload: dict[str, JsonValue] = Field(default_factory=dict)
 
 
@@ -81,6 +93,14 @@ class InnerVoiceReviewRequest(MoneyBotModel):
     budget_summary: str | None = Field(default=None, max_length=8_000)
     review_goal: str = Field(min_length=1, max_length=2_000)
     max_objections: int = Field(default=8, gt=0, le=20)
+
+    @model_validator(mode="after")
+    def validate_structured_context(self) -> InnerVoiceReviewRequest:
+        context_size = len(json.dumps(self.structured_context, sort_keys=True, default=str))
+        if context_size > 20_000:
+            msg = "structured_context must stay within 20_000 characters"
+            raise ValueError(msg)
+        return self
 
 
 class InnerVoiceObjection(MoneyBotModel):
@@ -161,6 +181,15 @@ class InnerVoiceDebateTurn(DebateResponderOutput):
     turn_index: int = Field(gt=0)
     speaker: DebateSpeaker
     created_at: str
+
+    @field_validator("created_at")
+    @classmethod
+    def validate_created_at(cls, value: str) -> str:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None or parsed.astimezone(UTC).utcoffset() != parsed.utcoffset():
+            msg = "created_at must be an ISO 8601 UTC timestamp"
+            raise ValueError(msg)
+        return parsed.astimezone(UTC).isoformat()
 
 
 class InnerVoiceDebateSession(MoneyBotModel):

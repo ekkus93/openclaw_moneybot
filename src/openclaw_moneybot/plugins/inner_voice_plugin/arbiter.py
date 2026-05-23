@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 import httpx
-from pydantic import JsonValue
+from pydantic import JsonValue, ValidationError
 
 from openclaw_moneybot.plugins.inner_voice_plugin.errors import (
     ArbiterResolutionError,
@@ -18,6 +18,7 @@ from openclaw_moneybot.plugins.inner_voice_plugin.models import (
     InnerVoiceRawResponse,
 )
 from openclaw_moneybot.plugins.inner_voice_plugin.prompting import (
+    archive_text,
     build_arbiter_prompt,
     render_json,
     sanitize_text,
@@ -79,30 +80,33 @@ class ArbiterService:
     ) -> ArbiterResolutionResult:
         """Resolve one debate disagreement through the configured Arbiter model."""
 
-        prompt = build_arbiter_prompt(
-            request,
-            provider=self.config.provider,
-            model_name=self.config.model_name,
-            temperature=self.config.temperature,
-            top_p=self.config.top_p,
-            max_output_tokens=self.config.max_output_tokens,
-            timeout_seconds=self.config.timeout_seconds,
-        )
         try:
+            prompt = build_arbiter_prompt(
+                request,
+                provider=self.config.provider,
+                model_name=self.config.model_name,
+                temperature=self.config.temperature,
+                top_p=self.config.top_p,
+                max_output_tokens=self.config.max_output_tokens,
+                timeout_seconds=self.config.timeout_seconds,
+                max_input_chars=self.config.max_input_chars,
+                max_chars_per_evidence=min(self.config.max_input_chars // 8, 2_000),
+            )
             raw = self._provider.generate(prompt)
             output = ArbiterResolutionOutput.model_validate(raw.parsed_json or {})
-        except (InnerVoiceProviderError, ValueError) as error:
+        except (InnerVoiceProviderError, ValidationError, ValueError) as error:
+            failure_class = self._classify_failure(error)
             self._persist_failure(
                 arbiter_review_id=request.arbiter_review_id,
                 debate_id=request.debate_id,
                 stage=request.stage.value,
                 subject_type=request.subject_type.value,
                 subject_id=request.subject_id,
-                failure_class="provider_error",
+                failure_class=failure_class,
                 failure_message=str(error),
                 required=required,
             )
-            raise ArbiterResolutionError(str(error)) from error
+            raise ArbiterResolutionError(str(error), failure_class=failure_class) from error
 
         evidence_archive_ids = self._archive_prompt_and_response(
             related_id=request.arbiter_review_id,
@@ -165,9 +169,18 @@ class ArbiterService:
                 related_type=RecordType.ARBITER_REVIEW,
                 related_id=related_id,
                 evidence_type="arbiter_prompt",
-                content_text=sanitize_text(render_json(prompt_payload)),
-                notes="Arbiter prompt snapshot",
-                summary_hint="Sanitized Arbiter prompt snapshot",
+                content_text=archive_text(
+                    render_json(prompt_payload),
+                    raw_allowed=self.config.archive_raw_prompt,
+                    redaction_mode=self.config.archive_redaction_mode,
+                    max_chars=self.config.max_input_chars,
+                ),
+                notes=(
+                    "Arbiter prompt snapshot"
+                    if self.config.archive_raw_prompt
+                    else "Arbiter prompt summary (raw archival disabled)"
+                ),
+                summary_hint="Arbiter prompt snapshot",
             )
         ).evidence_id
         response_archive_id = self.archiver.archive(
@@ -175,9 +188,18 @@ class ArbiterService:
                 related_type=RecordType.ARBITER_REVIEW,
                 related_id=related_id,
                 evidence_type="arbiter_response",
-                content_text=sanitize_text(render_json(response_payload)),
-                notes="Arbiter response snapshot",
-                summary_hint="Sanitized Arbiter response snapshot",
+                content_text=archive_text(
+                    render_json(response_payload),
+                    raw_allowed=self.config.archive_raw_response,
+                    redaction_mode=self.config.archive_redaction_mode,
+                    max_chars=self.config.max_input_chars,
+                ),
+                notes=(
+                    "Arbiter response snapshot"
+                    if self.config.archive_raw_response
+                    else "Arbiter response summary (raw archival disabled)"
+                ),
+                summary_hint="Arbiter response snapshot",
             )
         ).evidence_id
         return [prompt_archive_id, response_archive_id]
@@ -189,9 +211,20 @@ class ArbiterService:
                 "finish_reason": raw.finish_reason,
                 "prompt_tokens": raw.prompt_tokens,
                 "completion_tokens": raw.completion_tokens,
+                "prompt_chars": raw.prompt_chars,
                 "response_chars": len(raw.response_text),
             }
         )
+
+    @staticmethod
+    def _classify_failure(error: Exception) -> str:
+        if isinstance(error, InnerVoiceProviderError):
+            return error.failure_class
+        if isinstance(error, ValidationError):
+            return "schema_validation_failure"
+        if "max_input_chars" in str(error):
+            return "prompt_too_large"
+        return "provider_error"
 
     def _persist_failure(
         self,

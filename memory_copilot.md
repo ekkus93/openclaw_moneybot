@@ -258,3 +258,12 @@
 - Added shared config and type support for `inner_voice` and `arbiter`, plus unit/integration coverage in `tests/unit/test_inner_voice_plugin.py`, `tests/integration/test_inner_voice_integration.py`, `tests/unit/shared/test_config.py`, and `tests/unit/test_orchestration_factory.py`.
 - The repository now passes full `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with the new inner-voice slice included.
 - The main remaining design gap is workflow integration: `MoneyBotOrchestrator.run_dry_run()` has no existing OpenClaw main-model runtime to participate in live debate rounds, so deeper stage-triggered debate wiring needs an explicit orchestration decision rather than silently inventing one.
+## 2026-05-22T19:40:35-07:00 - GPT-5.4 - Pushed inner voice review and debate phase commit d2df17a
+- Committed and pushed `d2df17a` (`Implement inner voice review and debate phase`) on the `copilot` branch after the full repository passed `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest`.
+- This phase added the inner voice plugin package, Arbiter service, bounded debate coordinator, shared config/type wiring, review-only workflow integration in `run_dry_run()`, updated operator docs, and initial TODO status tracking.
+- The remaining unchecked tracker items are concentrated in follow-up hardening and polish areas such as prompt-size bounding, deeper sanitization/redaction modes, richer failure-object shaping, additional TODO status cleanup, and any future debate-driven spend/irreversible workflow behavior beyond the review-only dry-run integration.
+
+## 2026-05-23T06:04:47Z - GPT-5.4 - Hardened inner voice prompt and provider handling
+- Hardened the inner-voice and Arbiter runtime with bounded prompt construction, deterministic truncation markers, evidence ordering/deduplication, stale-evidence labeling, stronger secret redaction and hash modes, provider health checks, and more specific failure classification including `prompt_too_large`.
+- Added prompt-size, stale-evidence, provider-unreachable, and prompt-too-large coverage in `tests/unit/test_inner_voice_plugin.py`, and updated `docs/INNER_VOICE_TODO.md` to mark the completed provider/model/prompt/service hardening items from this phase.
+- The repository again passes full `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest`, now with 677 passing tests.

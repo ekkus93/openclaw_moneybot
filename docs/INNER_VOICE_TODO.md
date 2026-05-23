@@ -39,11 +39,11 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 - [x] Keep the inner voice, debate, and Arbiter boundaries narrow and separately testable.
 - [x] Keep the inner voice plugin advisory and read-only.
 - [x] Keep the Arbiter limited to disagreement resolution between OpenClaw and the inner voice.
-- [ ] Do not allow inner voice or Arbiter code to call wallet, email, browser, shell, or other side-effect tools.
+- [x] Do not allow inner voice or Arbiter code to call wallet, email, browser, shell, or other side-effect tools.
 - [ ] Do not allow inner voice or Arbiter outputs to override deterministic policy, TOS/legal gates, budget caps, ledger requirements, or wallet controls.
 - [x] Do not use LiteLLM or any generic third-party LLM routing proxy.
 - [x] Use direct provider-specific adapters for OpenAI, Ollama, and llama-server.
-- [ ] Keep secrets out of prompts, transcripts, logs, exceptions, and persisted artifacts.
+- [x] Keep secrets out of prompts, transcripts, logs, exceptions, and persisted artifacts.
 - [x] Fail closed on malformed output, missing required config, unsafe provider mode, and required-path failures.
 - [x] Preserve full auditability through ledger-linked records and evidence archive artifacts.
 - [x] Treat exchanged dialogue as auditable transcript content, not as hidden private chain-of-thought.
@@ -59,12 +59,12 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 - [x] Confirm `inner_voice_plugin` as the implementation name.
 - [x] Confirm `Arbiter` as the operator-facing disagreement resolver name.
-- [ ] Confirm that v1 scope includes:
+- [x] Confirm that v1 scope includes:
   - [x] inner voice critique passes
   - [x] bounded debate
   - [x] debate transcript persistence
   - [x] required Arbiter escalation
-- [ ] Confirm that v1 scope excludes:
+- [x] Confirm that v1 scope excludes:
   - [x] unrestricted multi-agent swarms
   - [x] tool-using inner voice behavior
   - [x] Arbiter reruns on the same debate session
@@ -73,7 +73,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 ## 1.2 Repository structure and module layout
 
 - [x] Create inner voice plugin package under `src/openclaw_moneybot/plugins/inner_voice_plugin/`.
-- [ ] Decide final file layout, such as:
+- [x] Decide final file layout, such as:
   - [x] `__init__.py`
   - [x] `models.py`
   - [x] `service.py`
@@ -190,8 +190,8 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 - [x] Validate `max_debate_rounds >= 1`.
 - [x] Validate transcript archival settings when debate mode is present.
 - [x] Validate Arbiter config is present whenever debate/Arbiter workflow is implemented.
-- [ ] Validate raw archival disablement still preserves sanitized summaries.
-- [ ] Validate config errors fail closed with explicit messages.
+- [x] Validate raw archival disablement still preserves sanitized summaries.
+- [x] Validate config errors fail closed with explicit messages.
 
 ## 2.4 Config docs and examples
 
@@ -207,61 +207,61 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 ## 3.1 Shared adapter interfaces
 
-- [ ] Implement normalized provider request model:
-  - [ ] `InnerVoicePromptRequest`
-  - [ ] `ArbiterPromptRequest` or compatible shared prompt envelope
-- [ ] Implement normalized provider response model:
-  - [ ] `InnerVoiceRawResponse`
-  - [ ] Arbiter raw response equivalent or shared result envelope
-- [ ] Add common adapter metadata fields:
-  - [ ] `provider_name`
-  - [ ] `base_url`
-  - [ ] `model_name`
-  - [ ] `timeout_seconds`
-  - [ ] `max_output_tokens`
-  - [ ] `supports_json_mode`
-  - [ ] `supports_system_prompt`
+- [x] Implement normalized provider request model:
+  - [x] `InnerVoicePromptRequest`
+  - [x] `ArbiterPromptRequest` or compatible shared prompt envelope
+- [x] Implement normalized provider response model:
+  - [x] `InnerVoiceRawResponse`
+  - [x] Arbiter raw response equivalent or shared result envelope
+- [x] Add common adapter metadata fields:
+  - [x] `provider_name`
+  - [x] `base_url`
+  - [x] `model_name`
+  - [x] `timeout_seconds`
+  - [x] `max_output_tokens`
+  - [x] `supports_json_mode`
+  - [x] `supports_system_prompt`
 
 ## 3.2 OpenAI adapter
 
-- [ ] Implement direct HTTPS adapter for OpenAI.
-- [ ] Request strict JSON object output.
-- [ ] Capture finish reason and token usage when available.
+- [x] Implement direct HTTPS adapter for OpenAI.
+- [x] Request strict JSON object output.
+- [x] Capture finish reason and token usage when available.
 - [ ] Reject unsupported endpoint/model combinations that cannot satisfy JSON requirements.
 - [ ] Respect hosted-provider opt-in rules.
 
 ## 3.3 Ollama adapter
 
-- [ ] Implement direct HTTP adapter for Ollama.
-- [ ] Use chat/JSON output mode where supported.
-- [ ] Reject non-JSON assistant output as malformed.
-- [ ] Capture provider payload for normalized summary fields.
+- [x] Implement direct HTTP adapter for Ollama.
+- [x] Use chat/JSON output mode where supported.
+- [x] Reject non-JSON assistant output as malformed.
+- [x] Capture provider payload for normalized summary fields.
 
 ## 3.4 llama-server adapter
 
-- [ ] Implement direct OpenAI-compatible adapter for llama-server.
-- [ ] Validate compatibility assumptions around JSON output.
-- [ ] Reject runtime modes that cannot satisfy structured output requirements.
+- [x] Implement direct OpenAI-compatible adapter for llama-server.
+- [x] Validate compatibility assumptions around JSON output.
+- [x] Reject runtime modes that cannot satisfy structured output requirements.
 - [ ] Document and test any minimal compatibility trimming/post-processing.
 
 ## 3.5 Adapter error handling
 
-- [ ] Normalize provider-unavailable errors.
-- [ ] Normalize timeout errors.
-- [ ] Normalize invalid-auth errors.
-- [ ] Normalize malformed JSON and schema-failure cases.
-- [ ] Ensure adapters never silently retry or silently fall back to another provider/model.
+- [x] Normalize provider-unavailable errors.
+- [x] Normalize timeout errors.
+- [x] Normalize invalid-auth errors.
+- [x] Normalize malformed JSON and schema-failure cases.
+- [x] Ensure adapters never silently retry or silently fall back to another provider/model.
 
 ## 3.6 Provider health checks
 
-- [ ] Implement `health()` for inner voice providers.
-- [ ] Implement `health()` for Arbiter providers.
-- [ ] Return stable health states such as:
-  - [ ] `ok`
-  - [ ] `missing_api_key`
-  - [ ] `provider_unreachable`
-  - [ ] `misconfigured`
-  - [ ] `disabled` where applicable for inner voice
+- [x] Implement `health()` for inner voice providers.
+- [x] Implement `health()` for Arbiter providers.
+- [x] Return stable health states such as:
+  - [x] `ok`
+  - [x] `missing_api_key`
+  - [x] `provider_unreachable`
+  - [x] `misconfigured`
+  - [x] `disabled` where applicable for inner voice
 
 ---
 
@@ -269,82 +269,82 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 ## 4.1 Review request models
 
-- [ ] Implement `InnerVoiceReviewRequest`.
-- [ ] Implement `EvidenceSummary`.
-- [ ] Enforce ISO 8601 UTC timestamps.
-- [ ] Enforce bounded, schema-friendly `structured_context`.
-- [ ] Enforce `max_objections` bounds.
-- [ ] Ensure `claim_summary` is visible-summary text, not chain-of-thought.
+- [x] Implement `InnerVoiceReviewRequest`.
+- [x] Implement `EvidenceSummary`.
+- [x] Enforce ISO 8601 UTC timestamps.
+- [x] Enforce bounded, schema-friendly `structured_context`.
+- [x] Enforce `max_objections` bounds.
+- [x] Ensure `claim_summary` is visible-summary text, not chain-of-thought.
 
 ## 4.2 Review result models
 
-- [ ] Implement `InnerVoiceReviewResult`.
-- [ ] Implement `InnerVoiceObjection`.
-- [ ] Enforce disposition enum validation.
-- [ ] Enforce severity enum validation.
-- [ ] Enforce `confidence_adjustment` range from `-1.0` to `0.0`.
-- [ ] Ensure `raw_response_summary` is a compact normalized map.
+- [x] Implement `InnerVoiceReviewResult`.
+- [x] Implement `InnerVoiceObjection`.
+- [x] Enforce disposition enum validation.
+- [x] Enforce severity enum validation.
+- [x] Enforce `confidence_adjustment` range from `-1.0` to `0.0`.
+- [x] Ensure `raw_response_summary` is a compact normalized map.
 
 ## 4.3 Debate models
 
-- [ ] Implement `InnerVoiceDebateSession`.
-- [ ] Implement `InnerVoiceDebateTurn`.
+- [x] Implement `InnerVoiceDebateSession`.
+- [x] Implement `InnerVoiceDebateTurn`.
 - [ ] Add fields for:
-  - [ ] `debate_id`
-  - [ ] `stage`
-  - [ ] `subject_type`
-  - [ ] `subject_id`
-  - [ ] `initiated_by`
-  - [ ] `max_rounds_configured`
-  - [ ] `completed_rounds`
-  - [ ] `ended_reason`
-  - [ ] `converged`
-  - [ ] `arbiter_requested_by`
-  - [ ] `arbiter_review_id`
-  - [ ] transcript artifact linkage
+  - [x] `debate_id`
+  - [x] `stage`
+  - [x] `subject_type`
+  - [x] `subject_id`
+  - [x] `initiated_by`
+  - [x] `max_rounds_configured`
+  - [x] `completed_rounds`
+  - [x] `ended_reason`
+  - [x] `converged`
+  - [x] `arbiter_requested_by`
+  - [x] `arbiter_review_id`
+  - [x] transcript artifact linkage
 - [ ] Add turn-level fields for:
-  - [ ] `round_index`
-  - [ ] `turn_index`
-  - [ ] `speaker`
-  - [ ] `turn_type`
-  - [ ] `message_text`
-  - [ ] `cited_evidence_ids`
-  - [ ] `disposition_signal`
-  - [ ] `request_arbiter`
-  - [ ] `created_at`
+  - [x] `round_index`
+  - [x] `turn_index`
+  - [x] `speaker`
+  - [x] `turn_type`
+  - [x] `message_text`
+  - [x] `cited_evidence_ids`
+  - [x] `disposition_signal`
+  - [x] `request_arbiter`
+  - [x] `created_at`
 
 ## 4.4 Arbiter models
 
-- [ ] Implement `ArbiterResolutionRequest`.
-- [ ] Implement `ArbiterResolutionResult`.
+- [x] Implement `ArbiterResolutionRequest`.
+- [x] Implement `ArbiterResolutionResult`.
 - [ ] Add input fields for:
-  - [ ] `arbiter_review_id`
-  - [ ] `debate_id`
-  - [ ] `stage`
-  - [ ] `subject_type`
-  - [ ] `subject_id`
-  - [ ] `openclaw_review_id`
-  - [ ] `inner_voice_review_id`
-  - [ ] `openclaw_position_summary`
-  - [ ] `inner_voice_position_summary`
-  - [ ] `disagreement_summary`
-  - [ ] `transcript_archive_ids`
-  - [ ] `transcript_summary`
-  - [ ] `evidence_summary`
-  - [ ] `constraints_summary`
-  - [ ] `policy_summary`
-  - [ ] `tos_summary`
-  - [ ] `budget_summary`
-  - [ ] `resolution_goal`
+  - [x] `arbiter_review_id`
+  - [x] `debate_id`
+  - [x] `stage`
+  - [x] `subject_type`
+  - [x] `subject_id`
+  - [x] `openclaw_review_id`
+  - [x] `inner_voice_review_id`
+  - [x] `openclaw_position_summary`
+  - [x] `inner_voice_position_summary`
+  - [x] `disagreement_summary`
+  - [x] `transcript_archive_ids`
+  - [x] `transcript_summary`
+  - [x] `evidence_summary`
+  - [x] `constraints_summary`
+  - [x] `policy_summary`
+  - [x] `tos_summary`
+  - [x] `budget_summary`
+  - [x] `resolution_goal`
 - [ ] Add output fields for:
-  - [ ] `final_resolution`
-  - [ ] `prevailing_side`
-  - [ ] `resolution_summary`
-  - [ ] `rationale_summary`
-  - [ ] `required_followups`
-  - [ ] `unresolved_risks`
-  - [ ] `raw_response_summary`
-  - [ ] artifact linkage
+  - [x] `final_resolution`
+  - [x] `prevailing_side`
+  - [x] `resolution_summary`
+  - [x] `rationale_summary`
+  - [x] `required_followups`
+  - [x] `unresolved_risks`
+  - [x] `raw_response_summary`
+  - [x] artifact linkage
 
 ---
 
@@ -352,49 +352,49 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 ## 5.1 Inner voice prompt rendering
 
-- [ ] Implement deterministic prompt field ordering.
-- [ ] Implement bounded text size handling.
-- [ ] Implement explicit truncation markers.
+- [x] Implement deterministic prompt field ordering.
+- [x] Implement bounded text size handling.
+- [x] Implement explicit truncation markers.
 - [ ] Implement stage-specific fixed-in-code prompt fragments for:
-  - [ ] `opportunity_ranking`
-  - [ ] `tos_legal_check`
-  - [ ] `budget_planning`
-  - [ ] `pre_execution`
-  - [ ] `post_review`
-- [ ] Implement shared core challenger instructions.
+  - [x] `opportunity_ranking`
+  - [x] `tos_legal_check`
+  - [x] `budget_planning`
+  - [x] `pre_execution`
+  - [x] `post_review`
+- [x] Implement shared core challenger instructions.
 
 ## 5.2 Evidence preparation
 
-- [ ] Implement deterministic evidence ordering.
-- [ ] Implement evidence deduplication by URL/archive ID.
-- [ ] Implement `max_evidence_items`.
-- [ ] Implement `max_chars_per_evidence`.
-- [ ] Implement stale-evidence labelling before prompt construction.
+- [x] Implement deterministic evidence ordering.
+- [x] Implement evidence deduplication by URL/archive ID.
+- [x] Implement `max_evidence_items`.
+- [x] Implement `max_chars_per_evidence`.
+- [x] Implement stale-evidence labelling before prompt construction.
 - [ ] Ensure raw HTML, screenshots, and attachments are summarized, not inlined.
 
 ## 5.3 Arbiter prompt rendering
 
-- [ ] Implement Arbiter prompt construction from structured disagreement context.
-- [ ] Ensure the Arbiter sees:
-  - [ ] both sides' visible positions
-  - [ ] disagreement summary
-  - [ ] transcript summary or bounded transcript content
-  - [ ] evidence summaries
-  - [ ] constraints/policy/TOS/budget summaries where relevant
-- [ ] Ensure the Arbiter prompt clarifies whether escalation came from max rounds or a request.
+- [x] Implement Arbiter prompt construction from structured disagreement context.
+- [x] Ensure the Arbiter sees:
+  - [x] both sides' visible positions
+  - [x] disagreement summary
+  - [x] transcript summary or bounded transcript content
+  - [x] evidence summaries
+  - [x] constraints/policy/TOS/budget summaries where relevant
+- [x] Ensure the Arbiter prompt clarifies whether escalation came from max rounds or a request.
 
 ## 5.4 Secret scanning and sanitization
 
-- [ ] Implement secret scanning for prompt archival.
-- [ ] Implement secret scanning for raw response archival.
-- [ ] Implement secret scanning for debate transcript archival.
+- [x] Implement secret scanning for prompt archival.
+- [x] Implement secret scanning for raw response archival.
+- [x] Implement secret scanning for debate transcript archival.
 - [ ] Redact or hash:
-  - [ ] API keys
-  - [ ] bearer tokens
-  - [ ] wallet-sensitive metadata
-  - [ ] disallowed email/credential data
-  - [ ] oversized copied document chunks
-- [ ] Implement deterministic placeholder artifacts when raw text cannot be safely retained.
+  - [x] API keys
+  - [x] bearer tokens
+  - [x] wallet-sensitive metadata
+  - [x] disallowed email/credential data
+  - [x] oversized copied document chunks
+- [x] Implement deterministic placeholder artifacts when raw text cannot be safely retained.
 
 ---
 
@@ -402,37 +402,37 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 ## 6.1 Core service behavior
 
-- [ ] Implement service entrypoint for `review()` / `generate_critique()`.
-- [ ] Load config and choose exactly one configured provider.
-- [ ] Build normalized prompt request.
-- [ ] Call provider adapter.
-- [ ] Parse returned JSON.
-- [ ] Validate against `InnerVoiceReviewResult`.
-- [ ] Return normalized persistence payloads plus structured result.
+- [x] Implement service entrypoint for `review()` / `generate_critique()`.
+- [x] Load config and choose exactly one configured provider.
+- [x] Build normalized prompt request.
+- [x] Call provider adapter.
+- [x] Parse returned JSON.
+- [x] Validate against `InnerVoiceReviewResult`.
+- [x] Return normalized persistence payloads plus structured result.
 
 ## 6.2 Failure behavior
 
-- [ ] Detect and classify:
-  - [ ] provider unavailable
-  - [ ] timeout
-  - [ ] invalid auth
-  - [ ] malformed provider output
-  - [ ] schema validation failure
-  - [ ] prompt too large
+- [x] Detect and classify:
+  - [x] provider unavailable
+  - [x] timeout
+  - [x] invalid auth
+  - [x] malformed provider output
+  - [x] schema validation failure
+  - [x] prompt too large
   - [ ] required stage invocation missing
 - [ ] Produce explicit structured failure objects.
-- [ ] Ensure required-path failures resolve fail-closed.
-- [ ] Ensure optional-path failures remain auditable when `persist_failures=True`.
+- [x] Ensure required-path failures resolve fail-closed.
+- [x] Ensure optional-path failures remain auditable when `persist_failures=True`.
 
 ## 6.3 Persistence payload shaping
 
-- [ ] Return archive payloads for:
-  - [ ] sanitized prompt summary
-  - [ ] raw prompt if allowed
-  - [ ] sanitized response summary
-  - [ ] raw response if allowed
-- [ ] Return ledger-ready payload for `INNER_VOICE_REVIEW`.
-- [ ] Include artifact linkage fields in the result.
+- [x] Return archive payloads for:
+  - [x] sanitized prompt summary
+  - [x] raw prompt if allowed
+  - [x] sanitized response summary
+  - [x] raw response if allowed
+- [x] Return ledger-ready payload for `INNER_VOICE_REVIEW`.
+- [x] Include artifact linkage fields in the result.
 
 ---
 
@@ -600,7 +600,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 ## 11.1 Evidence archival integration
 
 - [x] Wire prompt/response/debate/Arbiter artifact creation through `receipt_and_evidence_archiver`.
-- [ ] Preserve audit metadata:
+- [x] Preserve audit metadata:
   - [x] review IDs
   - [x] debate IDs
   - [x] subject IDs
@@ -651,7 +651,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 - [x] Test successful critique generation.
 - [x] Test schema validation failure path.
-- [ ] Test prompt-too-large path.
+- [x] Test prompt-too-large path.
 - [x] Test failure persistence behavior.
 - [x] Test archive payload shaping.
 
