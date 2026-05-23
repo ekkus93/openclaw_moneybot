@@ -357,38 +357,38 @@ src/openclaw_moneybot/plugins/biomedical_research_plugin/service.py
 
 ## 7.2 Shared request and failure handling
 
-- [ ] Add test: `search()` rejects requests when disabled.
-- [ ] Add test: `search()` rejects counts above `max_results`.
-- [ ] Add test: `get_paper()` rejects requests when disabled.
-- [ ] Add test: provider-specific search failures record the expected audit event names.
-- [ ] Add test: provider-specific lookup failures record the expected audit event names.
-- [ ] Add test: `_provider_label()` returns stable provider labels for PubMed and Europe PMC.
+- [x] Add test: `search()` rejects requests when disabled.
+- [x] Add test: `search()` rejects counts above `max_results`.
+- [x] Add test: `get_paper()` rejects requests when disabled.
+- [x] Add test: provider-specific search failures record the expected audit event names.
+- [x] Add test: provider-specific lookup failures record the expected audit event names.
+- [x] Add test: `_provider_label()` returns stable provider labels for PubMed and Europe PMC.
 
 ## 7.3 PubMed branches
 
-- [ ] Add test: `_search_pubmed()` rejects non-object search payloads.
-- [ ] Add test: `_search_pubmed()` rejects missing `esearchresult`.
-- [ ] Add test: `_search_pubmed()` rejects non-list `idlist`.
-- [ ] Add test: `_search_pubmed()` returns an empty result set without calling fetch when the search ID list is empty.
-- [ ] Add test: `_get_pubmed_paper()` raises when the fetched XML contains no matching paper.
-- [ ] Add test: PubMed term-building includes publication-year filtering when requested.
+- [x] Add test: `_search_pubmed()` rejects non-object search payloads.
+- [x] Add test: `_search_pubmed()` rejects missing `esearchresult`.
+- [x] Add test: `_search_pubmed()` rejects non-list `idlist`.
+- [x] Add test: `_search_pubmed()` returns an empty result set without calling fetch when the search ID list is empty.
+- [x] Add test: `_get_pubmed_paper()` raises when the fetched XML contains no matching paper.
+- [x] Add test: PubMed term-building includes publication-year filtering when requested.
 
 ## 7.4 Europe PMC branches
 
-- [ ] Add test: `_search_europe_pmc()` rejects non-object payloads.
-- [ ] Add test: `_get_europe_pmc_paper()` rejects non-object payloads.
-- [ ] Add test: `_get_europe_pmc_paper()` raises when no matching paper is returned.
-- [ ] Add test: Europe PMC query-building includes publication-year filtering when requested.
-- [ ] Add test: `_normalize_europe_pmc_results()` tolerates missing/non-integer hit counts.
-- [ ] Add test: `_normalize_europe_pmc_results()` skips malformed result items instead of crashing.
+- [x] Add test: `_search_europe_pmc()` rejects non-object payloads.
+- [x] Add test: `_get_europe_pmc_paper()` rejects non-object payloads.
+- [x] Add test: `_get_europe_pmc_paper()` raises when no matching paper is returned.
+- [x] Add test: Europe PMC query-building includes publication-year filtering when requested.
+- [x] Add test: `_normalize_europe_pmc_results()` tolerates missing/non-integer hit counts.
+- [x] Add test: `_normalize_europe_pmc_results()` skips malformed result items instead of crashing.
 
 ## 7.5 Paper normalization helpers
 
-- [ ] Add test: PubMed XML parsing rejects malformed XML.
-- [ ] Add test: PubMed article parsing keeps multiple abstract sections in deterministic order.
-- [ ] Add test: Europe PMC normalization trims blank optional strings to `None`.
-- [ ] Add test: DOI/PMID/PMCID helper branches normalize missing identifiers safely.
-- [ ] Add test: integer/date/string helper functions tolerate malformed provider values safely.
+- [x] Add test: PubMed XML parsing rejects malformed XML.
+- [x] Add test: PubMed article parsing keeps multiple abstract sections in deterministic order.
+- [x] Add test: Europe PMC normalization trims blank optional strings to `None`.
+- [x] Add test: DOI/PMID/PMCID helper branches normalize missing identifiers safely.
+- [x] Add test: integer/date/string helper functions tolerate malformed provider values safely.
 
 ---
 
@@ -404,37 +404,37 @@ src/openclaw_moneybot/plugins/stock_market_data_plugin/service.py
 
 ## 8.2 Request gating and provider failures
 
-- [ ] Add test: `health()` reports `missing_api_key` when the configured env var is unset or blank.
-- [ ] Add test: `get_quote()` rejects requests when disabled.
-- [ ] Add test: `get_daily_bars()` rejects requests when disabled.
-- [ ] Add test: `get_daily_bars()` rejects counts above `max_daily_bars`.
-- [ ] Add test: `_required_api_key()` fails closed when the API key is missing.
-- [ ] Add test: `_query()` records `transport_error` on transport failures.
-- [ ] Add test: `_query()` records `invalid_response` on invalid HTTP/JSON failures.
-- [ ] Add test: `_query()` rejects non-object payloads.
-- [ ] Add test: `_query()` maps provider `Error Message`, `Note`, and `Information` fields into fail-closed errors.
+- [x] Add test: `health()` reports `missing_api_key` when the configured env var is unset or blank.
+- [x] Add test: `get_quote()` rejects requests when disabled.
+- [x] Add test: `get_daily_bars()` rejects requests when disabled.
+- [x] Add test: `get_daily_bars()` rejects counts above `max_daily_bars`.
+- [x] Add test: `_required_api_key()` fails closed when the API key is missing.
+- [x] Add test: `_query()` records `transport_error` on transport failures.
+- [x] Add test: `_query()` records `invalid_response` on invalid HTTP/JSON failures.
+- [x] Add test: `_query()` rejects non-object payloads.
+- [x] Add test: `_query()` maps provider `Error Message`, `Note`, and `Information` fields into fail-closed errors.
 
 ## 8.3 Quote normalization
 
-- [ ] Add test: `get_quote()` rejects missing `Global Quote`.
-- [ ] Add test: `_normalize_quote()` rejects missing required symbol and price fields.
-- [ ] Add test: `_normalize_quote()` tolerates missing optional numeric fields by returning `None`.
-- [ ] Add test: `_normalize_quote()` parses percentage strings into numeric percentage values.
+- [x] Add test: `get_quote()` rejects missing `Global Quote`.
+- [x] Add test: `_normalize_quote()` rejects missing required symbol and price fields.
+- [x] Add test: `_normalize_quote()` tolerates missing optional numeric fields by returning `None`.
+- [x] Add test: `_normalize_quote()` parses percentage strings into numeric percentage values.
 
 ## 8.4 Daily-bars normalization
 
-- [ ] Add test: `_normalize_daily_bars()` rejects missing `Time Series (Daily)`.
-- [ ] Add test: `_normalize_daily_bars()` uses provider symbol from metadata when it differs from the requested symbol.
-- [ ] Add test: `_normalize_daily_bars()` leaves `last_refreshed=None` when metadata is missing or malformed.
-- [ ] Add test: `_normalize_daily_bars()` skips malformed trading-day rows instead of crashing.
-- [ ] Add test: `_normalize_daily_bars()` returns bars in deterministic trading-day order and truncates to `count`.
+- [x] Add test: `_normalize_daily_bars()` rejects missing `Time Series (Daily)`.
+- [x] Add test: `_normalize_daily_bars()` uses provider symbol from metadata when it differs from the requested symbol.
+- [x] Add test: `_normalize_daily_bars()` leaves `last_refreshed=None` when metadata is missing or malformed.
+- [x] Add test: `_normalize_daily_bars()` skips malformed trading-day rows instead of crashing.
+- [x] Add test: `_normalize_daily_bars()` returns bars in deterministic trading-day order and truncates to `count`.
 
 ## 8.5 Scalar parsing helpers
 
-- [ ] Add test: `_required_string()` trims whitespace and rejects blanks.
-- [ ] Add test: `_required_float()` rejects malformed numeric values.
-- [ ] Add test: `_optional_float()`, `_optional_int()`, and `_optional_string()` return `None` for blank or malformed values.
-- [ ] Add test: `_optional_percentage()` strips `%` and returns `None` for malformed inputs.
+- [x] Add test: `_required_string()` trims whitespace and rejects blanks.
+- [x] Add test: `_required_float()` rejects malformed numeric values.
+- [x] Add test: `_optional_float()`, `_optional_int()`, and `_optional_string()` return `None` for blank or malformed values.
+- [x] Add test: `_optional_percentage()` strips `%` and returns `None` for malformed inputs.
 
 ---
 

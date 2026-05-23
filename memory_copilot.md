@@ -301,3 +301,8 @@
 - Added the next UNIT_TEST3 coverage batch across `tests/unit/test_bluesky_discovery_plugin.py`, `tests/unit/test_wikipedia_research_plugin.py`, `tests/unit/test_arxiv_research_plugin.py`, and `tests/unit/test_openalex_research_plugin.py`.
 - The new tests cover disabled/limit gates, transport and invalid-payload failures, audit-event recording, normalization helpers, malformed-item tolerance, and parser-specific edge cases for the four research/discovery services.
 - `docs/UNIT_TEST3_TODO.md` sections 3-6 are now marked complete, and the repository passed full `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 740 passing tests after this phase.
+
+## 2026-05-23T07:48:42Z - GPT-5.4 - Completed UNIT_TEST3 biomedical and stock phase
+- Added the next UNIT_TEST3 coverage batch across `tests/unit/test_biomedical_research_plugin.py` and `tests/unit/test_stock_market_data_plugin.py`.
+- The new tests cover provider-specific biomedical failure events, PubMed and Europe PMC parser branches, bounded normalization helpers, Alpha Vantage credential and provider-error handling, quote and daily-bar normalization, and scalar parsing edge cases.
+- `docs/UNIT_TEST3_TODO.md` sections 7-8 are now marked complete, and the repository passed full `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 786 passing tests after this phase.

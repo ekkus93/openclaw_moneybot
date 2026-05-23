@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import httpx
@@ -75,6 +76,15 @@ def make_plugin(
         transport=handler,
     )
     return plugin, ledger_service
+
+
+def audit_event_payloads(ledger_service: LedgerService) -> list[dict[str, object]]:
+    payloads: list[dict[str, object]] = []
+    for event in ledger_service.get_related_events(related_type=RecordType.AUDIT_EVENT):
+        payload = event.payload.get("payload")
+        if isinstance(payload, dict):
+            payloads.append(payload)
+    return payloads
 
 
 def test_pubmed_search_returns_bounded_normalized_results(tmp_path: Path) -> None:
@@ -212,6 +222,20 @@ def test_search_rejects_when_plugin_disabled(tmp_path: Path) -> None:
         plugin.search(BiomedicalSearchRequest(provider="pubmed", query="cancer biomarkers"))
 
 
+def test_search_rejects_counts_above_max_results(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    with pytest.raises(ValueError, match="configured maximum"):
+        plugin.search(BiomedicalSearchRequest(provider="pubmed", query="x", count=6))
+
+
+def test_get_paper_rejects_when_plugin_disabled(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path, enabled=False)
+
+    with pytest.raises(ValueError, match="disabled"):
+        plugin.get_paper(BiomedicalPaperRequest(provider="pubmed", paper_id="123"))
+
+
 def test_search_surfaces_transport_failures_as_plugin_errors(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("boom", request=request)
@@ -220,3 +244,294 @@ def test_search_surfaces_transport_failures_as_plugin_errors(tmp_path: Path) -> 
 
     with pytest.raises(BiomedicalResearchPluginError, match="unavailable"):
         plugin.search(BiomedicalSearchRequest(provider="pubmed", query="cancer biomarkers"))
+
+
+@pytest.mark.parametrize(
+    ("provider", "expected_event"),
+    [
+        ("pubmed", "pubmed_search_failed"),
+        ("europe_pmc", "europe_pmc_search_failed"),
+    ],
+)
+def test_search_records_provider_specific_failure_events(
+    tmp_path: Path,
+    provider: str,
+    expected_event: str,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("boom", request=request)
+
+    plugin, ledger_service = make_plugin(
+        tmp_path,
+        handler=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(BiomedicalResearchPluginError, match="unavailable"):
+        plugin.search(BiomedicalSearchRequest(provider=provider, query="cancer"))
+
+    assert audit_event_payloads(ledger_service)[-1]["event_name"] == expected_event
+
+
+@pytest.mark.parametrize(
+    ("provider", "expected_event"),
+    [
+        ("pubmed", "pubmed_paper_lookup_failed"),
+        ("europe_pmc", "europe_pmc_paper_lookup_failed"),
+    ],
+)
+def test_get_paper_records_provider_specific_failure_events(
+    tmp_path: Path,
+    provider: str,
+    expected_event: str,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("boom", request=request)
+
+    plugin, ledger_service = make_plugin(
+        tmp_path,
+        handler=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(BiomedicalResearchPluginError, match="unavailable"):
+        plugin.get_paper(BiomedicalPaperRequest(provider=provider, paper_id="123"))
+
+    assert audit_event_payloads(ledger_service)[-1]["event_name"] == expected_event
+
+
+def test_provider_label_returns_stable_values(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    assert plugin._provider_label("pubmed") == "PubMed"
+    assert plugin._provider_label("europe_pmc") == "Europe PMC"
+
+
+def test_search_pubmed_rejects_non_object_payload(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=["bad"])
+
+    plugin, _ = make_plugin(tmp_path, handler=httpx.MockTransport(handler))
+
+    with pytest.raises(BiomedicalResearchPluginError, match="JSON object"):
+        plugin._search_pubmed(BiomedicalSearchRequest(provider="pubmed", query="x"))
+
+
+def test_search_pubmed_rejects_missing_esearchresult(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={})
+
+    plugin, _ = make_plugin(tmp_path, handler=httpx.MockTransport(handler))
+
+    with pytest.raises(BiomedicalResearchPluginError, match="esearchresult"):
+        plugin._search_pubmed(BiomedicalSearchRequest(provider="pubmed", query="x"))
+
+
+def test_search_pubmed_rejects_non_list_idlist(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"esearchresult": {"idlist": "123"}})
+
+    plugin, _ = make_plugin(tmp_path, handler=httpx.MockTransport(handler))
+
+    with pytest.raises(BiomedicalResearchPluginError, match="idlist must be a list"):
+        plugin._search_pubmed(BiomedicalSearchRequest(provider="pubmed", query="x"))
+
+
+def test_search_pubmed_returns_empty_results_without_fetch(tmp_path: Path) -> None:
+    requests: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request.url.path)
+        return httpx.Response(
+            200,
+            json={"esearchresult": {"count": "0", "idlist": []}},
+        )
+
+    plugin, _ = make_plugin(tmp_path, handler=httpx.MockTransport(handler))
+
+    results, total, payload = plugin._search_pubmed(
+        BiomedicalSearchRequest(provider="pubmed", query="x")
+    )
+
+    assert results == []
+    assert total == 0
+    assert requests == ["/entrez/eutils/esearch.fcgi"]
+    assert "search" in payload
+
+
+def test_get_pubmed_paper_raises_when_no_matching_paper_returned(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="<PubmedArticleSet />")
+
+    plugin, _ = make_plugin(tmp_path, handler=httpx.MockTransport(handler))
+
+    with pytest.raises(BiomedicalResearchPluginError, match="no matching paper"):
+        plugin._get_pubmed_paper("123")
+
+
+def test_pubmed_term_includes_publication_year_filter(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    assert plugin._pubmed_term("  gene   therapy ", 2024) == "gene therapy AND 2024[pdat]"
+
+
+def test_search_europe_pmc_rejects_non_object_payload(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=["bad"])
+
+    plugin, _ = make_plugin(tmp_path, handler=httpx.MockTransport(handler))
+
+    with pytest.raises(BiomedicalResearchPluginError, match="JSON object"):
+        plugin._search_europe_pmc(
+            BiomedicalSearchRequest(provider="europe_pmc", query="x")
+        )
+
+
+def test_get_europe_pmc_paper_rejects_non_object_payload(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=["bad"])
+
+    plugin, _ = make_plugin(tmp_path, handler=httpx.MockTransport(handler))
+
+    with pytest.raises(BiomedicalResearchPluginError, match="JSON object"):
+        plugin._get_europe_pmc_paper("123")
+
+
+def test_get_europe_pmc_paper_raises_when_no_matching_result_returned(
+    tmp_path: Path,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"hitCount": 0, "resultList": {"result": []}},
+        )
+
+    plugin, _ = make_plugin(tmp_path, handler=httpx.MockTransport(handler))
+
+    with pytest.raises(BiomedicalResearchPluginError, match="no matching paper"):
+        plugin._get_europe_pmc_paper("123")
+
+
+def test_europe_pmc_query_includes_publication_year_filter(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    assert plugin._europe_pmc_query("  gene   therapy ", 2024) == "gene therapy PUB_YEAR:2024"
+
+
+def test_normalize_europe_pmc_results_tolerates_missing_hit_count_and_skips_bad_items(
+    tmp_path: Path,
+) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    results, total = plugin._normalize_europe_pmc_results(
+        {
+            "hitCount": "unknown",
+            "resultList": {
+                "result": [
+                    "bad",
+                    {
+                        "id": "123",
+                        "title": " Example ",
+                        "abstractText": "Body",
+                        "authorString": "Ada Lovelace",
+                    },
+                ]
+            },
+        },
+        limit=5,
+    )
+
+    assert total is None
+    assert len(results) == 1
+    assert results[0].paper_id == "123"
+
+
+def test_parse_pubmed_articles_rejects_malformed_xml(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    with pytest.raises(BiomedicalResearchPluginError, match="valid XML"):
+        plugin._parse_pubmed_articles("<PubmedArticleSet>", limit=1)
+
+
+def test_parse_pubmed_article_keeps_abstract_sections_in_order(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+    root = ET.fromstring(_PUBMED_FETCH_XML)
+    article = root.find("./PubmedArticle")
+    assert article is not None
+
+    result = plugin._parse_pubmed_article(article)
+
+    assert result.abstract.startswith("Background: Agents help with discovery.")
+    assert "They stay bounded and auditable." in result.abstract
+
+
+def test_europe_pmc_normalization_trims_blank_optional_strings_to_none(
+    tmp_path: Path,
+) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    item = plugin._normalize_europe_pmc_item(
+        {
+            "id": "123",
+            "title": " Example ",
+            "abstractText": "Body",
+            "journalTitle": "   ",
+            "doi": "  ",
+            "pmid": "  ",
+            "pmcid": "  ",
+        }
+    )
+
+    assert item.journal is None
+    assert item.doi is None
+    assert item.pmid is None
+    assert item.pmcid is None
+    assert item.source_url is None
+
+
+def test_pubmed_identifier_helpers_skip_blank_and_missing_values(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+    root = ET.fromstring(
+        """
+        <PubmedArticle>
+          <PubmedData>
+            <ArticleIdList>
+              <ArticleId IdType="doi"> </ArticleId>
+              <ArticleId IdType="pmc">PMC123</ArticleId>
+            </ArticleIdList>
+          </PubmedData>
+        </PubmedArticle>
+        """
+    )
+
+    doi, pmcid = plugin._pubmed_identifiers(root)
+
+    assert doi is None
+    assert pmcid == "PMC123"
+
+
+def test_scalar_helpers_tolerate_malformed_values_safely(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    assert plugin._to_int("abc") is None
+    assert plugin._to_int(7) == 7
+    assert plugin._string_or_none("  ") is None
+    assert plugin._first_string(None, "  ", "value") == "value"
+    assert plugin._bool_from_yn(" maybe ") is None
+
+
+def test_publication_date_uses_medline_date_fallback(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+    article = ET.fromstring(
+        """
+        <Article>
+          <Journal>
+            <JournalIssue>
+              <PubDate>
+                <MedlineDate>2024 Spring</MedlineDate>
+              </PubDate>
+            </JournalIssue>
+          </Journal>
+        </Article>
+        """
+    )
+
+    assert plugin._pubmed_publication_date(article) == "2024 Spring"
