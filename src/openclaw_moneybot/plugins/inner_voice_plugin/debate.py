@@ -20,7 +20,9 @@ from openclaw_moneybot.plugins.inner_voice_plugin.models import (
     InnerVoiceDebateRequest,
     InnerVoiceDebateSession,
     InnerVoiceDebateTurn,
+    InnerVoiceFailureDetails,
     InnerVoiceMetricsSnapshot,
+    ProviderResponseSummary,
 )
 from openclaw_moneybot.plugins.inner_voice_plugin.prompting import (
     archive_text,
@@ -106,6 +108,7 @@ class InnerVoiceCoordinator:
         arbiter_review_id: str | None = None
         resolved_disposition: InnerVoiceDisposition | None = None
         arbiter_result = None
+        resolution_outcome = "needs_review"
 
         record_plugin_audit_event(
             self.ledger_service,
@@ -157,6 +160,8 @@ class InnerVoiceCoordinator:
                     converged = True
                     ended_reason = DebateEndedReason.CONVERGED
                     resolved_disposition = turns[-1].disposition_signal
+                    if resolved_disposition is not None:
+                        resolution_outcome = resolved_disposition.value
                     break
                 if round_index >= max_rounds:
                     ended_reason = DebateEndedReason.MAX_ROUNDS_REACHED
@@ -204,6 +209,8 @@ class InnerVoiceCoordinator:
                     converged = True
                     ended_reason = DebateEndedReason.CONVERGED
                     resolved_disposition = turns[-1].disposition_signal
+                    if resolved_disposition is not None:
+                        resolution_outcome = resolved_disposition.value
                     break
             transcript_archive_ids = self._archive_debate_transcript(
                 debate_id=debate_id,
@@ -261,11 +268,13 @@ class InnerVoiceCoordinator:
                     ),
                     required=True,
                 )
+                resolution_outcome = arbiter_result.final_resolution.value
             summary_archive_id = self._archive_debate_summary(
                 debate_id=debate_id,
                 stage=request.stage.value,
                 turns=turns,
                 ended_reason=ended_reason,
+                transcript_archive_ids=transcript_archive_ids,
                 openclaw_review_id=request.openclaw_review_id,
                 inner_voice_review_id=request.inner_voice_review_id,
                 arbiter_review_id=arbiter_result.arbiter_review_id if arbiter_result else None,
@@ -312,6 +321,8 @@ class InnerVoiceCoordinator:
                     "ended_reason": ended_reason.value,
                     "converged": converged,
                     "completed_rounds": session.completed_rounds,
+                    "final_resolution_source": "debate" if converged else "arbiter",
+                    "resolution_outcome": resolution_outcome,
                     "arbiter_requested_by": arbiter_requested_by.value
                     if arbiter_requested_by is not None
                     else None,
@@ -360,13 +371,20 @@ class InnerVoiceCoordinator:
                         "failure_message": str(error),
                     },
                 )
-            self._persist_failure(
+            failure_class = getattr(error, "failure_class", "debate_error")
+            failure = self._persist_failure(
                 debate_id=debate_id,
+                subject_type=request.subject_type.value,
                 subject_id=request.subject_id,
                 stage=request.stage.value,
+                failure_class=failure_class,
                 failure_message=str(error),
             )
-            raise InnerVoiceDebateError(str(error)) from error
+            raise InnerVoiceDebateError(
+                str(error),
+                failure_class=failure.failure_class,
+                failure=failure,
+            ) from error
 
     @staticmethod
     def _has_converged(
@@ -435,6 +453,7 @@ class InnerVoiceCoordinator:
         *,
         debate_id: str,
         stage: str,
+        transcript_archive_ids: Sequence[str],
         turns: Sequence[InnerVoiceDebateTurn],
         ended_reason: DebateEndedReason,
         openclaw_review_id: str | None,
@@ -447,6 +466,7 @@ class InnerVoiceCoordinator:
         summary_payload: dict[str, object] = {
             "ended_reason": ended_reason.value,
             "turn_count": len(turns),
+            "transcript_archive_ids": list(transcript_archive_ids),
             "openclaw_review_id": openclaw_review_id,
             "inner_voice_review_id": inner_voice_review_id,
             "transcript_summary": summarize_transcript(
@@ -485,10 +505,22 @@ class InnerVoiceCoordinator:
         self,
         *,
         debate_id: str,
+        subject_type: str,
         subject_id: str,
         stage: str,
+        failure_class: str,
         failure_message: str,
-    ) -> None:
+    ) -> InnerVoiceFailureDetails:
+        failure = InnerVoiceFailureDetails(
+            record_id=debate_id,
+            record_type=RecordType.INNER_VOICE_DEBATE,
+            stage=stage,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            failure_class=failure_class,
+            failure_message=failure_message,
+            was_required=True,
+        )
         self.archiver.archive(
             EvidenceArchiveRequest(
                 related_type=RecordType.INNER_VOICE_DEBATE,
@@ -496,7 +528,7 @@ class InnerVoiceCoordinator:
                 evidence_type="inner_voice_failure",
                 content_text=sanitize_text(failure_message),
                 notes="Inner voice debate failure summary",
-                summary_hint=stage,
+                summary_hint=failure_class,
             )
         )
         record_plugin_audit_event(
@@ -505,8 +537,11 @@ class InnerVoiceCoordinator:
             event_name="inner_voice_debate_failed",
             payload={
                 "stage": stage,
+                "subject_type": subject_type,
                 "subject_id": subject_id,
+                "failure_class": failure_class,
                 "failure_message": failure_message,
+                "failure": failure.model_dump(mode="json"),
             },
         )
         record_structured_result(
@@ -517,11 +552,15 @@ class InnerVoiceCoordinator:
             payload={
                 "status": "failed",
                 "stage": stage,
+                "subject_type": subject_type,
                 "subject_id": subject_id,
                 "resolved_disposition": "needs_review",
+                "failure_class": failure_class,
                 "failure_message": failure_message,
+                "failure": failure.model_dump(mode="json"),
             },
         )
+        return failure
 
     @staticmethod
     def _latest_position(turns: Sequence[InnerVoiceDebateTurn], speaker: DebateSpeaker) -> str:
@@ -586,14 +625,18 @@ def build_metrics_snapshot(
             if severity is not None:
                 severity_value = severity.value if hasattr(severity, "value") else str(severity)
                 objection_severity_counts[severity_value] += 1
-        raw_summary = getattr(review, "raw_response_summary", {})
-        if isinstance(raw_summary, dict):
-            prompt_chars = raw_summary.get("prompt_chars")
-            if isinstance(prompt_chars, int):
-                prompt_sizes.append(prompt_chars)
-            response_chars = raw_summary.get("response_chars")
-            if isinstance(response_chars, int):
-                response_sizes.append(response_chars)
+        prompt_chars = _summary_int_value(
+            getattr(review, "raw_response_summary", {}),
+            "prompt_chars",
+        )
+        if prompt_chars is not None:
+            prompt_sizes.append(prompt_chars)
+        response_chars = _summary_int_value(
+            getattr(review, "raw_response_summary", {}),
+            "response_chars",
+        )
+        if response_chars is not None:
+            response_sizes.append(response_chars)
     debate_session_count_by_stage: Counter[str] = Counter()
     completed_rounds: list[int] = []
     transcript_sizes: list[int] = []
@@ -625,22 +668,28 @@ def build_metrics_snapshot(
         followups = getattr(arbiter, "required_followups", [])
         if isinstance(followups, Sequence):
             followup_count += len(followups)
-        raw_summary = getattr(arbiter, "raw_response_summary", {})
-        if isinstance(raw_summary, dict):
-            prompt_chars = raw_summary.get("prompt_chars")
-            if isinstance(prompt_chars, int):
-                prompt_sizes.append(prompt_chars)
-            response_chars = raw_summary.get("response_chars")
-            if isinstance(response_chars, int):
-                response_sizes.append(response_chars)
-        if hasattr(arbiter, "failure_class"):
+        prompt_chars = _summary_int_value(
+            getattr(arbiter, "raw_response_summary", {}),
+            "prompt_chars",
+        )
+        if prompt_chars is not None:
+            prompt_sizes.append(prompt_chars)
+        response_chars = _summary_int_value(
+            getattr(arbiter, "raw_response_summary", {}),
+            "response_chars",
+        )
+        if response_chars is not None:
+            response_sizes.append(response_chars)
+        if hasattr(arbiter, "failure_class") or getattr(arbiter, "failure", None) is not None:
             arbiter_failures += 1
 
     total_debates = len(debate_outcomes) or 1
     total_arbiters = len(arbiter_results) or 1
     total_provider_results = len(review_results) + len(arbiter_results) or 1
     provider_failures = sum(
-        1 for item in [*review_results, *arbiter_results] if hasattr(item, "failure_class")
+        1
+        for item in [*review_results, *arbiter_results]
+        if hasattr(item, "failure_class") or getattr(item, "failure", None) is not None
     )
     return InnerVoiceMetricsSnapshot(
         invocation_count_by_stage=dict(invocation_count_by_stage),
@@ -664,3 +713,13 @@ def build_metrics_snapshot(
             sum(transcript_sizes) / len(transcript_sizes) if transcript_sizes else 0.0
         ),
     )
+
+
+def _summary_int_value(summary: object, key: str) -> int | None:
+    if isinstance(summary, ProviderResponseSummary):
+        value = getattr(summary, key, None)
+        return value if isinstance(value, int) else None
+    if isinstance(summary, dict):
+        value = summary.get(key)
+        return value if isinstance(value, int) else None
+    return None

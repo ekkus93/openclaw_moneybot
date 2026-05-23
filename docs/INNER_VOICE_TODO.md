@@ -420,7 +420,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
   - [x] schema validation failure
   - [x] prompt too large
   - [x] required stage invocation missing
-- [ ] Produce explicit structured failure objects.
+- [x] Produce explicit structured failure objects.
 - [x] Ensure required-path failures resolve fail-closed.
 - [x] Ensure optional-path failures remain auditable when `persist_failures=True`.
 
@@ -577,7 +577,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 ## 10.2 Debate result interpretation
 
 - [x] Ensure converged debate feeds a single structured result back into orchestration.
-- [ ] Ensure debate transcript IDs remain linked to downstream review records.
+- [x] Ensure debate transcript IDs remain linked to downstream review records.
 
 ## 10.3 Arbiter result interpretation
 
@@ -706,27 +706,27 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 ## 14.1 Metrics implementation
 
-- [ ] Emit or persist metrics for:
-  - [ ] inner voice invocation count by stage
-  - [ ] `needs_review` rate by stage
-  - [ ] objection severity distribution
-  - [ ] debate session count by stage
-  - [ ] average completed debate rounds
-  - [ ] arbiter request rate
-  - [ ] arbiter invocation rate
-  - [ ] arbiter prevailing-side distribution
-  - [ ] arbiter failure rate
-  - [ ] follow-up check creation rate
-  - [ ] provider failure rate
-  - [ ] average prompt size
-  - [ ] average response size
-  - [ ] average transcript size
+- [x] Emit or persist metrics for:
+  - [x] inner voice invocation count by stage
+  - [x] `needs_review` rate by stage
+  - [x] objection severity distribution
+  - [x] debate session count by stage
+  - [x] average completed debate rounds
+  - [x] arbiter request rate
+  - [x] arbiter invocation rate
+  - [x] arbiter prevailing-side distribution
+  - [x] arbiter failure rate
+  - [x] follow-up check creation rate
+  - [x] provider failure rate
+  - [x] average prompt size
+  - [x] average response size
+  - [x] average transcript size
 
 ## 14.2 Diagnostics and audit ergonomics
 
-- [ ] Add stable summaries for `raw_response_summary`.
-- [ ] Ensure archived summaries are understandable without raw provider payloads.
-- [ ] Ensure debate and Arbiter records are queryable by subject, stage, and outcome.
+- [x] Add stable summaries for `raw_response_summary`.
+- [x] Ensure archived summaries are understandable without raw provider payloads.
+- [x] Ensure debate and Arbiter records are queryable by subject, stage, and outcome.
 
 ---
 

@@ -25,6 +25,10 @@ from openclaw_moneybot.plugins.inner_voice_plugin import (
     InnerVoicePluginError,
     InnerVoiceReviewRequest,
     build_metrics_snapshot,
+    list_arbiter_reviews,
+    list_inner_voice_debates,
+    list_inner_voice_reviews,
+    persist_metrics_snapshot,
 )
 from openclaw_moneybot.plugins.inner_voice_plugin.prompting import build_inner_voice_prompt
 from openclaw_moneybot.shared import ArbiterConfig, ArchiveConfig, InnerVoiceConfig
@@ -281,7 +285,7 @@ def test_ollama_inner_voice_review_shapes_request(tmp_path: Path) -> None:
     result = plugin.review(make_review_request())
 
     assert result.recommended_disposition is InnerVoiceDisposition.PROCEED
-    assert result.raw_response_summary["prompt_tokens"] == 12
+    assert result.raw_response_summary.prompt_tokens == 12
 
 
 def test_inner_voice_health_reports_provider_unreachable(tmp_path: Path) -> None:
@@ -419,7 +423,7 @@ def test_arbiter_failure_archives_sanitized_request_summary(tmp_path: Path) -> N
         handler=httpx.MockTransport(handler),
     )
 
-    with pytest.raises(ArbiterResolutionError, match="malformed JSON"):
+    with pytest.raises(ArbiterResolutionError, match="malformed JSON") as error:
         service.resolve(
             ArbiterResolutionRequest(
                 arbiter_review_id="arbiter_failure_001",
@@ -436,6 +440,17 @@ def test_arbiter_failure_archives_sanitized_request_summary(tmp_path: Path) -> N
             )
         )
 
+    assert error.value.failure is not None
+    assert error.value.failure.record_id == "arbiter_failure_001"
+    assert error.value.failure.record_type is RecordType.ARBITER_REVIEW
+    assert error.value.failure.stage == "pre_execution"
+    assert error.value.failure.subject_type == "experiment_plan"
+    assert error.value.failure.subject_id == "plan_001"
+    assert error.value.failure.provider is ProviderName.LLAMA_SERVER
+    assert error.value.failure.model_name == "arbiter-model"
+    assert error.value.failure.failure_class == "malformed_output"
+    assert error.value.failure.failure_message == "Provider returned malformed JSON."
+    assert error.value.failure.was_required is True
     evidence = ledger_service.list_evidence_for_related(
         related_type=RecordType.ARBITER_REVIEW,
         related_id="arbiter_failure_001",
@@ -461,9 +476,20 @@ def test_inner_voice_review_persists_failure_on_malformed_output(
         handler=httpx.MockTransport(handler),
     )
 
-    with pytest.raises(InnerVoicePluginError, match="malformed JSON"):
+    with pytest.raises(InnerVoicePluginError, match="malformed JSON") as error:
         plugin.review(make_review_request(), required=True)
 
+    assert error.value.failure is not None
+    assert error.value.failure.record_id == "review_001"
+    assert error.value.failure.record_type is RecordType.INNER_VOICE_REVIEW
+    assert error.value.failure.stage == "tos_legal_check"
+    assert error.value.failure.subject_type == "opportunity"
+    assert error.value.failure.subject_id == "opp_001"
+    assert error.value.failure.provider is ProviderName.OPENAI
+    assert error.value.failure.model_name == "test-model"
+    assert error.value.failure.failure_class == "malformed_output"
+    assert error.value.failure.failure_message == "Provider returned malformed JSON."
+    assert error.value.failure.was_required is True
     evidence = ledger_service.list_evidence_for_related(
         related_type=RecordType.INNER_VOICE_REVIEW,
         related_id="review_001",
@@ -826,7 +852,7 @@ def test_arbiter_failure_results_in_debate_error_and_failed_record(
         ledger_service,
     )
 
-    with pytest.raises(InnerVoiceDebateError):
+    with pytest.raises(InnerVoiceDebateError) as error:
         coordinator.run_debate(
             InnerVoiceDebateRequest(
                 stage=InnerVoiceStage.PRE_EXECUTION,
@@ -843,6 +869,13 @@ def test_arbiter_failure_results_in_debate_error_and_failed_record(
             openclaw=StaticResponder([]),
         )
 
+    assert error.value.failure is not None
+    assert error.value.failure.record_type is RecordType.INNER_VOICE_DEBATE
+    assert error.value.failure.stage == "pre_execution"
+    assert error.value.failure.subject_type == "experiment_plan"
+    assert error.value.failure.subject_id == "plan_001"
+    assert error.value.failure.failure_class == "malformed_output"
+    assert error.value.failure.failure_message == "Provider returned malformed JSON."
     debate_records = ledger_service.get_related_events(related_id="plan_001")
     assert debate_records or ledger_service.get_opportunity("plan_001") is None
     audit_events = ledger_service.get_related_events(
@@ -1007,3 +1040,32 @@ def test_build_metrics_snapshot_summarizes_debate_and_arbiter_results(tmp_path: 
     assert snapshot.debate_session_count_by_stage["budget_planning"] == 1
     assert snapshot.average_prompt_size_chars > 0
     assert snapshot.average_response_size_chars > 0
+    metrics_record = persist_metrics_snapshot(
+        snapshot,
+        ledger_service=ledger_service,
+        archiver=inner_voice.archiver,
+        snapshot_id="inner_voice_metrics_001",
+    )
+    review_records = list_inner_voice_reviews(
+        ledger_service,
+        subject_id="opp_001",
+        stage=InnerVoiceStage.TOS_LEGAL_CHECK,
+        outcome="proceed",
+    )
+    debate_records = list_inner_voice_debates(
+        ledger_service,
+        subject_id="plan_001",
+        stage=InnerVoiceStage.BUDGET_PLANNING,
+        outcome="proceed",
+    )
+    arbiter_records = list_arbiter_reviews(
+        ledger_service,
+        subject_id="plan_001",
+        stage=InnerVoiceStage.BUDGET_PLANNING,
+        outcome="needs_review",
+    )
+
+    assert metrics_record.record_type is RecordType.METRICS_EXPORT
+    assert review_records[0].record_id == "review_metrics"
+    assert debate_records[0].payload["transcript_archive_ids"]
+    assert arbiter_records == []

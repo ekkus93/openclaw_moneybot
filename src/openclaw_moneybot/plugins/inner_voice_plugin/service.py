@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 import httpx
-from pydantic import JsonValue, ValidationError
+from pydantic import ValidationError
 
 from openclaw_moneybot.plugins.inner_voice_plugin.errors import (
     InnerVoicePluginError,
@@ -15,10 +15,12 @@ from openclaw_moneybot.plugins.inner_voice_plugin.models import (
     DebateResponderOutput,
     DebateResponderRequest,
     InnerVoiceDebateTurn,
+    InnerVoiceFailureDetails,
     InnerVoiceRawResponse,
     InnerVoiceReviewOutput,
     InnerVoiceReviewRequest,
     InnerVoiceReviewResult,
+    ProviderResponseSummary,
 )
 from openclaw_moneybot.plugins.inner_voice_plugin.prompting import (
     archive_text,
@@ -33,7 +35,6 @@ from openclaw_moneybot.plugins.inner_voice_plugin.providers import (
 )
 from openclaw_moneybot.plugins.support import (
     PluginHealthResult,
-    json_mapping,
     record_plugin_audit_event,
 )
 from openclaw_moneybot.shared import ArchiveConfig, InnerVoiceConfig
@@ -104,7 +105,7 @@ class InnerVoicePlugin:
             output = InnerVoiceReviewOutput.model_validate(parsed_payload)
         except (InnerVoiceProviderError, ValidationError, ValueError) as error:
             failure_class = self._classify_failure(error)
-            self._persist_failure(
+            failure = self._persist_failure(
                 review_id=request.review_id,
                 stage=request.stage.value,
                 subject_type=request.subject_type.value,
@@ -113,7 +114,11 @@ class InnerVoicePlugin:
                 failure_message=str(error),
                 required=required,
             )
-            raise InnerVoicePluginError(str(error), failure_class=failure_class) from error
+            raise InnerVoicePluginError(
+                str(error),
+                failure_class=failure_class,
+                failure=failure,
+            ) from error
 
         evidence_archive_ids = self._archive_prompt_and_response(
             related_id=request.review_id,
@@ -122,9 +127,11 @@ class InnerVoicePlugin:
                 "rendered_prompt": prompt.model_dump(mode="json"),
             },
             response_payload={
+                "provider": self.config.provider.value,
+                "model_name": self.config.model_name,
                 "response_text": raw.response_text,
                 "parsed_json": raw.parsed_json,
-                "raw_response_summary": self._raw_response_summary(raw),
+                "raw_response_summary": self._raw_response_summary(raw).model_dump(mode="json"),
             },
         )
         ledger_record = record_structured_result(
@@ -269,15 +276,15 @@ class InnerVoicePlugin:
         return [prompt_archive_id, response_archive_id]
 
     @staticmethod
-    def _raw_response_summary(raw: InnerVoiceRawResponse) -> dict[str, JsonValue]:
-        return json_mapping(
-            {
-                "finish_reason": raw.finish_reason,
-                "prompt_tokens": raw.prompt_tokens,
-                "completion_tokens": raw.completion_tokens,
-                "prompt_chars": raw.prompt_chars,
-                "response_chars": len(raw.response_text),
-            }
+    def _raw_response_summary(raw: InnerVoiceRawResponse) -> ProviderResponseSummary:
+        return ProviderResponseSummary(
+            provider=raw.provider,
+            model_name=raw.model_name,
+            finish_reason=raw.finish_reason,
+            prompt_tokens=raw.prompt_tokens,
+            completion_tokens=raw.completion_tokens,
+            prompt_chars=raw.prompt_chars,
+            response_chars=len(raw.response_text),
         )
 
     @staticmethod
@@ -300,7 +307,19 @@ class InnerVoicePlugin:
         failure_class: str,
         failure_message: str,
         required: bool,
-    ) -> None:
+    ) -> InnerVoiceFailureDetails:
+        failure = InnerVoiceFailureDetails(
+            record_id=review_id,
+            record_type=RecordType.INNER_VOICE_REVIEW,
+            stage=stage,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            provider=self.config.provider,
+            model_name=self.config.model_name,
+            failure_class=failure_class,
+            failure_message=failure_message,
+            was_required=required,
+        )
         if self.config.persist_failures:
             archive_id = self.archiver.archive(
                 EvidenceArchiveRequest(
@@ -328,6 +347,7 @@ class InnerVoicePlugin:
                     "failure_message": failure_message,
                     "was_required": required,
                     "resolved_disposition": "needs_review",
+                    "failure": failure.model_dump(mode="json"),
                     "evidence_archive_ids": [archive_id],
                 },
             )
@@ -339,5 +359,7 @@ class InnerVoicePlugin:
                 "failure_class": failure_class,
                 "failure_message": failure_message,
                 "was_required": required,
+                "failure": failure.model_dump(mode="json"),
             },
         )
+        return failure

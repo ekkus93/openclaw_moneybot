@@ -280,3 +280,7 @@
 - Added explicit OpenAI JSON-contract rejection for clearly incompatible endpoint/model configurations and documented the llama-server adapter's minimal content-part joining behavior before strict JSON validation.
 - Tightened orchestration's inner-voice interpretation matrix so spend-path budget reviews now route low-confidence or follow-up-gated results to `needs_review`, and added integration coverage for both budget-stage spend gating and Arbiter `adopt_inner_voice` interpretation.
 - Updated `docs/INNER_VOICE_TODO.md` to mark the provider-compatibility and deterministic-interpretation items completed in this phase.
+## 2026-05-23T06:53:50Z - GPT-5.4 - Added inner-voice diagnostics helpers
+- Inner-voice and Arbiter failures now carry typed structured failure objects, and review/Arbiter `raw_response_summary` values are now stable typed provider-response summaries instead of ad hoc dicts.
+- Added inner-voice observability helpers to persist computed metrics snapshots and to query persisted review, debate, and Arbiter records by subject, stage, and outcome through the ledger event stream.
+- Updated `docs/INNER_VOICE_TODO.md` to mark the diagnostics/observability items completed in this phase.

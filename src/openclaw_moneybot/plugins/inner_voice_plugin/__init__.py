@@ -24,6 +24,7 @@ from openclaw_moneybot.plugins.inner_voice_plugin.models import (
     InnerVoiceDebateRequest,
     InnerVoiceDebateSession,
     InnerVoiceDebateTurn,
+    InnerVoiceFailureDetails,
     InnerVoiceMetricsSnapshot,
     InnerVoiceObjection,
     InnerVoicePromptRequest,
@@ -31,6 +32,13 @@ from openclaw_moneybot.plugins.inner_voice_plugin.models import (
     InnerVoiceReviewOutput,
     InnerVoiceReviewRequest,
     InnerVoiceReviewResult,
+    ProviderResponseSummary,
+)
+from openclaw_moneybot.plugins.inner_voice_plugin.observability import (
+    list_arbiter_reviews,
+    list_inner_voice_debates,
+    list_inner_voice_reviews,
+    persist_metrics_snapshot,
 )
 from openclaw_moneybot.plugins.inner_voice_plugin.service import InnerVoicePlugin
 
@@ -51,15 +59,21 @@ __all__ = [
     "InnerVoiceDebateRequest",
     "InnerVoiceDebateSession",
     "InnerVoiceDebateTurn",
+    "InnerVoiceFailureDetails",
     "InnerVoiceMetricsSnapshot",
     "InnerVoiceObjection",
     "InnerVoicePlugin",
     "InnerVoicePluginError",
     "InnerVoicePromptRequest",
+    "ProviderResponseSummary",
     "InnerVoiceProviderError",
     "InnerVoiceRawResponse",
     "InnerVoiceReviewOutput",
     "InnerVoiceReviewRequest",
     "InnerVoiceReviewResult",
     "build_metrics_snapshot",
+    "list_arbiter_reviews",
+    "list_inner_voice_debates",
+    "list_inner_voice_reviews",
+    "persist_metrics_snapshot",
 ]

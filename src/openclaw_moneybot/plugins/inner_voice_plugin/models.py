@@ -21,6 +21,7 @@ from openclaw_moneybot.shared.types import (
     InnerVoiceStage,
     InnerVoiceSubjectType,
     ProviderName,
+    RecordType,
 )
 
 
@@ -75,6 +76,34 @@ class InnerVoiceRawResponse(MoneyBotModel):
     completion_tokens: int | None = Field(default=None, ge=0)
     prompt_chars: int | None = Field(default=None, ge=0)
     raw_payload: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class ProviderResponseSummary(MoneyBotModel):
+    """A stable, bounded summary of one provider response."""
+
+    provider: ProviderName
+    model_name: str
+    finish_reason: str | None = None
+    prompt_tokens: int | None = Field(default=None, ge=0)
+    completion_tokens: int | None = Field(default=None, ge=0)
+    prompt_chars: int | None = Field(default=None, ge=0)
+    response_chars: int = Field(ge=0)
+
+
+class InnerVoiceFailureDetails(MoneyBotModel):
+    """A structured failure object for review, debate, or Arbiter errors."""
+
+    record_id: str
+    record_type: RecordType
+    stage: str
+    subject_type: str | None = None
+    subject_id: str
+    provider: ProviderName | None = None
+    model_name: str | None = None
+    failure_class: str = Field(min_length=1, max_length=128)
+    failure_message: str = Field(min_length=1, max_length=8_000)
+    was_required: bool = False
+    resolved_disposition: InnerVoiceDisposition = InnerVoiceDisposition.NEEDS_REVIEW
 
 
 class InnerVoiceReviewRequest(MoneyBotModel):
@@ -136,7 +165,7 @@ class InnerVoiceReviewResult(InnerVoiceReviewOutput):
     stage: InnerVoiceStage
     subject_type: InnerVoiceSubjectType
     subject_id: str
-    raw_response_summary: dict[str, JsonValue] = Field(default_factory=dict)
+    raw_response_summary: ProviderResponseSummary
     evidence_archive_ids: list[str] = Field(default_factory=list)
     ledger_record: LedgerRecord
 
@@ -280,7 +309,7 @@ class ArbiterResolutionResult(ArbiterResolutionOutput):
     stage: InnerVoiceStage
     subject_type: InnerVoiceSubjectType
     subject_id: str
-    raw_response_summary: dict[str, JsonValue] = Field(default_factory=dict)
+    raw_response_summary: ProviderResponseSummary
     evidence_archive_ids: list[str] = Field(default_factory=list)
     ledger_record: LedgerRecord
 

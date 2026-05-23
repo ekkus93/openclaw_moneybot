@@ -111,10 +111,10 @@ class BaseProviderAdapter:
             payload = json.loads(text)
         except json.JSONDecodeError as error:
             msg = "Provider returned malformed JSON."
-            raise InnerVoiceProviderError(msg) from error
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output") from error
         if not isinstance(payload, dict):
             msg = "Provider response must be exactly one JSON object."
-            raise InnerVoiceProviderError(msg)
+            raise InnerVoiceProviderError(msg, failure_class="malformed_output")
         return cast(dict[str, JsonValue], payload)
 
     @staticmethod

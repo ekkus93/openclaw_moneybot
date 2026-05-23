@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 import httpx
-from pydantic import JsonValue, ValidationError
+from pydantic import ValidationError
 
 from openclaw_moneybot.plugins.inner_voice_plugin.errors import (
     ArbiterResolutionError,
@@ -15,7 +15,9 @@ from openclaw_moneybot.plugins.inner_voice_plugin.models import (
     ArbiterResolutionOutput,
     ArbiterResolutionRequest,
     ArbiterResolutionResult,
+    InnerVoiceFailureDetails,
     InnerVoiceRawResponse,
+    ProviderResponseSummary,
 )
 from openclaw_moneybot.plugins.inner_voice_plugin.prompting import (
     archive_text,
@@ -29,7 +31,6 @@ from openclaw_moneybot.plugins.inner_voice_plugin.providers import (
 )
 from openclaw_moneybot.plugins.support import (
     PluginHealthResult,
-    json_mapping,
     record_plugin_audit_event,
 )
 from openclaw_moneybot.shared import ArbiterConfig, ArchiveConfig
@@ -96,7 +97,7 @@ class ArbiterService:
             output = ArbiterResolutionOutput.model_validate(raw.parsed_json or {})
         except (InnerVoiceProviderError, ValidationError, ValueError) as error:
             failure_class = self._classify_failure(error)
-            self._persist_failure(
+            failure = self._persist_failure(
                 arbiter_review_id=request.arbiter_review_id,
                 debate_id=request.debate_id,
                 stage=request.stage.value,
@@ -111,7 +112,11 @@ class ArbiterService:
                     "model_name": self.config.model_name,
                 },
             )
-            raise ArbiterResolutionError(str(error), failure_class=failure_class) from error
+            raise ArbiterResolutionError(
+                str(error),
+                failure_class=failure_class,
+                failure=failure,
+            ) from error
 
         evidence_archive_ids = self._archive_prompt_and_response(
             related_id=request.arbiter_review_id,
@@ -120,9 +125,11 @@ class ArbiterService:
                 "rendered_prompt": prompt.model_dump(mode="json"),
             },
             response_payload={
+                "provider": self.config.provider.value,
+                "model_name": self.config.model_name,
                 "response_text": raw.response_text,
                 "parsed_json": raw.parsed_json,
-                "raw_response_summary": self._raw_response_summary(raw),
+                "raw_response_summary": self._raw_response_summary(raw).model_dump(mode="json"),
             },
         )
         ledger_record = record_structured_result(
@@ -210,15 +217,15 @@ class ArbiterService:
         return [prompt_archive_id, response_archive_id]
 
     @staticmethod
-    def _raw_response_summary(raw: InnerVoiceRawResponse) -> dict[str, JsonValue]:
-        return json_mapping(
-            {
-                "finish_reason": raw.finish_reason,
-                "prompt_tokens": raw.prompt_tokens,
-                "completion_tokens": raw.completion_tokens,
-                "prompt_chars": raw.prompt_chars,
-                "response_chars": len(raw.response_text),
-            }
+    def _raw_response_summary(raw: InnerVoiceRawResponse) -> ProviderResponseSummary:
+        return ProviderResponseSummary(
+            provider=raw.provider,
+            model_name=raw.model_name,
+            finish_reason=raw.finish_reason,
+            prompt_tokens=raw.prompt_tokens,
+            completion_tokens=raw.completion_tokens,
+            prompt_chars=raw.prompt_chars,
+            response_chars=len(raw.response_text),
         )
 
     @staticmethod
@@ -243,7 +250,19 @@ class ArbiterService:
         failure_message: str,
         required: bool,
         request_summary: Mapping[str, object],
-    ) -> None:
+    ) -> InnerVoiceFailureDetails:
+        failure = InnerVoiceFailureDetails(
+            record_id=arbiter_review_id,
+            record_type=RecordType.ARBITER_REVIEW,
+            stage=stage,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            provider=self.config.provider,
+            model_name=self.config.model_name,
+            failure_class=failure_class,
+            failure_message=failure_message,
+            was_required=required,
+        )
         if self.config.persist_failures:
             prompt_archive_id = self.archiver.archive(
                 EvidenceArchiveRequest(
@@ -287,6 +306,7 @@ class ArbiterService:
                     "failure_message": failure_message,
                     "was_required": required,
                     "resolved_disposition": "needs_review",
+                    "failure": failure.model_dump(mode="json"),
                     "evidence_archive_ids": [prompt_archive_id, response_archive_id],
                 },
             )
@@ -299,5 +319,7 @@ class ArbiterService:
                 "failure_class": failure_class,
                 "failure_message": failure_message,
                 "was_required": required,
+                "failure": failure.model_dump(mode="json"),
             },
         )
+        return failure
