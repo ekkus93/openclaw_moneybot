@@ -311,3 +311,13 @@
 - Finished the remaining UNIT_TEST3 work across `tests/unit/test_inner_voice_plugin.py`, the new `tests/unit/test_workflow_helpers.py`, `tests/unit/shared/test_base.py`, `tests/unit/shared/test_config.py`, and validator-focused additions in the browser, arXiv, Wikipedia, and Brave unit test modules.
 - `docs/UNIT_TEST3_TODO.md` is now fully checked off, including the final validation checklist and the post-pass coverage review note identifying the remaining non-priority gaps in `shared/config.py`, `mastodon_discovery_plugin/service.py`, `crypto_market_data_plugin/service.py`, `brave_search_plugin/service.py`, and `orchestration/workflow.py`.
 - The repository passed full `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, `uv run --python 3.11 pytest`, and `uv run --python 3.11 pytest --cov=src/openclaw_moneybot --cov-report=term-missing:skip-covered`; total coverage is now 93% with 829 passing tests.
+
+## 2026-05-23T08:30:52Z - GPT-5.4 - Added INT_TEST3 integration tracker
+- Created `docs/INT_TEST3_TODO.md` as the next integration-test planning document after reviewing the remaining highest-value orchestration and plugin-boundary gaps.
+- The new tracker prioritizes real spend-path disagreement and Arbiter workflow coverage first, then prior-artifact recheck behavior, remaining hosted research/discovery plugin boundaries, inner-voice observability/metrics integration, and secondary replay/audit regressions.
+- The document keeps the scope aligned with the project’s safety model by requiring local-only mocked or in-process boundaries, explicit fail-closed assertions, durable ledger/archive linkage, and final full-repo validation after the future implementation pass.
+
+## 2026-05-23T08:53:37Z - GPT-5.4 - Completed INT_TEST3 integration pass
+- Finished the `docs/INT_TEST3_TODO.md` implementation pass and checked the tracker off completely.
+- The workflow now records prior-rules recheck context through `TermsChangeMonitor`, execution-adjacent orchestrator-escalated `proceed_with_followups` disagreement outcomes fail closed to `needs_review`, and new integration coverage now exercises spend-path convergence, Arbiter escalation, stale prior-context stops, hosted Brave/Mastodon/crypto plugin boundaries, inner-voice observability/metrics persistence, and replay/audit regressions.
+- The repository passes `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 851 passing tests at the end of this pass.

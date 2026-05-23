@@ -340,6 +340,7 @@ class InnerVoiceCoordinator:
                 arbiter_review_id=(
                     arbiter_result.arbiter_review_id if arbiter_result is not None else None
                 ),
+                orchestrator_escalation_reason=orchestrator_escalation_reason,
                 transcript_archive_ids=transcript_archive_ids,
                 summary_archive_id=summary_archive_id,
             )

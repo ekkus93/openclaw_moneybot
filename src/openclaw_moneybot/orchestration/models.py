@@ -54,6 +54,10 @@ class DryRunMissionRequest(MoneyBotModel):
     submission_artifacts: list[DeliverableArtifact] = Field(default_factory=list)
     enforce_duplicate_check: bool = False
     enforce_counterparty_risk_gate: bool = False
+    prior_rules_text: str | None = None
+    prior_evidence_archive_ids: list[str] = Field(default_factory=list)
+    prior_tos_legal_check_id: str | None = None
+    prior_budget_plan_id: str | None = None
 
 
 class DryRunMissionResult(MoneyBotModel):
@@ -64,6 +68,7 @@ class DryRunMissionResult(MoneyBotModel):
     eligibility_id: str | None = None
     duplicate_analysis_id: str | None = None
     initial_policy_decision_id: str | None = None
+    terms_change_id: str | None = None
     tos_legal_check_id: str | None = None
     budget_plan_id: str | None = None
     execution_policy_decision_id: str | None = None

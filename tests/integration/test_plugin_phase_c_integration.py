@@ -5,10 +5,31 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
+import httpx
+import pytest
+
+from openclaw_moneybot.plugins.brave_search_plugin import (
+    BraveNewsSearchRequest,
+    BraveSearchPlugin,
+    BraveSearchPluginError,
+    BraveSearchRequest,
+)
 from openclaw_moneybot.plugins.counterparty_snapshot_plugin import (
     CounterpartySnapshotPlugin,
     CounterpartySnapshotRequest,
+)
+from openclaw_moneybot.plugins.crypto_market_data_plugin import (
+    CryptoMarketChartRequest,
+    CryptoMarketDataPlugin,
+    CryptoMarketDataPluginError,
+    CryptoSpotPriceRequest,
+)
+from openclaw_moneybot.plugins.mastodon_discovery_plugin import (
+    MastodonDiscoveryPlugin,
+    MastodonDiscoveryPluginError,
+    MastodonPublicTimelineRequest,
 )
 from openclaw_moneybot.plugins.metrics_export_plugin import (
     MetricsExportPlugin,
@@ -16,8 +37,11 @@ from openclaw_moneybot.plugins.metrics_export_plugin import (
 )
 from openclaw_moneybot.shared import (
     ArchiveConfig,
+    BraveSearchConfig,
     BudgetPlan,
     CounterpartySnapshotConfig,
+    CryptoMarketDataConfig,
+    MastodonDiscoveryConfig,
     MetricsExportConfig,
     Opportunity,
     PolicyDecision,
@@ -30,6 +54,7 @@ from openclaw_moneybot.shared.types import (
     CounterpartyRiskTier,
     PolicyDecisionType,
     ReconciliationStatus,
+    RecordType,
     RiskLevel,
     TosDecisionType,
 )
@@ -265,3 +290,379 @@ def test_metrics_export_can_summarize_review_and_strategy_outputs(tmp_path: Path
 
     assert rows[0]["scope"] == "global"
     assert result.summary["row_count"] == 1
+
+
+def test_brave_web_search_archives_request_response_and_ledger_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "token")
+    ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
+    archive_config = ArchiveConfig(base_directory=tmp_path / "archive")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["q"] == "python jobs"
+        return httpx.Response(
+            200,
+            json={
+                "web": {
+                    "total": 1,
+                    "results": [
+                        {
+                            "title": "Result One",
+                            "url": "https://example.com/one",
+                            "description": "First result",
+                        }
+                    ],
+                }
+            },
+        )
+
+    plugin = BraveSearchPlugin(
+        BraveSearchConfig(enabled=True, max_results=5, max_news_results=5),
+        archive_config,
+        ledger_service,
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = plugin.search(BraveSearchRequest(query="python jobs", count=1))
+    evidence = ledger_service.list_evidence_for_related(
+        related_type=RecordType.WEB_SEARCH,
+        related_id=result.search_id,
+    )
+    archived = json.loads(Path(evidence[0].archive_path).read_text(encoding="utf-8"))
+
+    assert result.ledger_record.payload["mode"] == "web"
+    assert result.ledger_record.payload["result_count"] == 1
+    assert archived["request"]["query"] == "python jobs"
+    assert archived["response"]["web"]["results"][0]["title"] == "Result One"
+
+
+def test_brave_news_search_preserves_mode_freshness_and_source_domains(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "token")
+    ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
+    archive_config = ArchiveConfig(base_directory=tmp_path / "archive")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["freshness"] == "pd"
+        return httpx.Response(
+            200,
+            json={
+                "web": {
+                    "total": 1,
+                    "results": [
+                        {
+                            "title": "ETF headline",
+                            "url": "https://www.reuters.com/example",
+                            "description": "News result",
+                        }
+                    ],
+                }
+            },
+        )
+
+    plugin = BraveSearchPlugin(
+        BraveSearchConfig(enabled=True, max_results=5, max_news_results=5),
+        archive_config,
+        ledger_service,
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = plugin.search_news(
+        BraveNewsSearchRequest(
+            query="bitcoin etf",
+            count=1,
+            source_domains=["Reuters.com", "apnews.com"],
+        )
+    )
+
+    assert result.mode == "news"
+    assert result.freshness == "pd"
+    assert result.source_domains == ["reuters.com", "apnews.com"]
+    assert result.ledger_record.payload["source_domains"] == ["reuters.com", "apnews.com"]
+
+
+def test_brave_invalid_response_records_failure_audit_without_success_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "token")
+    ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
+    plugin = BraveSearchPlugin(
+        BraveSearchConfig(enabled=True, max_results=5, max_news_results=5),
+        ArchiveConfig(base_directory=tmp_path / "archive"),
+        ledger_service,
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(429, json={"error": "rate limited"})
+        ),
+    )
+
+    with pytest.raises(BraveSearchPluginError, match="request failed"):
+        plugin.search(BraveSearchRequest(query="python jobs", count=1))
+
+    evidence = ledger_service.get_related_events(related_type=RecordType.WEB_SEARCH)
+    audit_events = ledger_service.get_related_events(
+        related_type=RecordType.AUDIT_EVENT,
+        event_type="record_audit_event",
+    )
+    audits: list[dict[str, object]] = []
+    for event in audit_events:
+        nested_payload = event.payload.get("payload")
+        if event.payload.get("related_record_id") is None or not isinstance(
+            nested_payload, dict
+        ):
+            continue
+        audit_payload = cast(dict[str, object], nested_payload)
+        if audit_payload.get("event_name") == "brave_web_search_failed":
+            audits.append(audit_payload)
+    assert evidence == []
+    assert len(audits) == 1
+    assert audits[0]["reason"] == "invalid_response"
+
+
+def test_mastodon_timeline_sampling_records_normalized_result_and_archive(
+    tmp_path: Path,
+) -> None:
+    ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
+    plugin = MastodonDiscoveryPlugin(
+        MastodonDiscoveryConfig(
+            enabled=True,
+            require_auth=False,
+            max_results=10,
+            api_base_url="https://mastodon.social",
+        ),
+        ArchiveConfig(base_directory=tmp_path / "archive"),
+        ledger_service,
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                json=[
+                    {
+                        "id": "100",
+                        "url": "https://mastodon.social/@alice/100",
+                        "created_at": "2026-05-21T21:00:00Z",
+                        "content": "<p>Hello <a href=\"https://example.com/news\">news</a> #AI</p>",
+                        "visibility": "public",
+                        "language": "en",
+                        "replies_count": 1,
+                        "reblogs_count": 2,
+                        "favourites_count": 3,
+                        "media_attachments": [],
+                        "sensitive": False,
+                        "account": {"acct": "alice", "display_name": "Alice Example"},
+                        "tags": [{"name": "AI"}],
+                    }
+                ],
+            )
+        ),
+    )
+
+    result = plugin.sample_public_timeline(MastodonPublicTimelineRequest(limit=1, local=True))
+    evidence = ledger_service.list_evidence_for_related(
+        related_type=RecordType.MASTODON_DISCOVERY,
+        related_id=result.sample_id,
+    )
+    archived = json.loads(Path(evidence[0].archive_path).read_text(encoding="utf-8"))
+
+    assert result.statuses[0].author_handle == "alice"
+    assert result.statuses[0].tags == ["ai"]
+    assert str(result.statuses[0].links[0]) == "https://mastodon.social/@alice/100"
+    assert archived["response"][0]["id"] == "100"
+    assert result.ledger_record.payload["status_ids"] == ["100"]
+
+
+def test_mastodon_failure_audit_does_not_write_success_records(tmp_path: Path) -> None:
+    ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("boom", request=request)
+
+    plugin = MastodonDiscoveryPlugin(
+        MastodonDiscoveryConfig(
+            enabled=True,
+            require_auth=False,
+            max_results=10,
+            api_base_url="https://mastodon.social",
+        ),
+        ArchiveConfig(base_directory=tmp_path / "archive"),
+        ledger_service,
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(MastodonDiscoveryPluginError, match="unavailable"):
+        plugin.sample_public_timeline(MastodonPublicTimelineRequest(limit=1))
+
+    assert ledger_service.get_related_events(related_type=RecordType.MASTODON_DISCOVERY) == []
+    audit_events = ledger_service.get_related_events(
+        related_type=RecordType.AUDIT_EVENT,
+        event_type="record_audit_event",
+    )
+    audits: list[dict[str, object]] = []
+    for event in audit_events:
+        nested_payload = event.payload.get("payload")
+        if not isinstance(nested_payload, dict):
+            continue
+        audit_payload = cast(dict[str, object], nested_payload)
+        if audit_payload.get("event_name") == "mastodon_public_timeline_failed":
+            audits.append(audit_payload)
+    assert len(audits) == 1
+    assert audits[0]["reason"] == "transport_error"
+
+
+def test_crypto_spot_price_lookup_records_exact_evidence_and_record_types(
+    tmp_path: Path,
+) -> None:
+    ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
+    plugin = CryptoMarketDataPlugin(
+        CryptoMarketDataConfig(enabled=True, max_chart_points=10),
+        ArchiveConfig(base_directory=tmp_path / "archive"),
+        ledger_service,
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                json={
+                    "bitcoin": {
+                        "usd": 70000.5,
+                        "usd_market_cap": 1380000000000.0,
+                        "usd_24h_vol": 25000000000.0,
+                        "usd_24h_change": 2.5,
+                        "last_updated_at": 1711983682,
+                    }
+                },
+            )
+        ),
+    )
+
+    result = plugin.get_spot_price(CryptoSpotPriceRequest(asset_id="Bitcoin"))
+    evidence = ledger_service.list_evidence_for_related(
+        related_type=RecordType.CRYPTO_MARKET_DATA,
+        related_id=result.lookup_id,
+    )
+
+    assert result.price == 70000.5
+    assert result.ledger_record.record_type is RecordType.CRYPTO_MARKET_DATA
+    assert evidence[0].evidence_type == "coingecko_spot_price_response"
+    assert ledger_service.get_related_events(related_type=RecordType.SPEND_REQUEST) == []
+
+
+def test_crypto_market_chart_lookup_records_bounded_points_and_archive(
+    tmp_path: Path,
+) -> None:
+    ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
+    plugin = CryptoMarketDataPlugin(
+        CryptoMarketDataConfig(enabled=True, max_chart_points=10),
+        ArchiveConfig(base_directory=tmp_path / "archive"),
+        ledger_service,
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                json={
+                    "prices": [
+                        [1711843200000, 69702.3],
+                        [1711929600000, 71246.9],
+                        [1711983682000, 68887.7],
+                    ],
+                    "market_caps": [
+                        [1711843200000, 1370247487960.09],
+                        [1711929600000, 1401370211582.37],
+                        [1711983682000, 1355701979725.16],
+                    ],
+                    "total_volumes": [
+                        [1711843200000, 16408802301.83],
+                        [1711929600000, 19723005998.21],
+                        [1711983682000, 30137418199.64],
+                    ],
+                },
+            )
+        ),
+    )
+
+    result = plugin.get_recent_market_chart(
+        CryptoMarketChartRequest(asset_id="bitcoin", days=7, count=2)
+    )
+    evidence = ledger_service.list_evidence_for_related(
+        related_type=RecordType.CRYPTO_MARKET_DATA,
+        related_id=result.lookup_id,
+    )
+
+    assert result.result_count == 2
+    assert result.points[0].timestamp_ms == 1711929600000
+    assert evidence[0].evidence_type == "coingecko_market_chart_response"
+
+
+def test_crypto_provider_error_fails_closed_with_audit_visibility(tmp_path: Path) -> None:
+    ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
+    plugin = CryptoMarketDataPlugin(
+        CryptoMarketDataConfig(enabled=True, max_chart_points=10),
+        ArchiveConfig(base_directory=tmp_path / "archive"),
+        ledger_service,
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                json={"status": {"error_message": "rate limit exceeded"}},
+            )
+        ),
+    )
+
+    with pytest.raises(CryptoMarketDataPluginError, match="rate limit exceeded"):
+        plugin.get_recent_market_chart(
+            CryptoMarketChartRequest(asset_id="bitcoin", days=7, count=2)
+        )
+
+    assert ledger_service.get_related_events(related_type=RecordType.CRYPTO_MARKET_DATA) == []
+    audit_events = ledger_service.get_related_events(
+        related_type=RecordType.AUDIT_EVENT,
+        event_type="record_audit_event",
+    )
+    audits: list[dict[str, object]] = []
+    for event in audit_events:
+        nested_payload = event.payload.get("payload")
+        if not isinstance(nested_payload, dict):
+            continue
+        audit_payload = cast(dict[str, object], nested_payload)
+        if audit_payload.get("event_name") == "crypto_market_chart_failed":
+            audits.append(audit_payload)
+    assert len(audits) == 1
+    assert audits[0]["reason"] == "provider_error"
+    assert audits[0]["provider_error"] == "rate limit exceeded"
+
+
+def test_hosted_plugins_remain_fail_closed_when_disabled_or_misconfigured(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
+    archive_config = ArchiveConfig(base_directory=tmp_path / "archive")
+    monkeypatch.delenv("BRAVE_SEARCH_API_KEY", raising=False)
+    monkeypatch.delenv("MASTODON_API_TOKEN", raising=False)
+
+    brave = BraveSearchPlugin(
+        BraveSearchConfig(enabled=False, max_results=5, max_news_results=5),
+        archive_config,
+        ledger_service,
+    )
+    mastodon = MastodonDiscoveryPlugin(
+        MastodonDiscoveryConfig(
+            enabled=True,
+            require_auth=True,
+            max_results=10,
+            api_base_url="https://mastodon.social",
+        ),
+        archive_config,
+        ledger_service,
+    )
+    crypto = CryptoMarketDataPlugin(
+        CryptoMarketDataConfig(enabled=False, max_chart_points=10),
+        archive_config,
+        ledger_service,
+    )
+
+    with pytest.raises(ValueError, match="disabled"):
+        brave.search(BraveSearchRequest(query="python jobs"))
+    with pytest.raises(MastodonDiscoveryPluginError, match="MASTODON_API_TOKEN"):
+        mastodon.sample_public_timeline(MastodonPublicTimelineRequest(limit=1))
+    with pytest.raises(ValueError, match="disabled"):
+        crypto.get_spot_price(CryptoSpotPriceRequest(asset_id="bitcoin"))

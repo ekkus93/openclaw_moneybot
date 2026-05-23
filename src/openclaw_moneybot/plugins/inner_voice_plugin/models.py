@@ -237,6 +237,7 @@ class InnerVoiceDebateSession(MoneyBotModel):
     converged: bool = False
     arbiter_requested_by: DebateSpeaker | None = None
     arbiter_review_id: str | None = None
+    orchestrator_escalation_reason: str | None = None
     transcript_archive_ids: list[str] = Field(default_factory=list)
     summary_archive_id: str | None = None
 

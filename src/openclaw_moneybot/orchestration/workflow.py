@@ -29,6 +29,7 @@ from openclaw_moneybot.shared.types import (
     ActionType,
     ArbiterFinalResolution,
     BudgetDecisionType,
+    DebateEndedReason,
     DebateSpeaker,
     EligibilityDecisionType,
     InnerVoiceDisposition,
@@ -94,6 +95,11 @@ from openclaw_moneybot.skills.submission_package_builder import (
     SubmissionPackageBuildRequest,
     SubmissionPackageBuildResult,
 )
+from openclaw_moneybot.skills.terms_change_monitor import (
+    TermsChangeMonitor,
+    TermsChangeMonitorRequest,
+    TermsChangeMonitorResult,
+)
 from openclaw_moneybot.skills.tos_legal_checker import TosLegalChecker, TosLegalCheckRequest
 from openclaw_moneybot.skills.tos_legal_checker.models import TosLegalCheckResult
 from openclaw_moneybot.skills.wallet_governor_client import (
@@ -137,6 +143,7 @@ class MoneyBotOrchestrator:
         revenue_reconciler: RevenueReconciler,
         strategy_memory_summarizer: StrategyMemorySummarizer,
         archiver: ReceiptAndEvidenceArchiver,
+        terms_change_monitor: TermsChangeMonitor | None = None,
         inner_voice_plugin: InnerVoicePlugin | None = None,
         arbiter_service: ArbiterService | None = None,
         inner_voice_coordinator: InnerVoiceCoordinator | None = None,
@@ -157,6 +164,7 @@ class MoneyBotOrchestrator:
         self.revenue_reconciler = revenue_reconciler
         self.strategy_memory_summarizer = strategy_memory_summarizer
         self.archiver = archiver
+        self.terms_change_monitor = terms_change_monitor
         self.inner_voice_plugin = inner_voice_plugin
         self.arbiter_service = arbiter_service
         self.inner_voice_coordinator = inner_voice_coordinator
@@ -266,6 +274,17 @@ class MoneyBotOrchestrator:
             reason = arbiter_result.resolution_summary
 
         final_status = self._disposition_status(disposition, required_followups)
+        if outcome.session.ended_reason is DebateEndedReason.ORCHESTRATOR_ESCALATION:
+            return ModelDisagreementInterpretation(
+                debate_id=outcome.session.debate_id,
+                final_resolution_source=outcome.final_resolution_source,
+                final_status="needs_review",
+                stop_stage="inner_voice_debate",
+                stop_reason=outcome.session.orchestrator_escalation_reason or reason,
+                required_followups=required_followups,
+                transcript_archive_ids=outcome.session.transcript_archive_ids,
+                arbiter_review_id=outcome.session.arbiter_review_id,
+            )
         return ModelDisagreementInterpretation(
             debate_id=outcome.session.debate_id,
             final_resolution_source=outcome.final_resolution_source,
@@ -356,6 +375,7 @@ class MoneyBotOrchestrator:
     def run_dry_run(self, request: DryRunMissionRequest) -> DryRunMissionResult:
         """Execute the default workflow in dry-run mode."""
         inner_voice_review_ids: list[str] = []
+        terms_change_result: TermsChangeMonitorResult | None = None
         scout_result = self.scout.evaluate(
             OpportunityScoutRequest(
                 mission=request.mission,
@@ -386,7 +406,14 @@ class MoneyBotOrchestrator:
             candidate.ledger_record,
             idempotency_key=f"opportunity:{candidate.opportunity_id}",
         )
-        evidence_ids = [self._archive_source_document(candidate, request.source_documents)]
+        evidence_ids = list(
+            dict.fromkeys(
+                [
+                    *request.prior_evidence_archive_ids,
+                    self._archive_source_document(candidate, request.source_documents),
+                ]
+            )
+        )
         eligibility_result = self.eligibility_checker.evaluate(
             AccountEligibilityRequest(
                 opportunity_id=candidate.opportunity_id,
@@ -418,6 +445,7 @@ class MoneyBotOrchestrator:
                     or next(iter(eligibility_result.review_required_requirements), None)
                     or next(iter(eligibility_result.missing_requirements), None)
                 ),
+                terms_change_result=terms_change_result,
             )
 
         initial_policy = self.policy_guard.evaluate(self._make_initial_policy_request(candidate))
@@ -439,7 +467,46 @@ class MoneyBotOrchestrator:
                     or initial_policy.notes
                     or next(iter(initial_policy.blocked_reasons), None)
                 ),
+                terms_change_result=terms_change_result,
             )
+        if self.terms_change_monitor is not None and (
+            request.prior_rules_text is not None
+            or request.prior_tos_legal_check_id is not None
+            or request.prior_budget_plan_id is not None
+            or bool(request.prior_evidence_archive_ids)
+        ):
+            current_rules_text = (
+                candidate.ledger_record.summary
+                if source_document is None
+                else source_document.content_text
+            )
+            terms_change_result = self.terms_change_monitor.evaluate(
+                TermsChangeMonitorRequest(
+                    opportunity_id=candidate.opportunity_id,
+                    prior_rules_text=request.prior_rules_text,
+                    current_rules_text=current_rules_text,
+                    prior_evidence_archive_ids=request.prior_evidence_archive_ids,
+                    current_evidence_archive_ids=evidence_ids,
+                    prior_tos_legal_check_id=request.prior_tos_legal_check_id,
+                    prior_budget_plan_id=request.prior_budget_plan_id,
+                )
+            )
+            evidence_ids = list(
+                dict.fromkeys([*evidence_ids, *terms_change_result.evidence_archive_ids])
+            )
+            if terms_change_result.requires_recheck:
+                return self._finalize_result(
+                    request=request,
+                    candidate=candidate,
+                    evidence_ids=evidence_ids,
+                    duplicate_result=duplicate_result,
+                    eligibility_result=eligibility_result,
+                    initial_policy=initial_policy,
+                    terms_change_result=terms_change_result,
+                    status="needs_review",
+                    stop_stage="terms_change_recheck",
+                    stop_reason=terms_change_result.summary,
+                )
 
         tos_result = self.tos_checker.evaluate(
             TosLegalCheckRequest.model_validate(
@@ -464,6 +531,7 @@ class MoneyBotOrchestrator:
                 stop_stage="tos_legal",
                 stop_reason=tos_result.tos_risk_summary,
                 inner_voice_review_ids=inner_voice_review_ids,
+                terms_change_result=terms_change_result,
             )
         tos_inner_voice = self._run_inner_voice_review(
             stage=InnerVoiceStage.TOS_LEGAL_CHECK,
@@ -475,6 +543,8 @@ class MoneyBotOrchestrator:
                 "tos_legal_check_id": tos_result.ledger_record.tos_legal_check_id,
                 "tos_decision": tos_result.decision,
                 "automation_policy": tos_result.ledger_record.automation_policy,
+                "prior_tos_legal_check_id": request.prior_tos_legal_check_id,
+                "prior_budget_plan_id": request.prior_budget_plan_id,
             },
             evidence_ids=evidence_ids,
             constraints_summary=[
@@ -503,6 +573,7 @@ class MoneyBotOrchestrator:
                     stop_reason=self._inner_voice_stop_reason(tos_inner_voice),
                     review_enabled=True,
                     inner_voice_review_ids=inner_voice_review_ids,
+                    terms_change_result=terms_change_result,
                 )
         budget_result = self.budget_planner.evaluate(
             BudgetPlanRequest(
@@ -548,6 +619,7 @@ class MoneyBotOrchestrator:
                 stop_reason=next(iter(budget_result.budget_plan.reasons), None),
                 review_enabled=True,
                 inner_voice_review_ids=inner_voice_review_ids,
+                terms_change_result=terms_change_result,
             )
         budget_inner_voice = self._run_inner_voice_review(
             stage=InnerVoiceStage.BUDGET_PLANNING,
@@ -563,6 +635,8 @@ class MoneyBotOrchestrator:
                 "decision": budget_result.budget_plan.decision.value,
                 "proposed_spend_usd": budget_result.budget_plan.max_loss_usd,
                 "expected_revenue_usd": budget_result.budget_plan.expected_gross_revenue_usd,
+                "prior_tos_legal_check_id": request.prior_tos_legal_check_id,
+                "prior_budget_plan_id": request.prior_budget_plan_id,
             },
             evidence_ids=evidence_ids,
             constraints_summary=[
@@ -596,6 +670,7 @@ class MoneyBotOrchestrator:
                     stop_reason=self._inner_voice_stop_reason(budget_inner_voice),
                     review_enabled=True,
                     inner_voice_review_ids=inner_voice_review_ids,
+                    terms_change_result=terms_change_result,
                 )
 
         counterparty_result = self.counterparty_risk_profiler.profile(
@@ -633,6 +708,7 @@ class MoneyBotOrchestrator:
                 stop_reason=counterparty_result.recommended_action,
                 review_enabled=True,
                 inner_voice_review_ids=inner_voice_review_ids,
+                terms_change_result=terms_change_result,
             )
 
         execution_policy = self.policy_guard.evaluate(
@@ -671,6 +747,7 @@ class MoneyBotOrchestrator:
                 ),
                 review_enabled=True,
                 inner_voice_review_ids=inner_voice_review_ids,
+                terms_change_result=terms_change_result,
             )
 
         submission_package_result = self.submission_package_builder.build(
@@ -708,6 +785,7 @@ class MoneyBotOrchestrator:
                 stop_reason=next(iter(submission_package_result.unresolved_items), None),
                 review_enabled=True,
                 inner_voice_review_ids=inner_voice_review_ids,
+                terms_change_result=terms_change_result,
             )
 
         deliverable_quality_result = self.deliverable_quality_checker.evaluate(
@@ -746,6 +824,7 @@ class MoneyBotOrchestrator:
                 ),
                 review_enabled=True,
                 inner_voice_review_ids=inner_voice_review_ids,
+                terms_change_result=terms_change_result,
             )
         pre_execution_required = self._inner_voice_required_for_pre_execution(request)
         try:
@@ -766,6 +845,8 @@ class MoneyBotOrchestrator:
                     "deliverable_quality_status": deliverable_quality_result.status.value,
                     "enable_wallet_payment": request.enable_wallet_payment,
                     "wallet_handoff_present": budget_result.wallet_handoff is not None,
+                    "prior_tos_legal_check_id": request.prior_tos_legal_check_id,
+                    "prior_budget_plan_id": request.prior_budget_plan_id,
                 },
                 evidence_ids=evidence_ids,
                 constraints_summary=[
@@ -797,6 +878,7 @@ class MoneyBotOrchestrator:
                 stop_reason=str(error),
                 review_enabled=True,
                 inner_voice_review_ids=inner_voice_review_ids,
+                terms_change_result=terms_change_result,
             )
         if pre_execution_inner_voice is not None:
             inner_voice_review_ids.append(pre_execution_inner_voice.review_id)
@@ -820,6 +902,7 @@ class MoneyBotOrchestrator:
                     stop_reason=self._inner_voice_stop_reason(pre_execution_inner_voice),
                     review_enabled=True,
                     inner_voice_review_ids=inner_voice_review_ids,
+                    terms_change_result=terms_change_result,
                 )
 
         email_draft_id: str | None = None
@@ -908,6 +991,7 @@ class MoneyBotOrchestrator:
             deliverable_quality_result=deliverable_quality_result,
             email_draft_id=email_draft_id,
             inner_voice_review_ids=inner_voice_review_ids,
+            terms_change_result=terms_change_result,
             wallet_quote=wallet_quote,
             wallet_result=wallet_result,
             status="completed",
@@ -923,6 +1007,7 @@ class MoneyBotOrchestrator:
         duplicate_result: DuplicateOpportunityDetectorResult | None = None,
         eligibility_result: AccountEligibilityResult | None = None,
         initial_policy: PolicyCheckResult | None = None,
+        terms_change_result: TermsChangeMonitorResult | None = None,
         tos_result: TosLegalCheckResult | None = None,
         budget_result: BudgetPlanResult | None = None,
         counterparty_result: CounterpartyRiskProfileResult | None = None,
@@ -964,6 +1049,19 @@ class MoneyBotOrchestrator:
                         "initial_policy_decision": (
                             None if initial_policy is None else initial_policy.decision.value
                         ),
+                        "terms_change_id": (
+                            None
+                            if terms_change_result is None
+                            else terms_change_result.terms_change_id
+                        ),
+                        "terms_change_requires_recheck": (
+                            None
+                            if terms_change_result is None
+                            else terms_change_result.requires_recheck
+                        ),
+                        "prior_tos_legal_check_id": request.prior_tos_legal_check_id,
+                        "prior_budget_plan_id": request.prior_budget_plan_id,
+                        "prior_evidence_archive_ids": request.prior_evidence_archive_ids,
                         "tos_decision": None if tos_result is None else tos_result.decision,
                         "budget_decision": (
                             None
@@ -1086,6 +1184,9 @@ class MoneyBotOrchestrator:
             ),
             initial_policy_decision_id=(
                 None if initial_policy is None else initial_policy.ledger_record.policy_decision_id
+            ),
+            terms_change_id=(
+                None if terms_change_result is None else terms_change_result.terms_change_id
             ),
             tos_legal_check_id=(
                 None if tos_result is None else tos_result.ledger_record.tos_legal_check_id

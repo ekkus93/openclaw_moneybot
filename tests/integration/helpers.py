@@ -95,6 +95,7 @@ from openclaw_moneybot.skills.strategy_memory_summarizer.models import (
     StrategyMemorySummaryResult,
 )
 from openclaw_moneybot.skills.submission_package_builder import SubmissionPackageBuilder
+from openclaw_moneybot.skills.terms_change_monitor import TermsChangeMonitor
 from openclaw_moneybot.skills.tos_legal_checker import TosLegalChecker
 from openclaw_moneybot.skills.tos_legal_checker.models import (
     TosLegalCheckRequest,
@@ -569,6 +570,7 @@ def make_orchestrator(
         revenue_reconciler=RevenueReconciler(archive_config, ledger_service),
         strategy_memory_summarizer=StrategyMemorySummarizer(archive_config, ledger_service),
         archiver=ReceiptAndEvidenceArchiver(archive_config, ledger_service),
+        terms_change_monitor=TermsChangeMonitor(archive_config, ledger_service),
         inner_voice_plugin=inner_voice_plugin,
         arbiter_service=arbiter_service,
         inner_voice_coordinator=inner_voice_coordinator,
