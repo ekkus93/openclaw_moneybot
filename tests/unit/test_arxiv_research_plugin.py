@@ -132,6 +132,15 @@ def test_search_returns_bounded_normalized_results(tmp_path: Path) -> None:
     assert evidence[0].evidence_type == "arxiv_search_response"
 
 
+def test_arxiv_request_models_normalize_and_validate_ids() -> None:
+    request = ArxivPaperRequest(arxiv_id=" 2401.01234v2 ")
+
+    assert request.arxiv_id == "2401.01234v2"
+
+    with pytest.raises(ValueError, match="at least 1 character|must not be empty"):
+        ArxivPaperRequest(arxiv_id=" ")
+
+
 def test_get_paper_returns_bounded_paper_metadata(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.params["id_list"] == "2401.01234v2"

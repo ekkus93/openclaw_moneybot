@@ -452,27 +452,27 @@ The focus is debate end-state branching, archive/audit payload stability, and me
 
 ## 9.2 Debate session branching
 
-- [ ] Add test: `run_debate()` rejects stages not enabled in `run_after_stages`.
-- [ ] Add test: `run_debate()` records `request_arbiter` when the inner voice requests escalation immediately.
-- [ ] Add test: `run_debate()` records `request_arbiter` when OpenClaw requests escalation.
-- [ ] Add test: `run_debate()` records `max_rounds_reached` when the debate ceiling is hit without convergence.
-- [ ] Add test: `run_debate()` records `orchestrator_escalation` when the resolution guard returns a reason.
-- [ ] Add test: `run_debate()` persists the escalation reason into the summary and ledger payload.
-- [ ] Add test: `run_debate()` raises `InnerVoiceDebateError` with structured failure details on downstream failures.
+- [x] Add test: `run_debate()` rejects stages not enabled in `run_after_stages`.
+- [x] Add test: `run_debate()` records `request_arbiter` when the inner voice requests escalation immediately.
+- [x] Add test: `run_debate()` records `request_arbiter` when OpenClaw requests escalation.
+- [x] Add test: `run_debate()` records `max_rounds_reached` when the debate ceiling is hit without convergence.
+- [x] Add test: `run_debate()` records `orchestrator_escalation` when the resolution guard returns a reason.
+- [x] Add test: `run_debate()` persists the escalation reason into the summary and ledger payload.
+- [x] Add test: `run_debate()` raises `InnerVoiceDebateError` with structured failure details on downstream failures.
 
 ## 9.3 Transcript and summary archival helpers
 
-- [ ] Add test: transcript archival respects the placeholder/raw-text configuration branches.
-- [ ] Add test: debate summary archival includes resolution notes only when present.
-- [ ] Add test: debate summary archival includes `orchestrator_escalation_reason` only when present.
-- [ ] Add test: turn-metadata export remains deterministic and stable for mixed turn types.
+- [x] Add test: transcript archival respects the placeholder/raw-text configuration branches.
+- [x] Add test: debate summary archival includes resolution notes only when present.
+- [x] Add test: debate summary archival includes `orchestrator_escalation_reason` only when present.
+- [x] Add test: turn-metadata export remains deterministic and stable for mixed turn types.
 
 ## 9.4 Metrics snapshot helpers
 
-- [ ] Add test: `build_metrics_snapshot()` counts debate end reasons correctly across mixed sessions.
-- [ ] Add test: `build_metrics_snapshot()` counts Arbiter resolutions and follow-up rates correctly.
-- [ ] Add test: `build_metrics_snapshot()` tolerates malformed or partial provider-response summaries.
-- [ ] Add test: `_summary_int_value()` returns `None` for missing, non-dict, and non-int summary values.
+- [x] Add test: `build_metrics_snapshot()` counts debate end reasons correctly across mixed sessions.
+- [x] Add test: `build_metrics_snapshot()` counts Arbiter resolutions and follow-up rates correctly.
+- [x] Add test: `build_metrics_snapshot()` tolerates malformed or partial provider-response summaries.
+- [x] Add test: `_summary_int_value()` returns `None` for missing, non-dict, and non-int summary values.
 
 ---
 
@@ -490,20 +490,20 @@ The focus is deterministic helper logic that should remain stable independent of
 
 ## 10.2 Debate helper decisions
 
-- [ ] Add test: `resolve_model_disagreement()` rejects calls when the coordinator is not configured.
-- [ ] Add test: `resolve_model_disagreement()` rejects irrelevant stage/subject pairs.
-- [ ] Add test: `settle_model_disagreement()` re-raises debate failures for non-required paths.
-- [ ] Add test: `settle_model_disagreement()` uses `error.failure.record_id` when present.
-- [ ] Add test: `settle_model_disagreement()` falls back to `request.debate_id` or `"debate_unavailable"` when failure details are absent.
+- [x] Add test: `resolve_model_disagreement()` rejects calls when the coordinator is not configured.
+- [x] Add test: `resolve_model_disagreement()` rejects irrelevant stage/subject pairs.
+- [x] Add test: `settle_model_disagreement()` re-raises debate failures for non-required paths.
+- [x] Add test: `settle_model_disagreement()` uses `error.failure.record_id` when present.
+- [x] Add test: `settle_model_disagreement()` falls back to `request.debate_id` or `"debate_unavailable"` when failure details are absent.
 
 ## 10.3 Interpretation and helper branches
 
-- [ ] Add test: `interpret_model_disagreement()` raises when `final_resolution_source` is Arbiter-backed but no Arbiter result is present.
-- [ ] Add test: `_debate_subject_is_relevant()` covers every configured stage/subject matrix branch.
-- [ ] Add test: `_requires_fail_closed_debate_path()` is true only for required pre-execution spend/execution-step paths.
-- [ ] Add test: `_debate_orchestrator_escalation_reason()` returns `None` for non-required paths and non-followup resolutions.
-- [ ] Add test: `_resolved_disposition_from_outcome_parts()` covers debate-only, adopt-openclaw, adopt-inner-voice, proceed-with-followups, and needs-review branches.
-- [ ] Add test: `_latest_disposition_from_turns()` returns the newest matching speaker disposition or `None`.
+- [x] Add test: `interpret_model_disagreement()` raises when `final_resolution_source` is Arbiter-backed but no Arbiter result is present.
+- [x] Add test: `_debate_subject_is_relevant()` covers every configured stage/subject matrix branch.
+- [x] Add test: `_requires_fail_closed_debate_path()` is true only for required pre-execution spend/execution-step paths.
+- [x] Add test: `_debate_orchestrator_escalation_reason()` returns `None` for non-required paths and non-followup resolutions.
+- [x] Add test: `_resolved_disposition_from_outcome_parts()` covers debate-only, adopt-openclaw, adopt-inner-voice, proceed-with-followups, and needs-review branches.
+- [x] Add test: `_latest_disposition_from_turns()` returns the newest matching speaker disposition or `None`.
 
 ---
 
@@ -526,11 +526,11 @@ src/openclaw_moneybot/shared/base.py
 
 ## 11.2 Validator and model follow-ups
 
-- [ ] Add test: browser governor model validators reject invalid step combinations and preserve allowed ones.
-- [ ] Add test: arXiv/Wikipedia/Brave model validators reject malformed URLs/IDs and preserve normalized valid inputs.
-- [ ] Add test: shared base model helpers preserve the repo’s strict validation behavior for malformed payloads.
-- [ ] Add test: shared config validators cover blank-env, trimming, bounds, and local-only safety branches still listed as uncovered.
-- [ ] Add test: config parsing remains deterministic for optional provider, governor, and rollout fields with blank-string input.
+- [x] Add test: browser governor model validators reject invalid step combinations and preserve allowed ones.
+- [x] Add test: arXiv/Wikipedia/Brave model validators reject malformed URLs/IDs and preserve normalized valid inputs.
+- [x] Add test: shared base model helpers preserve the repo’s strict validation behavior for malformed payloads.
+- [x] Add test: shared config validators cover blank-env, trimming, bounds, and local-only safety branches still listed as uncovered.
+- [x] Add test: config parsing remains deterministic for optional provider, governor, and rollout fields with blank-string input.
 
 ---
 
@@ -538,14 +538,20 @@ src/openclaw_moneybot/shared/base.py
 
 ## 12.1 Implementation checklist
 
-- [ ] Add or update the relevant unit test modules for each targeted service/backend.
-- [ ] Keep all new tests offline with mock transports, fake clients, or fake page/context objects.
-- [ ] Prefer direct unit tests for helper/parser branches over broad integration tests for these gaps.
+- [x] Add or update the relevant unit test modules for each targeted service/backend.
+- [x] Keep all new tests offline with mock transports, fake clients, or fake page/context objects.
+- [x] Prefer direct unit tests for helper/parser branches over broad integration tests for these gaps.
 
 ## 12.2 Validation checklist
 
-- [ ] Run `uv run --python 3.11 ruff check .`
-- [ ] Run `uv run --python 3.11 mypy .`
-- [ ] Run `uv run --python 3.11 pytest`
-- [ ] Run `uv run --python 3.11 pytest --cov=src/openclaw_moneybot --cov-report=term-missing:skip-covered`
-- [ ] Re-review the lowest-covered modules and decide whether any meaningful gaps remain after the UNIT_TEST3 pass.
+- [x] Run `uv run --python 3.11 ruff check .`
+- [x] Run `uv run --python 3.11 mypy .`
+- [x] Run `uv run --python 3.11 pytest`
+- [x] Run `uv run --python 3.11 pytest --cov=src/openclaw_moneybot --cov-report=term-missing:skip-covered`
+- [x] Re-review the lowest-covered modules and decide whether any meaningful gaps remain after the UNIT_TEST3 pass.
+
+Post-pass re-review note:
+
+- Overall coverage is now **93%**.
+- The most meaningful remaining low-coverage modules are still `shared/config.py` (82%), `plugins/mastodon_discovery_plugin/service.py` (83%), `plugins/crypto_market_data_plugin/service.py` (84%), `plugins/brave_search_plugin/service.py` (86%), and `orchestration/workflow.py` / `plugins/arxiv_research_plugin/service.py` (88%).
+- Those gaps are now concentrated in secondary config validators and broader workflow/plugin branches rather than the original UNIT_TEST3 parser/backend hotspots.

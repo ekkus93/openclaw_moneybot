@@ -95,6 +95,28 @@ def test_search_returns_bounded_normalized_results(
     assert evidence[0].evidence_type == "brave_web_search_response"
 
 
+def test_brave_request_models_normalize_optional_fields_and_domains() -> None:
+    request = BraveSearchRequest(
+        query="python jobs",
+        country=" US ",
+        search_lang=" EN ",
+        safesearch=" Moderate ",
+        freshness=" PD ",
+    )
+    news_request = BraveNewsSearchRequest(
+        query="python jobs",
+        freshness=" PW ",
+        source_domains=[" Example.com ", " ", "NEWS.EXAMPLE.COM"],
+    )
+
+    assert request.country == "us"
+    assert request.search_lang == "en"
+    assert request.safesearch == "moderate"
+    assert request.freshness == "pd"
+    assert news_request.freshness == "pw"
+    assert news_request.source_domains == ["example.com", "news.example.com"]
+
+
 def test_search_rejects_when_plugin_disabled(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "token")
     plugin, _ = make_plugin(tmp_path, enabled=False)

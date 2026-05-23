@@ -80,6 +80,14 @@ def test_search_returns_bounded_normalized_results(tmp_path: Path) -> None:
     assert evidence[0].evidence_type == "wikipedia_search_response"
 
 
+def test_wikipedia_request_models_normalize_blank_languages_to_none() -> None:
+    search_request = WikipediaSearchRequest(query="Ada Lovelace", language=" EN ")
+    page_request = WikipediaPageRequest(title="Ada Lovelace", language=" ")
+
+    assert search_request.language == "en"
+    assert page_request.language is None
+
+
 def test_get_page_summary_returns_bounded_summary_and_metadata(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.host == "en.wikipedia.org"

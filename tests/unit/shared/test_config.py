@@ -177,6 +177,16 @@ def test_browser_governor_config_rejects_non_firefox_engine() -> None:
         BrowserGovernorConfig(browser_engine="chromium")
 
 
+def test_browser_governor_config_trims_profile_and_host_lists() -> None:
+    config = BrowserGovernorConfig(
+        allowed_profile_ids=["  MoneyBot-Default  ", " "],
+        allowed_hosts=[" Example.com ", ""],
+    )
+
+    assert config.allowed_profile_ids == ["moneybot-default"]
+    assert config.allowed_hosts == ["example.com"]
+
+
 def test_brave_search_defaults_are_bounded_and_disabled() -> None:
     config = BraveSearchConfig()
 
@@ -190,6 +200,22 @@ def test_brave_search_defaults_are_bounded_and_disabled() -> None:
 def test_brave_search_config_rejects_non_brave_host() -> None:
     with pytest.raises(ValueError, match="api.search.brave.com"):
         BraveSearchConfig(api_base_url="https://example.com/search")
+
+
+def test_brave_search_config_trims_env_and_default_strings() -> None:
+    config = BraveSearchConfig(
+        api_key_env_var="  BRAVE_KEY  ",
+        default_country=" US ",
+        default_search_lang=" EN ",
+        safesearch=" Moderate ",
+        default_news_freshness=" PW ",
+    )
+
+    assert config.api_key_env_var == "BRAVE_KEY"
+    assert config.default_country == "us"
+    assert config.default_search_lang == "en"
+    assert config.safesearch == "moderate"
+    assert config.default_news_freshness == "pw"
 
 
 def test_wikipedia_research_defaults_are_bounded_and_disabled() -> None:
@@ -230,6 +256,47 @@ def test_openalex_research_defaults_are_bounded_and_disabled() -> None:
     assert config.api_key_env_var == "OPENALEX_API_KEY"
     assert config.max_results == 10
     assert config.max_abstract_chars == 2_000
+
+
+def test_inner_voice_config_trims_strings_and_rejects_blank_enabled_model() -> None:
+    config = InnerVoiceConfig(
+        enabled=False,
+        provider=ProviderName.OLLAMA,
+        model_name="  model-x  ",
+        base_url="http://127.0.0.1:11434/",
+        api_key_env_var="  OLLAMA_KEY  ",
+        invocation_policy=" risk_based ",
+    )
+
+    assert config.model_name == "model-x"
+    assert config.api_key_env_var == "OLLAMA_KEY"
+    assert config.invocation_policy == "risk_based"
+    assert config.base_url == "http://127.0.0.1:11434"
+
+    with pytest.raises(ValueError, match="model_name must be configured"):
+        InnerVoiceConfig(enabled=True, provider=ProviderName.OLLAMA)
+
+
+def test_arbiter_config_trims_strings_and_requires_hosted_openai_opt_in() -> None:
+    config = ArbiterConfig(
+        provider=ProviderName.OPENAI,
+        model_name="  arbiter-x  ",
+        base_url="https://api.openai.com/v1/",
+        api_key_env_var="  OPENAI_API_KEY  ",
+        allow_hosted_provider=True,
+    )
+
+    assert config.model_name == "arbiter-x"
+    assert config.api_key_env_var == "OPENAI_API_KEY"
+    assert config.base_url == "https://api.openai.com/v1"
+
+    with pytest.raises(ValueError, match="allow_hosted_provider must be true"):
+        ArbiterConfig(
+            provider=ProviderName.OPENAI,
+            model_name="arbiter",
+            base_url="https://api.openai.com/v1",
+            allow_hosted_provider=False,
+        )
 
 
 def test_openalex_research_config_rejects_non_openalex_hosts() -> None:

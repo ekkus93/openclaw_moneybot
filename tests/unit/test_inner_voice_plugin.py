@@ -6,28 +6,35 @@ import json
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
 import httpx
 import pytest
 
+import openclaw_moneybot.plugins.inner_voice_plugin.debate as debate_module
 import openclaw_moneybot.plugins.inner_voice_plugin.providers as provider_module
 from openclaw_moneybot.plugins.inner_voice_plugin import (
     ArbiterResolutionError,
     ArbiterResolutionRequest,
+    ArbiterResolutionResult,
     ArbiterService,
     DebateResponderOutput,
     DebateResponderRequest,
     EvidenceSummary,
     InnerVoiceCoordinator,
     InnerVoiceDebateError,
+    InnerVoiceDebateOutcome,
     InnerVoiceDebateRequest,
+    InnerVoiceDebateSession,
+    InnerVoiceDebateTurn,
     InnerVoiceObjection,
     InnerVoicePlugin,
     InnerVoicePluginError,
     InnerVoicePromptRequest,
     InnerVoiceProviderError,
     InnerVoiceReviewRequest,
+    ProviderResponseSummary,
     build_metrics_snapshot,
     list_arbiter_reviews,
     list_inner_voice_debates,
@@ -36,6 +43,7 @@ from openclaw_moneybot.plugins.inner_voice_plugin import (
 )
 from openclaw_moneybot.plugins.inner_voice_plugin.prompting import build_inner_voice_prompt
 from openclaw_moneybot.shared import ArbiterConfig, ArchiveConfig, InnerVoiceConfig
+from openclaw_moneybot.shared.contracts import LedgerRecord
 from openclaw_moneybot.shared.types import (
     ArbiterFinalResolution,
     ArbiterPrevailingSide,
@@ -1425,3 +1433,466 @@ def test_build_metrics_snapshot_summarizes_debate_and_arbiter_results(tmp_path: 
     assert review_records[0].record_id == "review_metrics"
     assert debate_records[0].payload["transcript_archive_ids"]
     assert arbiter_records == []
+
+
+def test_run_debate_rejects_stage_not_enabled(tmp_path: Path) -> None:
+    inner_voice, ledger_service = make_inner_voice_plugin(
+        tmp_path,
+        provider=ProviderName.OLLAMA,
+        handler=httpx.MockTransport(lambda request: httpx.Response(500)),
+        config_overrides={"run_after_stages": [InnerVoiceStage.BUDGET_PLANNING]},
+    )
+    arbiter, _ = make_arbiter_service(
+        tmp_path,
+        provider=ProviderName.LLAMA_SERVER,
+        handler=httpx.MockTransport(lambda request: httpx.Response(500)),
+    )
+    coordinator = InnerVoiceCoordinator(inner_voice, arbiter, inner_voice.archiver, ledger_service)
+
+    with pytest.raises(ValueError, match="not enabled"):
+        coordinator.run_debate(
+            InnerVoiceDebateRequest(
+                stage=InnerVoiceStage.PRE_EXECUTION,
+                subject_type=InnerVoiceSubjectType.EXPERIMENT_PLAN,
+                subject_id="plan_001",
+                review_goal="Resolve",
+                claim_summary="Claim",
+                disagreement_summary="Disagree",
+                openclaw_initial_position="Proceed",
+            ),
+            openclaw=StaticResponder([]),
+        )
+
+
+def test_inner_voice_arbiter_request_invokes_arbiter_immediately(tmp_path: Path) -> None:
+    def inner_voice_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "content": (
+                        '{"turn_type":"request_arbiter","message_text":"Escalate now.",'
+                        '"cited_evidence_ids":[],"disposition_signal":"needs_review",'
+                        '"max_unresolved_severity":"high","request_arbiter":true}'
+                    )
+                },
+                "done_reason": "stop",
+            },
+        )
+
+    def arbiter_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"final_resolution":"needs_review",'
+                                '"prevailing_side":"neither",'
+                                '"resolution_summary":"Escalation accepted.",'
+                                '"rationale_summary":"Immediate Arbiter request.",'
+                                '"required_followups":[],"unresolved_risks":[]}'
+                            )
+                        },
+                        "finish_reason": "stop",
+                    }
+                ],
+            },
+        )
+
+    inner_voice, ledger_service = make_inner_voice_plugin(
+        tmp_path,
+        provider=ProviderName.OLLAMA,
+        handler=httpx.MockTransport(inner_voice_handler),
+    )
+    arbiter, _ = make_arbiter_service(
+        tmp_path,
+        provider=ProviderName.LLAMA_SERVER,
+        handler=httpx.MockTransport(arbiter_handler),
+    )
+    coordinator = InnerVoiceCoordinator(inner_voice, arbiter, inner_voice.archiver, ledger_service)
+
+    outcome = coordinator.run_debate(
+        InnerVoiceDebateRequest(
+            stage=InnerVoiceStage.PRE_EXECUTION,
+            subject_type=InnerVoiceSubjectType.EXPERIMENT_PLAN,
+            subject_id="plan_001",
+            review_goal="Resolve",
+            claim_summary="Claim",
+            disagreement_summary="Disagree",
+            openclaw_initial_position="Proceed",
+        ),
+        openclaw=StaticResponder([]),
+    )
+
+    assert outcome.session.ended_reason is DebateEndedReason.REQUEST_ARBITER
+    assert outcome.session.arbiter_requested_by is DebateSpeaker.INNER_VOICE
+
+
+def test_run_debate_records_orchestrator_escalation_reason_in_summary_and_ledger(
+    tmp_path: Path,
+) -> None:
+    def inner_voice_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "content": (
+                        '{"turn_type":"concession","message_text":"Proceed with followups.",'
+                        '"cited_evidence_ids":[],"disposition_signal":"proceed_with_followups",'
+                        '"max_unresolved_severity":"low","request_arbiter":false}'
+                    )
+                },
+                "done_reason": "stop",
+            },
+        )
+
+    inner_voice, ledger_service = make_inner_voice_plugin(
+        tmp_path,
+        provider=ProviderName.OLLAMA,
+        handler=httpx.MockTransport(inner_voice_handler),
+    )
+    arbiter, _ = make_arbiter_service(
+        tmp_path,
+        provider=ProviderName.LLAMA_SERVER,
+        handler=httpx.MockTransport(lambda request: httpx.Response(500)),
+    )
+    coordinator = InnerVoiceCoordinator(inner_voice, arbiter, inner_voice.archiver, ledger_service)
+
+    outcome = coordinator.run_debate(
+        InnerVoiceDebateRequest(
+            debate_id="debate_escalated",
+            stage=InnerVoiceStage.BUDGET_PLANNING,
+            subject_type=InnerVoiceSubjectType.EXPERIMENT_PLAN,
+            subject_id="plan_001",
+            review_goal="Resolve",
+            claim_summary="Claim",
+            disagreement_summary="Disagree",
+            openclaw_initial_position="Proceed",
+            openclaw_initial_disposition=InnerVoiceDisposition.PROCEED_WITH_FOLLOWUPS,
+            openclaw_initial_max_unresolved_severity=InnerVoiceObjectionSeverity.LOW,
+        ),
+        openclaw=StaticResponder([]),
+        resolution_guard=lambda *_args: "operator confirmation required",
+    )
+
+    assert outcome.session.ended_reason is DebateEndedReason.ORCHESTRATOR_ESCALATION
+    debate_record = list_inner_voice_debates(ledger_service, subject_id="plan_001")[0]
+    assert debate_record.payload["resolution_outcome"] == "proceed_with_followups"
+    assert (
+        debate_record.payload["orchestrator_escalation_reason"]
+        == "operator confirmation required"
+    )
+    summary_record = next(
+        item
+        for item in ledger_service.list_evidence_for_related(
+            related_type=RecordType.INNER_VOICE_DEBATE,
+            related_id="debate_escalated",
+        )
+        if item.evidence_type == "inner_voice_debate_summary"
+    )
+    summary_text = Path(summary_record.archive_path).read_text(encoding="utf-8")
+    assert "operator confirmation required" in summary_text
+
+
+def test_archive_debate_transcript_respects_raw_and_placeholder_modes(tmp_path: Path) -> None:
+    inner_voice, ledger_service = make_inner_voice_plugin(
+        tmp_path,
+        provider=ProviderName.OLLAMA,
+        handler=httpx.MockTransport(lambda request: httpx.Response(500)),
+    )
+    arbiter, _ = make_arbiter_service(
+        tmp_path,
+        provider=ProviderName.LLAMA_SERVER,
+        handler=httpx.MockTransport(lambda request: httpx.Response(500)),
+    )
+    coordinator = InnerVoiceCoordinator(inner_voice, arbiter, inner_voice.archiver, ledger_service)
+    turns = [
+        InnerVoiceDebateTurn(
+            debate_id="debate_tx",
+            round_index=1,
+            turn_index=1,
+            speaker=DebateSpeaker.OPENCLAW,
+            turn_type=DebateTurnType.PROPOSAL,
+            message_text="Visible message text",
+            cited_evidence_ids=[],
+            created_at="2026-01-01T00:00:00Z",
+        )
+    ]
+
+    coordinator._archive_debate_transcript(
+        debate_id="debate_tx",
+        stage="budget_planning",
+        subject_id="plan_001",
+        turns=turns,
+        ended_reason=DebateEndedReason.CONVERGED,
+    )
+    transcript_text = Path(
+        ledger_service.list_evidence_for_related(
+            related_type=RecordType.INNER_VOICE_DEBATE,
+            related_id="debate_tx",
+        )[0].archive_path
+    ).read_text(encoding="utf-8")
+    assert "Visible message text" in transcript_text
+
+    disabled_root = tmp_path / "disabled"
+    disabled_root.mkdir(parents=True, exist_ok=True)
+    inner_voice_disabled, ledger_service_disabled = make_inner_voice_plugin(
+        disabled_root,
+        provider=ProviderName.OLLAMA,
+        handler=httpx.MockTransport(lambda request: httpx.Response(500)),
+        config_overrides={"archive_debate_transcript": False},
+    )
+    arbiter_disabled, _ = make_arbiter_service(
+        disabled_root,
+        provider=ProviderName.LLAMA_SERVER,
+        handler=httpx.MockTransport(lambda request: httpx.Response(500)),
+    )
+    coordinator_disabled = InnerVoiceCoordinator(
+        inner_voice_disabled,
+        arbiter_disabled,
+        inner_voice_disabled.archiver,
+        ledger_service_disabled,
+    )
+    coordinator_disabled._archive_debate_transcript(
+        debate_id="debate_placeholder",
+        stage="budget_planning",
+        subject_id="plan_001",
+        turns=turns,
+        ended_reason=DebateEndedReason.CONVERGED,
+    )
+    placeholder_text = Path(
+        ledger_service_disabled.list_evidence_for_related(
+            related_type=RecordType.INNER_VOICE_DEBATE,
+            related_id="debate_placeholder",
+        )[0].archive_path
+    ).read_text(encoding="utf-8")
+    assert "transcript_raw_archival_disabled" in placeholder_text
+    assert "Visible message text" not in placeholder_text
+
+
+def test_archive_debate_summary_includes_optional_fields_only_when_present(
+    tmp_path: Path,
+) -> None:
+    inner_voice, ledger_service = make_inner_voice_plugin(
+        tmp_path,
+        provider=ProviderName.OLLAMA,
+        handler=httpx.MockTransport(lambda request: httpx.Response(500)),
+    )
+    arbiter, _ = make_arbiter_service(
+        tmp_path,
+        provider=ProviderName.LLAMA_SERVER,
+        handler=httpx.MockTransport(lambda request: httpx.Response(500)),
+    )
+    coordinator = InnerVoiceCoordinator(inner_voice, arbiter, inner_voice.archiver, ledger_service)
+    turns = [
+        InnerVoiceDebateTurn(
+            debate_id="debate_summary",
+            round_index=1,
+            turn_index=1,
+            speaker=DebateSpeaker.OPENCLAW,
+            turn_type=DebateTurnType.PROPOSAL,
+            message_text="Proceed",
+            cited_evidence_ids=[],
+            created_at="2026-01-01T00:00:00Z",
+        )
+    ]
+
+    summary_id = coordinator._archive_debate_summary(
+        debate_id="debate_summary",
+        stage="budget_planning",
+        transcript_archive_ids=["evidence_1"],
+        turns=turns,
+        ended_reason=DebateEndedReason.CONVERGED,
+        openclaw_review_id=None,
+        inner_voice_review_id=None,
+    )
+    with_notes_id = coordinator._archive_debate_summary(
+        debate_id="debate_summary_with_notes",
+        stage="budget_planning",
+        transcript_archive_ids=["evidence_1"],
+        turns=turns,
+        ended_reason=DebateEndedReason.ORCHESTRATOR_ESCALATION,
+        openclaw_review_id="openclaw_review_1",
+        inner_voice_review_id="inner_review_1",
+        resolved_disposition="proceed",
+        orchestrator_escalation_reason="needs operator",
+    )
+
+    summary_text = Path(
+        next(
+            item.archive_path
+            for item in ledger_service.list_evidence_for_related(
+                related_type=RecordType.INNER_VOICE_DEBATE,
+                related_id="debate_summary",
+            )
+            if item.evidence_id == summary_id
+        )
+    ).read_text(encoding="utf-8")
+    with_notes_text = Path(
+        next(
+            item.archive_path
+            for item in ledger_service.list_evidence_for_related(
+                related_type=RecordType.INNER_VOICE_DEBATE,
+                related_id="debate_summary_with_notes",
+            )
+            if item.evidence_id == with_notes_id
+        )
+    ).read_text(encoding="utf-8")
+
+    assert "resolution_notes" not in summary_text
+    assert "orchestrator_escalation_reason" not in summary_text
+    assert "resolution_notes" in with_notes_text
+    assert "needs operator" in with_notes_text
+
+
+def test_turn_metadata_export_is_stable_for_mixed_turn_types() -> None:
+    turns = [
+        InnerVoiceDebateTurn(
+            debate_id="debate_meta",
+            round_index=1,
+            turn_index=1,
+            speaker=DebateSpeaker.OPENCLAW,
+            turn_type=DebateTurnType.PROPOSAL,
+            message_text="Proceed",
+            cited_evidence_ids=["ev_1"],
+            disposition_signal=InnerVoiceDisposition.PROCEED,
+            created_at="2026-01-01T00:00:00Z",
+        ),
+        InnerVoiceDebateTurn(
+            debate_id="debate_meta",
+            round_index=1,
+            turn_index=2,
+            speaker=DebateSpeaker.INNER_VOICE,
+            turn_type=DebateTurnType.OBJECTION,
+            message_text="Needs review",
+            cited_evidence_ids=[],
+            disposition_signal=InnerVoiceDisposition.NEEDS_REVIEW,
+            max_unresolved_severity=InnerVoiceObjectionSeverity.HIGH,
+            request_arbiter=True,
+            created_at="2026-01-01T00:00:01Z",
+        ),
+    ]
+
+    assert debate_module.InnerVoiceCoordinator._turn_metadata(turns) == [
+        {
+            "round_index": 1,
+            "turn_index": 1,
+            "speaker": "openclaw",
+            "turn_type": "proposal",
+            "request_arbiter": False,
+            "cited_evidence_ids": ["ev_1"],
+            "disposition_signal": "proceed",
+            "max_unresolved_severity": None,
+        },
+        {
+            "round_index": 1,
+            "turn_index": 2,
+            "speaker": "inner_voice",
+            "turn_type": "objection",
+            "request_arbiter": True,
+            "cited_evidence_ids": [],
+            "disposition_signal": "needs_review",
+            "max_unresolved_severity": "high",
+        },
+    ]
+
+
+def test_build_metrics_snapshot_tolerates_malformed_summaries_and_counts_rates() -> None:
+    outcome = InnerVoiceDebateOutcome(
+        session=InnerVoiceDebateSession(
+            debate_id="debate_metrics",
+            stage=InnerVoiceStage.PRE_EXECUTION,
+            subject_type=InnerVoiceSubjectType.SPEND_REQUEST,
+            subject_id="spend_001",
+            initiated_by=DebateSpeaker.OPENCLAW,
+            max_rounds_configured=2,
+            completed_rounds=2,
+            ended_reason=DebateEndedReason.REQUEST_ARBITER,
+            arbiter_requested_by=DebateSpeaker.OPENCLAW,
+            arbiter_review_id="arbiter_001",
+            transcript_archive_ids=[],
+        ),
+        turns=[
+            InnerVoiceDebateTurn(
+                debate_id="debate_metrics",
+                round_index=1,
+                turn_index=1,
+                speaker=DebateSpeaker.OPENCLAW,
+                turn_type=DebateTurnType.PROPOSAL,
+                message_text="Proceed",
+                cited_evidence_ids=[],
+                disposition_signal=InnerVoiceDisposition.PROCEED,
+                created_at="2026-01-01T00:00:00Z",
+            )
+        ],
+        final_resolution_source="arbiter",
+        arbiter_result=ArbiterResolutionResult(
+            arbiter_review_id="arbiter_001",
+            debate_id="debate_metrics",
+            provider=ProviderName.OPENAI,
+            model_name="arbiter-model",
+            stage=InnerVoiceStage.PRE_EXECUTION,
+            subject_type=InnerVoiceSubjectType.SPEND_REQUEST,
+            subject_id="spend_001",
+            final_resolution=ArbiterFinalResolution.ADOPT_INNER_VOICE,
+            prevailing_side=ArbiterPrevailingSide.INNER_VOICE,
+            resolution_summary="Needs review",
+            rationale_summary="Risk remains",
+            required_followups=["verify balance", "refresh evidence"],
+            unresolved_risks=[],
+            raw_response_summary=ProviderResponseSummary(
+                provider=ProviderName.OPENAI,
+                model_name="arbiter-model",
+                response_chars=50,
+            ),
+            ledger_record=LedgerRecord.model_construct(
+                record_id="record_arbiter",
+                created_at=datetime.now(UTC),
+                record_type=RecordType.ARBITER_REVIEW,
+                payload={},
+            ),
+        ),
+        ledger_record=LedgerRecord.model_construct(
+            record_id="record_debate",
+            created_at=datetime.now(UTC),
+            record_type=RecordType.INNER_VOICE_DEBATE,
+            payload={},
+        ),
+    )
+
+    snapshot = build_metrics_snapshot(
+        [
+            SimpleNamespace(
+                stage=InnerVoiceStage.TOS_LEGAL_CHECK,
+                recommended_disposition=InnerVoiceDisposition.NEEDS_REVIEW,
+                objections=[SimpleNamespace(severity=InnerVoiceObjectionSeverity.HIGH)],
+                raw_response_summary={"prompt_chars": "bad", "response_chars": 12},
+                failure=object(),
+            )
+        ],
+        [outcome],
+        [outcome.arbiter_result],
+    )
+
+    assert snapshot.needs_review_count_by_stage["tos_legal_check"] == 1
+    assert snapshot.arbiter_request_rate == 1.0
+    assert snapshot.arbiter_invocation_rate == 1.0
+    assert snapshot.followup_creation_rate == 2.0
+    assert snapshot.provider_failure_rate > 0
+    assert snapshot.average_response_size_chars > 0
+
+
+def test_summary_int_value_handles_provider_summary_dicts_and_bad_inputs() -> None:
+    provider_summary = ProviderResponseSummary(
+        provider=ProviderName.OLLAMA,
+        model_name="test-model",
+        prompt_chars=12,
+        response_chars=7,
+    )
+
+    assert debate_module._summary_int_value(provider_summary, "prompt_chars") == 12
+    assert debate_module._summary_int_value({"prompt_chars": 8}, "prompt_chars") == 8
+    assert debate_module._summary_int_value({"prompt_chars": "8"}, "prompt_chars") is None
+    assert debate_module._summary_int_value(None, "prompt_chars") is None

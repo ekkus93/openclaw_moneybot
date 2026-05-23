@@ -468,6 +468,24 @@ def test_wait_for_text_succeeds_and_times_out(monkeypatch: pytest.MonkeyPatch) -
         )
 
 
+def test_browser_execution_step_validators_reject_invalid_combinations() -> None:
+    step = BrowserExecutionStep(kind=" FILL ", selector=" #email ", text="bot@example.com")
+
+    assert step.kind == "fill"
+    assert step.selector == "#email"
+
+    with pytest.raises(ValueError, match="fill steps require a selector"):
+        BrowserExecutionStep(kind="fill", selector=" ", text="x")
+    with pytest.raises(ValueError, match="fill steps require text"):
+        BrowserExecutionStep(kind="fill", selector="#email", text=None)
+    with pytest.raises(ValueError, match="click steps do not accept text"):
+        BrowserExecutionStep(kind="click", selector="#go", text="x")
+    with pytest.raises(ValueError, match="wait_for_text steps require text"):
+        BrowserExecutionStep(kind="wait_for_text", text=None)
+    with pytest.raises(ValueError, match="kind must be one of"):
+        BrowserExecutionStep(kind="hover")
+
+
 def test_playwright_firefox_backend_execute_success_and_truncates_steps(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
