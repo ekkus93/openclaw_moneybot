@@ -283,6 +283,52 @@ def test_required_pre_execution_inner_voice_stage_missing_stops_wallet_path(tmp_
     assert result.wallet_result is None
 
 
+def test_budget_inner_voice_followups_stop_spend_path_when_confidence_is_too_low(
+    tmp_path: Path,
+) -> None:
+    def inner_voice_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "content": (
+                        '{"overall_assessment":"Proceed only after more proof is gathered.",'
+                        '"recommended_disposition":"proceed_with_followups",'
+                        '"confidence_adjustment":-0.4,'
+                        '"objections":[{"title":"Evidence gap","severity":"low",'
+                        '"reason":"The spend path still lacks refreshed proof."}],'
+                        '"missing_evidence":["refreshed receipt"],'
+                        '"stale_information_risks":[],'
+                        '"overlooked_constraints":[],'
+                        '"counterarguments":[],'
+                        '"recommended_followups":["refresh receipt before spending"]}'
+                    )
+                },
+                "done_reason": "stop",
+            },
+        )
+
+    orchestrator, ledger_service = make_orchestrator(tmp_path, spend_enabled=True)
+    orchestrator.inner_voice_plugin = make_inner_voice_plugin(
+        tmp_path,
+        ledger_service,
+        run_after_stages=[InnerVoiceStage.BUDGET_PLANNING],
+        handler=httpx.MockTransport(inner_voice_handler),
+    )
+
+    result = orchestrator.run_dry_run(
+        make_request(
+            enable_wallet_payment=True,
+            draft_recipient_email="maintainer@example.com",
+            draft_recipient_name="Maintainer",
+        )
+    )
+
+    assert result.status == "needs_review"
+    assert result.stop_stage == "inner_voice_budget"
+    assert result.wallet_result is None
+
+
 def test_spend_path_debate_can_return_followup_gated_result(tmp_path: Path) -> None:
     def inner_voice_handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -531,6 +577,89 @@ def test_deterministic_policy_still_outranks_arbiter_output(tmp_path: Path) -> N
     assert interpretation.final_status == "block"
     assert interpretation.stop_stage == "deterministic_gate"
     assert interpretation.stop_reason == "Policy blocked the purchase category."
+
+
+def test_arbiter_adopt_inner_voice_respects_stage_interpretation(tmp_path: Path) -> None:
+    def inner_voice_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "content": (
+                        '{"turn_type":"objection",'
+                        '"message_text":"Do not proceed until the proof is refreshed.",'
+                        '"cited_evidence_ids":["ev_2"],'
+                        '"disposition_signal":"needs_review",'
+                        '"max_unresolved_severity":"medium",'
+                        '"request_arbiter":false}'
+                    )
+                },
+                "done_reason": "stop",
+            },
+        )
+
+    def arbiter_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": (
+                                '{"final_resolution":"adopt_inner_voice",'
+                                '"prevailing_side":"inner_voice",'
+                                '"resolution_summary":"The inner voice blocker stands.",'
+                                '"rationale_summary":"The missing proof remains material.",'
+                                '"required_followups":["refresh payout proof"],'
+                                '"unresolved_risks":["stale evidence"]}'
+                            )
+                        },
+                    }
+                ]
+            },
+        )
+
+    orchestrator, ledger_service = make_orchestrator(tmp_path, spend_enabled=True)
+    plugin = make_inner_voice_plugin(
+        tmp_path,
+        ledger_service,
+        run_after_stages=[InnerVoiceStage.PRE_EXECUTION],
+        handler=httpx.MockTransport(inner_voice_handler),
+    )
+    arbiter = make_arbiter_service(
+        tmp_path,
+        ledger_service,
+        handler=httpx.MockTransport(arbiter_handler),
+    )
+    coordinator = InnerVoiceCoordinator(plugin, arbiter, plugin.archiver, ledger_service)
+    orchestrator.inner_voice_plugin = plugin
+    orchestrator.arbiter_service = arbiter
+    orchestrator.inner_voice_coordinator = coordinator
+
+    outcome = orchestrator.resolve_model_disagreement(
+        InnerVoiceDebateRequest(
+            stage=InnerVoiceStage.PRE_EXECUTION,
+            subject_type=InnerVoiceSubjectType.EXECUTION_STEP,
+            subject_id="wallet_step_003",
+            review_goal="Resolve the spend disagreement.",
+            claim_summary="Proceed with the approved wallet spend.",
+            disagreement_summary="Proceed now or wait for proof refresh.",
+            openclaw_initial_position="Proceed with the approved wallet spend now.",
+            openclaw_initial_disposition=InnerVoiceDisposition.PROCEED,
+            openclaw_initial_max_unresolved_severity=InnerVoiceObjectionSeverity.LOW,
+            max_debate_rounds=1,
+        ),
+        openclaw=StaticResponder([]),
+    )
+
+    interpretation = orchestrator.interpret_model_disagreement(outcome)
+
+    assert outcome.arbiter_result is not None
+    assert outcome.arbiter_result.final_resolution is ArbiterFinalResolution.ADOPT_INNER_VOICE
+    assert interpretation.final_status == "needs_review"
+    assert interpretation.stop_stage == "inner_voice_debate"
+    assert interpretation.required_followups == ["refresh payout proof"]
 
 
 def test_initial_policy_block_stops_before_downstream_work(tmp_path: Path) -> None:

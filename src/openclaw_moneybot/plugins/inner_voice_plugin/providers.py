@@ -6,6 +6,7 @@ import json
 import os
 from collections.abc import Mapping
 from typing import Protocol, cast
+from urllib.parse import urlparse
 
 import httpx
 from pydantic import JsonValue
@@ -124,6 +125,8 @@ class BaseProviderAdapter:
             parts: list[str] = []
             for item in value:
                 if isinstance(item, Mapping):
+                    # Some OpenAI-compatible backends return content parts instead of one string.
+                    # We only join explicit text fragments before strict JSON validation.
                     text_value = item.get("text")
                     if isinstance(text_value, str):
                         parts.append(text_value)
@@ -137,8 +140,32 @@ class OpenAiProviderAdapter(BaseProviderAdapter):
     """Direct OpenAI chat-completions adapter."""
 
     provider_name = ProviderName.OPENAI
+    _unsupported_model_prefixes = (
+        "text-embedding-",
+        "whisper-",
+        "tts-",
+        "gpt-image-",
+        "dall-e-",
+        "omni-moderation-",
+    )
+
+    def _ensure_json_compatible_configuration(self) -> None:
+        parsed_base_url = urlparse(self.base_url)
+        if parsed_base_url.path.rstrip("/") != "/v1":
+            msg = (
+                "OpenAI structured JSON calls require a base_url that targets the /v1 API root."
+            )
+            raise InnerVoiceProviderError(msg, failure_class="unsupported_configuration")
+        normalized_model = self.model_name.strip().lower()
+        if normalized_model.startswith(self._unsupported_model_prefixes):
+            msg = (
+                "Configured OpenAI model cannot satisfy the structured JSON "
+                "chat-completions contract."
+            )
+            raise InnerVoiceProviderError(msg, failure_class="unsupported_configuration")
 
     def generate(self, request: InnerVoicePromptRequest) -> InnerVoiceRawResponse:
+        self._ensure_json_compatible_configuration()
         api_key = os.getenv(self.api_key_env_var)
         if not api_key:
             msg = "OpenAI API key is not configured."

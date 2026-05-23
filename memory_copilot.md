@@ -276,3 +276,7 @@
 - Added `ModelDisagreementInterpretation` plus `MoneyBotOrchestrator.interpret_model_disagreement(...)` so debate and Arbiter outcomes map back into deterministic workflow statuses without allowing LLM output to outrank deterministic gates.
 - Added workflow integration coverage for spend-path debate follow-up handling, irreversible-action debate blocking, and deterministic policy outranking an Arbiter `adopt_openclaw` result.
 - Updated `docs/INNER_VOICE_TODO.md` to mark the newly completed deterministic-interpretation and workflow-integration items from this phase.
+## 2026-05-23T06:45:32Z - GPT-5.4 - Hardened provider compatibility and interpretation rules
+- Added explicit OpenAI JSON-contract rejection for clearly incompatible endpoint/model configurations and documented the llama-server adapter's minimal content-part joining behavior before strict JSON validation.
+- Tightened orchestration's inner-voice interpretation matrix so spend-path budget reviews now route low-confidence or follow-up-gated results to `needs_review`, and added integration coverage for both budget-stage spend gating and Arbiter `adopt_inner_voice` interpretation.
+- Updated `docs/INNER_VOICE_TODO.md` to mark the provider-compatibility and deterministic-interpretation items completed in this phase.

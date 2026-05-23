@@ -476,7 +476,10 @@ class MoneyBotOrchestrator:
         if budget_inner_voice is not None:
             inner_voice_review_ids.append(budget_inner_voice.review_id)
             evidence_ids.extend(budget_inner_voice.evidence_archive_ids)
-            if self._inner_voice_requires_review(budget_inner_voice):
+            if self._inner_voice_requires_review(
+                budget_inner_voice,
+                execution_sensitive=request.enable_wallet_payment,
+            ):
                 return self._finalize_result(
                     request=request,
                     candidate=candidate,
@@ -1186,14 +1189,13 @@ class MoneyBotOrchestrator:
             )
         return summaries
 
-    @staticmethod
-    def _inner_voice_requires_review(review: InnerVoiceReviewResult) -> bool:
-        if review.recommended_disposition in {
-            InnerVoiceDisposition.NEEDS_REVIEW,
-            InnerVoiceDisposition.BLOCK_PENDING_CHECKS,
-        }:
-            return True
-        return any(
+    def _inner_voice_requires_review(
+        self,
+        review: InnerVoiceReviewResult,
+        *,
+        execution_sensitive: bool = False,
+    ) -> bool:
+        has_severe_objection = any(
             objection.severity
             in {
                 InnerVoiceObjectionSeverity.HIGH,
@@ -1201,6 +1203,42 @@ class MoneyBotOrchestrator:
             }
             for objection in review.objections
         )
+        if review.stage is InnerVoiceStage.POST_REVIEW:
+            return review.recommended_disposition in {
+                InnerVoiceDisposition.NEEDS_REVIEW,
+                InnerVoiceDisposition.BLOCK_PENDING_CHECKS,
+            }
+        if review.stage is InnerVoiceStage.BUDGET_PLANNING:
+            if review.recommended_disposition in {
+                InnerVoiceDisposition.NEEDS_REVIEW,
+                InnerVoiceDisposition.BLOCK_PENDING_CHECKS,
+            }:
+                return True
+            if has_severe_objection:
+                return True
+            return execution_sensitive and (
+                review.recommended_disposition is not InnerVoiceDisposition.PROCEED
+                or bool(review.missing_evidence)
+                or bool(review.stale_information_risks)
+                or self._confidence_adjustment_requires_review(review.confidence_adjustment)
+            )
+        if review.stage is InnerVoiceStage.PRE_EXECUTION:
+            return (
+                review.recommended_disposition is not InnerVoiceDisposition.PROCEED
+                or has_severe_objection
+            )
+        return (
+            review.recommended_disposition is not InnerVoiceDisposition.PROCEED
+            or has_severe_objection
+        )
+
+    def _confidence_adjustment_requires_review(self, adjustment: float | None) -> bool:
+        if adjustment is None:
+            return False
+        plugin = self.inner_voice_plugin
+        threshold = 0.65 if plugin is None else plugin.config.low_confidence_threshold
+        adjustment_threshold = -(1.0 - threshold)
+        return adjustment <= adjustment_threshold
 
     @staticmethod
     def _inner_voice_stop_reason(review: InnerVoiceReviewResult) -> str:

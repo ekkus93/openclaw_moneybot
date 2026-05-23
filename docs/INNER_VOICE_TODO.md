@@ -227,7 +227,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 - [x] Implement direct HTTPS adapter for OpenAI.
 - [x] Request strict JSON object output.
 - [x] Capture finish reason and token usage when available.
-- [ ] Reject unsupported endpoint/model combinations that cannot satisfy JSON requirements.
+- [x] Reject unsupported endpoint/model combinations that cannot satisfy JSON requirements.
 - [x] Respect hosted-provider opt-in rules.
 
 ## 3.3 Ollama adapter
@@ -242,7 +242,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 - [x] Implement direct OpenAI-compatible adapter for llama-server.
 - [x] Validate compatibility assumptions around JSON output.
 - [x] Reject runtime modes that cannot satisfy structured output requirements.
-- [ ] Document and test any minimal compatibility trimming/post-processing.
+- [x] Document and test any minimal compatibility trimming/post-processing.
 
 ## 3.5 Adapter error handling
 
@@ -570,8 +570,8 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 ## 10.1 Inner voice result interpretation
 
-- [ ] Implement stage-by-stage interpretation matrix.
-- [ ] Ensure `block` objections and configured thresholds route to `needs_review` when required.
+- [x] Implement stage-by-stage interpretation matrix.
+- [x] Ensure `block` objections and configured thresholds route to `needs_review` when required.
 - [ ] Ensure inner voice `proceed` never authorizes irreversible action by itself.
 
 ## 10.2 Debate result interpretation
@@ -582,7 +582,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 ## 10.3 Arbiter result interpretation
 
 - [x] If Arbiter returns `adopt_openclaw`, continue with that position subject to deterministic gates.
-- [ ] If Arbiter returns `adopt_inner_voice`, continue with that position subject to deterministic gates.
+- [x] If Arbiter returns `adopt_inner_voice`, continue with that position subject to deterministic gates.
 - [x] If Arbiter returns `proceed_with_followups`, create required follow-up work.
 - [x] If Arbiter returns `needs_review` or `block_pending_checks`, prevent auto-advance.
 - [x] Ensure no LLM result can lower an existing deterministic `block` or `needs_review`.
@@ -753,6 +753,6 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 - [x] Transcript artifacts preserve exchanged dialogue safely.
 - [x] Arbiter is invoked on max-round or explicit-request escalation.
 - [x] Arbiter result is final for the v1 debate session.
-- [ ] Deterministic policy remains the ultimate authority.
+- [x] Deterministic policy remains the ultimate authority.
 - [x] Ledger and evidence linkage are complete for review, debate, and Arbiter records.
 - [x] Unit, integration, mypy, ruff, and pytest all pass.

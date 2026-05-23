@@ -66,20 +66,23 @@ def make_inner_voice_plugin(
     config_overrides: dict[str, object] | None = None,
 ) -> tuple[InnerVoicePlugin, LedgerService]:
     ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
-    config = InnerVoiceConfig(
-        enabled=True,
-        provider=provider,
-        model_name="test-model",
-        base_url=(
+    config_payload: dict[str, object] = {
+        "enabled": True,
+        "provider": provider,
+        "model_name": "test-model",
+        "base_url": (
             "https://api.openai.com/v1"
             if provider is ProviderName.OPENAI
             else "http://127.0.0.1:11434"
             if provider is ProviderName.OLLAMA
             else "http://127.0.0.1:8080/v1"
         ),
-        api_key_env_var="OPENAI_API_KEY",
-        allow_hosted_provider=provider is ProviderName.OPENAI,
-        **(config_overrides or {}),
+        "api_key_env_var": "OPENAI_API_KEY",
+        "allow_hosted_provider": provider is ProviderName.OPENAI,
+    }
+    config_payload.update(config_overrides or {})
+    config = InnerVoiceConfig(
+        **config_payload,
     )
     plugin = InnerVoicePlugin(
         config,
@@ -176,6 +179,24 @@ def test_openai_inner_voice_review_shapes_request_and_persists_result(
         reason="No payout evidence yet.",
     )
     assert len(evidence) == 2
+
+
+def test_openai_adapter_rejects_incompatible_model_for_json_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
+    plugin, _ = make_inner_voice_plugin(
+        tmp_path,
+        provider=ProviderName.OPENAI,
+        handler=httpx.MockTransport(
+            lambda request: pytest.fail("provider should not be called for incompatible models")
+        ),
+        config_overrides={"model_name": "text-embedding-3-large"},
+    )
+
+    with pytest.raises(InnerVoicePluginError, match="structured JSON"):
+        plugin.review(make_review_request(), required=True)
 
 
 def test_build_inner_voice_prompt_bounds_and_marks_stale_evidence() -> None:
@@ -327,6 +348,65 @@ def test_llama_server_arbiter_shapes_request_and_parses_result(tmp_path: Path) -
 
     assert result.final_resolution is ArbiterFinalResolution.ADOPT_INNER_VOICE
     assert result.prevailing_side is ArbiterPrevailingSide.INNER_VOICE
+
+
+def test_llama_server_arbiter_accepts_text_content_parts(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": (
+                                        '{"final_resolution":"adopt_inner_voice",'
+                                        '"prevailing_side":"inner_voice",'
+                                    ),
+                                },
+                                {
+                                    "type": "text",
+                                    "text": (
+                                        '"resolution_summary":"The inner voice is correct.",'
+                                        '"rationale_summary":"The blocker still stands.",'
+                                        '"required_followups":["refresh evidence"],'
+                                        '"unresolved_risks":["stale proof"]}'
+                                    ),
+                                },
+                            ]
+                        },
+                    }
+                ]
+            },
+        )
+
+    service, _ = make_arbiter_service(
+        tmp_path,
+        provider=ProviderName.LLAMA_SERVER,
+        handler=httpx.MockTransport(handler),
+    )
+
+    result = service.resolve(
+        ArbiterResolutionRequest(
+            arbiter_review_id="arbiter_parts_001",
+            debate_id="debate_parts_001",
+            stage=InnerVoiceStage.PRE_EXECUTION,
+            subject_type=InnerVoiceSubjectType.EXPERIMENT_PLAN,
+            subject_id="plan_parts_001",
+            openclaw_position_summary="Proceed now.",
+            inner_voice_position_summary="Stop until evidence is refreshed.",
+            disagreement_summary="Proceed now versus wait for refreshed proof.",
+            transcript_summary="openclaw: proceed\ninner_voice: wait",
+            resolution_goal="Resolve the disagreement.",
+            triggered_by=DebateEndedReason.MAX_ROUNDS_REACHED,
+        )
+    )
+
+    assert result.final_resolution is ArbiterFinalResolution.ADOPT_INNER_VOICE
+    assert result.required_followups == ["refresh evidence"]
 
 
 def test_arbiter_failure_archives_sanitized_request_summary(tmp_path: Path) -> None:
