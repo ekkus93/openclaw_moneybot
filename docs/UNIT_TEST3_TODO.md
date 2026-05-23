@@ -193,35 +193,35 @@ The focus is default-feed behavior, malformed response handling, and normalizati
 
 ## 3.2 Feed request and failure branches
 
-- [ ] Add test: `health()` reports `missing_default_feed_uri` when the configured default URI is blank.
-- [ ] Add test: `sample_feed()` rejects requests when the plugin is disabled.
-- [ ] Add test: `sample_feed()` rejects limits above `max_results`.
-- [ ] Add test: `sample_feed()` raises when neither request nor config provides a feed URI.
-- [ ] Add test: `sample_feed()` records the expected audit event on transport failure.
-- [ ] Add test: `sample_feed()` records the expected audit event on invalid HTTP/JSON responses.
-- [ ] Add test: `sample_feed()` rejects non-object top-level payloads.
+- [x] Add test: `health()` reports `missing_default_feed_uri` when the configured default URI is blank.
+- [x] Add test: `sample_feed()` rejects requests when the plugin is disabled.
+- [x] Add test: `sample_feed()` rejects limits above `max_results`.
+- [x] Add test: `sample_feed()` raises when neither request nor config provides a feed URI.
+- [x] Add test: `sample_feed()` records the expected audit event on transport failure.
+- [x] Add test: `sample_feed()` records the expected audit event on invalid HTTP/JSON responses.
+- [x] Add test: `sample_feed()` rejects non-object top-level payloads.
 
 ## 3.3 Feed-list normalization
 
-- [ ] Add test: `_normalize_feed()` rejects responses without a list-valued `feed`.
-- [ ] Add test: `_normalize_feed()` stops at the requested limit even if more feed items are present.
-- [ ] Add test: `_normalize_feed()` skips non-dict feed items instead of crashing.
-- [ ] Add test: `_normalize_feed()` sets `cursor=None` for non-string cursors.
+- [x] Add test: `_normalize_feed()` rejects responses without a list-valued `feed`.
+- [x] Add test: `_normalize_feed()` stops at the requested limit even if more feed items are present.
+- [x] Add test: `_normalize_feed()` skips non-dict feed items instead of crashing.
+- [x] Add test: `_normalize_feed()` sets `cursor=None` for non-string cursors.
 
 ## 3.4 Per-post required-field validation
 
-- [ ] Add test: `_normalize_feed_item()` rejects missing `post` payloads.
-- [ ] Add test: `_normalize_feed_item()` rejects missing `uri`, `cid`, and `indexedAt`.
-- [ ] Add test: `_normalize_feed_item()` rejects missing `author` or `record` payloads.
-- [ ] Add test: `_normalize_feed_item()` rejects missing author `did` and `handle`.
-- [ ] Add test: `_normalize_feed_item()` rejects missing post text.
+- [x] Add test: `_normalize_feed_item()` rejects missing `post` payloads.
+- [x] Add test: `_normalize_feed_item()` rejects missing `uri`, `cid`, and `indexedAt`.
+- [x] Add test: `_normalize_feed_item()` rejects missing `author` or `record` payloads.
+- [x] Add test: `_normalize_feed_item()` rejects missing author `did` and `handle`.
+- [x] Add test: `_normalize_feed_item()` rejects missing post text.
 
 ## 3.5 Helper normalization branches
 
-- [ ] Add test: `_post_url()` returns `None` for non-AT-URI post identifiers.
-- [ ] Add test: `_optional_string()` trims whitespace and converts blank strings to `None`.
-- [ ] Add test: link, label, count, and embed helpers tolerate malformed payload fragments without crashing.
-- [ ] Add test: feed-reason normalization returns a stable bounded value for missing and malformed reason payloads.
+- [x] Add test: `_post_url()` returns `None` for non-AT-URI post identifiers.
+- [x] Add test: `_optional_string()` trims whitespace and converts blank strings to `None`.
+- [x] Add test: link, label, count, and embed helpers tolerate malformed payload fragments without crashing.
+- [x] Add test: feed-reason normalization returns a stable bounded value for missing and malformed reason payloads.
 
 ---
 
@@ -237,29 +237,29 @@ src/openclaw_moneybot/plugins/wikipedia_research_plugin/service.py
 
 ## 4.2 Search request and failure branches
 
-- [ ] Add test: `search()` rejects requests when disabled.
-- [ ] Add test: `search()` rejects counts above `max_results`.
-- [ ] Add test: `search()` records the expected failure event on transport errors.
-- [ ] Add test: `search()` records the expected failure event on invalid HTTP/JSON responses.
-- [ ] Add test: `search()` rejects non-object top-level payloads.
+- [x] Add test: `search()` rejects requests when disabled.
+- [x] Add test: `search()` rejects counts above `max_results`.
+- [x] Add test: `search()` records the expected failure event on transport errors.
+- [x] Add test: `search()` records the expected failure event on invalid HTTP/JSON responses.
+- [x] Add test: `search()` rejects non-object top-level payloads.
 
 ## 4.3 Search result normalization
 
-- [ ] Add test: `_normalize_search_results()` rejects missing `query` payloads.
-- [ ] Add test: `_normalize_search_results()` rejects non-list `search` payloads.
-- [ ] Add test: `_normalize_search_results()` skips malformed search items instead of crashing.
-- [ ] Add test: `_normalize_search_results()` stops at the requested limit.
-- [ ] Add test: snippet normalization keeps valid snippets and tolerates missing snippet fields.
+- [x] Add test: `_normalize_search_results()` rejects missing `query` payloads.
+- [x] Add test: `_normalize_search_results()` rejects non-list `search` payloads.
+- [x] Add test: `_normalize_search_results()` skips malformed search items instead of crashing.
+- [x] Add test: `_normalize_search_results()` stops at the requested limit.
+- [x] Add test: snippet normalization keeps valid snippets and tolerates missing snippet fields.
 
 ## 4.4 Page summary normalization
 
-- [ ] Add test: `get_page_summary()` rejects requests when disabled.
-- [ ] Add test: `get_page_summary()` clamps `request.max_extract_chars` to the configured maximum.
-- [ ] Add test: `get_page_summary()` records the expected failure event on transport errors.
-- [ ] Add test: `get_page_summary()` rejects non-object top-level payloads.
-- [ ] Add test: `_normalize_page_summary()` rejects missing required title/page/URL/extract fields.
-- [ ] Add test: `_normalize_page_summary()` trims or clips extracts deterministically to the configured limit.
-- [ ] Add test: `_summary_url()` percent-encodes titles safely.
+- [x] Add test: `get_page_summary()` rejects requests when disabled.
+- [x] Add test: `get_page_summary()` clamps `request.max_extract_chars` to the configured maximum.
+- [x] Add test: `get_page_summary()` records the expected failure event on transport errors.
+- [x] Add test: `get_page_summary()` rejects non-object top-level payloads.
+- [x] Add test: `_normalize_page_summary()` rejects missing required title/page/URL/extract fields.
+- [x] Add test: `_normalize_page_summary()` trims or clips extracts deterministically to the configured limit.
+- [x] Add test: `_summary_url()` percent-encodes titles safely.
 
 ---
 
@@ -275,28 +275,28 @@ src/openclaw_moneybot/plugins/arxiv_research_plugin/service.py
 
 ## 5.2 Search and lookup failure paths
 
-- [ ] Add test: `search()` rejects requests when disabled.
-- [ ] Add test: `search()` rejects counts above `max_results`.
-- [ ] Add test: `search()` records the expected failure event on transport errors.
-- [ ] Add test: `search()` records the expected failure event on HTTP failures.
-- [ ] Add test: `get_paper()` records the expected failure event on transport errors.
-- [ ] Add test: `get_paper()` raises `paper not found` when the feed contains no entries.
+- [x] Add test: `search()` rejects requests when disabled.
+- [x] Add test: `search()` rejects counts above `max_results`.
+- [x] Add test: `search()` records the expected failure event on transport errors.
+- [x] Add test: `search()` records the expected failure event on HTTP failures.
+- [x] Add test: `get_paper()` records the expected failure event on transport errors.
+- [x] Add test: `get_paper()` raises `paper not found` when the feed contains no entries.
 
 ## 5.3 Atom feed parsing
 
-- [ ] Add test: `_parse_feed()` rejects malformed XML.
-- [ ] Add test: `_parse_feed()` rejects a non-Atom root element.
-- [ ] Add test: `_parse_feed()` returns `total_results=None` when `totalResults` is missing or non-numeric.
-- [ ] Add test: `_parse_feed()` parses valid `totalResults` when present.
+- [x] Add test: `_parse_feed()` rejects malformed XML.
+- [x] Add test: `_parse_feed()` rejects a non-Atom root element.
+- [x] Add test: `_parse_feed()` returns `total_results=None` when `totalResults` is missing or non-numeric.
+- [x] Add test: `_parse_feed()` parses valid `totalResults` when present.
 
 ## 5.4 Entry normalization helpers
 
-- [ ] Add test: `_parse_entry()` rejects missing required title/summary/published/updated/id fields.
-- [ ] Add test: `_parse_entry()` preserves multiple authors deterministically.
-- [ ] Add test: `_parse_entry()` picks the PDF link only from the expected relation/type.
-- [ ] Add test: required-text helper raises with stable error text for missing elements.
-- [ ] Add test: optional-text helper trims whitespace and converts blanks to `None`.
-- [ ] Add test: search-query and sort helper methods map values to the expected API parameters.
+- [x] Add test: `_parse_entry()` rejects missing required title/summary/published/updated/id fields.
+- [x] Add test: `_parse_entry()` preserves multiple authors deterministically.
+- [x] Add test: `_parse_entry()` picks the PDF link only from the expected relation/type.
+- [x] Add test: required-text helper raises with stable error text for missing elements.
+- [x] Add test: optional-text helper trims whitespace and converts blanks to `None`.
+- [x] Add test: search-query and sort helper methods map values to the expected API parameters.
 
 ---
 
@@ -312,36 +312,36 @@ src/openclaw_moneybot/plugins/openalex_research_plugin/service.py
 
 ## 6.2 API-key and request gating
 
-- [ ] Add test: `health()` reports `missing_api_key` when the configured env var is unset or blank.
-- [ ] Add test: `search()` rejects requests when disabled.
-- [ ] Add test: `search()` rejects counts above `max_results`.
-- [ ] Add test: `search()` fails closed when the API key is missing.
-- [ ] Add test: `get_work()` fails closed when the API key is missing.
+- [x] Add test: `health()` reports `missing_api_key` when the configured env var is unset or blank.
+- [x] Add test: `search()` rejects requests when disabled.
+- [x] Add test: `search()` rejects counts above `max_results`.
+- [x] Add test: `search()` fails closed when the API key is missing.
+- [x] Add test: `get_work()` fails closed when the API key is missing.
 
 ## 6.3 Search and work failure branches
 
-- [ ] Add test: `search()` records the expected failure event on transport errors.
-- [ ] Add test: `search()` records the expected failure event on invalid HTTP/JSON responses.
-- [ ] Add test: `search()` rejects non-object top-level payloads.
-- [ ] Add test: `get_work()` records the expected failure event on transport errors.
-- [ ] Add test: `get_work()` rejects non-object work payloads.
+- [x] Add test: `search()` records the expected failure event on transport errors.
+- [x] Add test: `search()` records the expected failure event on invalid HTTP/JSON responses.
+- [x] Add test: `search()` rejects non-object top-level payloads.
+- [x] Add test: `get_work()` records the expected failure event on transport errors.
+- [x] Add test: `get_work()` rejects non-object work payloads.
 
 ## 6.4 Search-result and work normalization
 
-- [ ] Add test: `_normalize_search_results()` rejects missing `meta`.
-- [ ] Add test: `_normalize_search_results()` tolerates non-integer `meta.count` by returning `None`.
-- [ ] Add test: `_normalize_search_results()` rejects non-list `results`.
-- [ ] Add test: `_normalize_search_results()` skips malformed list items instead of crashing.
-- [ ] Add test: `_normalize_work()` falls back from `display_name` to `title`.
-- [ ] Add test: `_normalize_work()` rejects works missing both `display_name` and `title`.
-- [ ] Add test: author, topic, abstract, and open-access helpers normalize malformed payload fragments safely.
+- [x] Add test: `_normalize_search_results()` rejects missing `meta`.
+- [x] Add test: `_normalize_search_results()` tolerates non-integer `meta.count` by returning `None`.
+- [x] Add test: `_normalize_search_results()` rejects non-list `results`.
+- [x] Add test: `_normalize_search_results()` skips malformed list items instead of crashing.
+- [x] Add test: `_normalize_work()` falls back from `display_name` to `title`.
+- [x] Add test: `_normalize_work()` rejects works missing both `display_name` and `title`.
+- [x] Add test: author, topic, abstract, and open-access helpers normalize malformed payload fragments safely.
 
 ## 6.5 Helper coverage
 
-- [ ] Add test: `_api_key()` trims whitespace and treats blank env-var values as missing.
-- [ ] Add test: `_search_filter_params()` returns an empty dict when no filters are requested.
-- [ ] Add test: `_search_filter_params()` combines publication-year and OA filters deterministically.
-- [ ] Add test: `_work_lookup_path()` strips the OpenAlex URL prefix and percent-encodes the remaining ID.
+- [x] Add test: `_api_key()` trims whitespace and treats blank env-var values as missing.
+- [x] Add test: `_search_filter_params()` returns an empty dict when no filters are requested.
+- [x] Add test: `_search_filter_params()` combines publication-year and OA filters deterministically.
+- [x] Add test: `_work_lookup_path()` strips the OpenAlex URL prefix and percent-encodes the remaining ID.
 
 ---
 

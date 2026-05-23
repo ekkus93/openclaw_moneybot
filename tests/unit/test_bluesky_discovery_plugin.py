@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx
 import pytest
 
+import openclaw_moneybot.plugins.bluesky_discovery_plugin.service as bluesky_service
 from openclaw_moneybot.plugins.bluesky_discovery_plugin import (
     BlueskyDiscoveryPlugin,
     BlueskyDiscoveryPluginError,
@@ -36,6 +38,15 @@ def make_plugin(
         transport=handler,
     )
     return plugin, ledger_service
+
+
+def audit_event_payloads(ledger_service: LedgerService) -> list[dict[str, object]]:
+    payloads: list[dict[str, object]] = []
+    for event in ledger_service.get_related_events(related_type=RecordType.AUDIT_EVENT):
+        payload = event.payload.get("payload")
+        if isinstance(payload, dict):
+            payloads.append(payload)
+    return payloads
 
 
 def test_sample_feed_returns_bounded_normalized_posts(tmp_path: Path) -> None:
@@ -171,3 +182,216 @@ def test_sample_feed_surfaces_transport_failures_as_plugin_errors(tmp_path: Path
                 limit=1,
             )
         )
+
+
+def test_health_reports_missing_default_feed_uri_and_limit_is_bounded(tmp_path: Path) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    assert plugin.health().status == "missing_default_feed_uri"
+    with pytest.raises(ValueError, match="configured maximum"):
+        plugin.sample_feed(
+            BlueskyFeedSampleRequest(
+                feed_uri="at://did:plc:feed/app.bsky.feed.generator/whats-hot",
+                limit=11,
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("handler", "match_text"),
+    [
+        (lambda request: httpx.Response(500), "request failed"),
+        (lambda request: httpx.Response(200, text="{bad-json}"), "request failed"),
+    ],
+)
+def test_sample_feed_records_failures_for_invalid_responses(
+    tmp_path: Path,
+    handler: Callable[[httpx.Request], httpx.Response],
+    match_text: str,
+) -> None:
+    plugin, ledger_service = make_plugin(
+        tmp_path,
+        handler=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(BlueskyDiscoveryPluginError, match=match_text):
+        plugin.sample_feed(
+            BlueskyFeedSampleRequest(
+                feed_uri="at://did:plc:feed/app.bsky.feed.generator/whats-hot",
+                limit=1,
+            )
+        )
+
+    payloads = audit_event_payloads(ledger_service)
+    assert payloads[-1]["event_name"] == "bluesky_feed_failed"
+
+
+def test_normalize_feed_and_helpers_cover_limits_skips_and_malformed_items(
+    tmp_path: Path,
+) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    posts, cursor = plugin._normalize_feed(
+        {
+            "cursor": 123,
+            "feed": [
+                "skip-me",
+                {
+                    "post": {
+                        "uri": "at://did:plc:alice/app.bsky.feed.post/3kxyz",
+                        "cid": "cid-1",
+                        "indexedAt": "2026-05-21T22:00:00Z",
+                        "author": {"did": "did:plc:alice", "handle": "alice.bsky.social"},
+                        "record": {
+                            "text": "Hello",
+                            "langs": ["en", 1],
+                            "facets": [
+                                {"features": [{"uri": "https://example.com/story"}]},
+                                {"features": [{"uri": "https://example.com/story"}]},
+                                {"features": ["skip"]},
+                            ],
+                        },
+                        "labels": [{"val": "news"}, {"bad": "skip"}, "skip"],
+                        "replyCount": "bad",
+                        "embed": {"$type": "app.bsky.embed.video#view"},
+                    }
+                },
+                {
+                    "post": {
+                        "uri": "at://did:plc:bob/app.bsky.feed.post/3kabd",
+                        "cid": "cid-2",
+                        "indexedAt": "2026-05-21T22:05:00Z",
+                        "author": {"did": "did:plc:bob", "handle": "bob.bsky.social"},
+                        "record": {"text": "Second post"},
+                    }
+                },
+            ],
+        },
+        limit=1,
+    )
+
+    assert cursor is None
+    assert len(posts) == 1
+    assert [str(link) for link in posts[0].links] == ["https://example.com/story"]
+    assert posts[0].labels == ["news"]
+    assert posts[0].langs == ["en"]
+    assert posts[0].reply_count == 0
+    assert posts[0].has_media_embed is True
+    assert bluesky_service.BlueskyDiscoveryPlugin._post_url(
+        post_uri="https://example.com/not-at-uri",
+        handle="alice.bsky.social",
+    ) is None
+    assert bluesky_service.BlueskyDiscoveryPlugin._optional_string("  hi  ") == "hi"
+    assert bluesky_service.BlueskyDiscoveryPlugin._optional_string("   ") is None
+    assert bluesky_service.BlueskyDiscoveryPlugin._feed_reason({"$type": 1}) is None
+    assert bluesky_service.BlueskyDiscoveryPlugin._feed_reason("bad") is None
+
+
+@pytest.mark.parametrize(
+    ("payload", "match_text"),
+    [
+        ({}, "missing post payload"),
+        ({"post": {"cid": "cid", "indexedAt": "x", "author": {}, "record": {}}}, "missing uri"),
+        (
+            {
+                "post": {
+                    "uri": "at://did:plc:alice/app.bsky.feed.post/1",
+                    "indexedAt": "x",
+                    "author": {},
+                    "record": {},
+                }
+            },
+            "missing cid",
+        ),
+        (
+            {
+                "post": {
+                    "uri": "at://did:plc:alice/app.bsky.feed.post/1",
+                    "cid": "cid",
+                    "author": {},
+                    "record": {},
+                }
+            },
+            "missing indexedAt",
+        ),
+        (
+            {
+                "post": {
+                    "uri": "at://did:plc:alice/app.bsky.feed.post/1",
+                    "cid": "cid",
+                    "indexedAt": "x",
+                    "record": {},
+                }
+            },
+            "missing author",
+        ),
+        (
+            {
+                "post": {
+                    "uri": "at://did:plc:alice/app.bsky.feed.post/1",
+                    "cid": "cid",
+                    "indexedAt": "x",
+                    "author": {},
+                    "record": [],
+                }
+            },
+            "missing record",
+        ),
+        (
+            {
+                "post": {
+                    "uri": "at://did:plc:alice/app.bsky.feed.post/1",
+                    "cid": "cid",
+                    "indexedAt": "x",
+                    "author": {"did": "d", "handle": "h"},
+                }
+            },
+            "missing record",
+        ),
+        (
+            {
+                "post": {
+                    "uri": "at://did:plc:alice/app.bsky.feed.post/1",
+                    "cid": "cid",
+                    "indexedAt": "x",
+                    "author": {"handle": "h"},
+                    "record": {"text": "x"},
+                }
+            },
+            "missing did",
+        ),
+        (
+            {
+                "post": {
+                    "uri": "at://did:plc:alice/app.bsky.feed.post/1",
+                    "cid": "cid",
+                    "indexedAt": "x",
+                    "author": {"did": "d"},
+                    "record": {"text": "x"},
+                }
+            },
+            "missing handle",
+        ),
+        (
+            {
+                "post": {
+                    "uri": "at://did:plc:alice/app.bsky.feed.post/1",
+                    "cid": "cid",
+                    "indexedAt": "x",
+                    "author": {"did": "d", "handle": "h"},
+                    "record": {},
+                }
+            },
+            "missing text",
+        ),
+    ],
+)
+def test_normalize_feed_item_rejects_missing_required_fields(
+    tmp_path: Path,
+    payload: dict[str, object],
+    match_text: str,
+) -> None:
+    plugin, _ = make_plugin(tmp_path)
+
+    with pytest.raises(BlueskyDiscoveryPluginError, match=match_text):
+        plugin._normalize_feed_item(payload)

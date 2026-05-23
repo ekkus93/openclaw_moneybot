@@ -296,3 +296,8 @@
 - UNIT_TEST3 phase one is now green locally: added direct unit coverage for `browser_governor/backend.py` helper and execute-flow branches plus `inner_voice_plugin/providers.py` health, strict parsing, malformed-response, and adapter-factory behavior.
 - `docs/UNIT_TEST3_TODO.md` now exists as the master tracker for this coverage pass, and sections 1-2 are marked complete.
 - Full repository validation passed after the phase-one additions.
+
+## 2026-05-23T07:42:42Z - GPT-5.4 - Completed UNIT_TEST3 phase two
+- Added the next UNIT_TEST3 coverage batch across `tests/unit/test_bluesky_discovery_plugin.py`, `tests/unit/test_wikipedia_research_plugin.py`, `tests/unit/test_arxiv_research_plugin.py`, and `tests/unit/test_openalex_research_plugin.py`.
+- The new tests cover disabled/limit gates, transport and invalid-payload failures, audit-event recording, normalization helpers, malformed-item tolerance, and parser-specific edge cases for the four research/discovery services.
+- `docs/UNIT_TEST3_TODO.md` sections 3-6 are now marked complete, and the repository passed full `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 740 passing tests after this phase.
