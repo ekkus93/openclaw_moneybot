@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Protocol
 
 from openclaw_moneybot.plugins.inner_voice_plugin.arbiter import ArbiterService
@@ -14,6 +14,7 @@ from openclaw_moneybot.plugins.inner_voice_plugin.errors import (
 )
 from openclaw_moneybot.plugins.inner_voice_plugin.models import (
     ArbiterResolutionRequest,
+    ArbiterResolutionResult,
     DebateResponderOutput,
     DebateResponderRequest,
     InnerVoiceDebateOutcome,
@@ -78,6 +79,18 @@ class InnerVoiceCoordinator:
         request: InnerVoiceDebateRequest,
         *,
         openclaw: DebateResponder,
+        resolution_guard: (
+            Callable[
+                [
+                    InnerVoiceDebateRequest,
+                    Sequence[InnerVoiceDebateTurn],
+                    InnerVoiceDisposition | None,
+                    ArbiterResolutionResult | None,
+                ],
+                str | None,
+            ]
+            | None
+        ) = None,
     ) -> InnerVoiceDebateOutcome:
         """Run a bounded debate session and resolve it through convergence or Arbiter."""
 
@@ -109,6 +122,7 @@ class InnerVoiceCoordinator:
         resolved_disposition: InnerVoiceDisposition | None = None
         arbiter_result = None
         resolution_outcome = "needs_review"
+        orchestrator_escalation_reason: str | None = None
 
         record_plugin_audit_event(
             self.ledger_service,
@@ -269,6 +283,27 @@ class InnerVoiceCoordinator:
                     required=True,
                 )
                 resolution_outcome = arbiter_result.final_resolution.value
+            if resolution_guard is not None:
+                orchestrator_escalation_reason = resolution_guard(
+                    request,
+                    turns,
+                    resolved_disposition,
+                    arbiter_result,
+                )
+                if orchestrator_escalation_reason is not None:
+                    ended_reason = DebateEndedReason.ORCHESTRATOR_ESCALATION
+                    record_plugin_audit_event(
+                        self.ledger_service,
+                        related_record_id=debate_id,
+                        event_name="inner_voice_orchestrator_escalated",
+                        payload={
+                            "stage": request.stage.value,
+                            "subject_type": request.subject_type.value,
+                            "subject_id": request.subject_id,
+                            "reason": orchestrator_escalation_reason,
+                            "resolution_outcome": resolution_outcome,
+                        },
+                    )
             summary_archive_id = self._archive_debate_summary(
                 debate_id=debate_id,
                 stage=request.stage.value,
@@ -287,6 +322,7 @@ class InnerVoiceCoordinator:
                 resolved_disposition=(
                     resolved_disposition.value if resolved_disposition is not None else None
                 ),
+                orchestrator_escalation_reason=orchestrator_escalation_reason,
             )
             session = InnerVoiceDebateSession(
                 debate_id=debate_id,
@@ -329,6 +365,7 @@ class InnerVoiceCoordinator:
                     "arbiter_review_id": session.arbiter_review_id,
                     "transcript_archive_ids": transcript_archive_ids,
                     "summary_archive_id": summary_archive_id,
+                    "orchestrator_escalation_reason": orchestrator_escalation_reason,
                 },
             )
             record_plugin_audit_event(
@@ -349,6 +386,7 @@ class InnerVoiceCoordinator:
                             else "needs_review"
                         )
                     ),
+                    "orchestrator_escalation_reason": orchestrator_escalation_reason,
                 },
             )
             return InnerVoiceDebateOutcome(
@@ -462,6 +500,7 @@ class InnerVoiceCoordinator:
         arbiter_final_resolution: str | None = None,
         arbiter_prevailing_side: str | None = None,
         resolved_disposition: str | None = None,
+        orchestrator_escalation_reason: str | None = None,
     ) -> str:
         summary_payload: dict[str, object] = {
             "ended_reason": ended_reason.value,
@@ -482,6 +521,10 @@ class InnerVoiceCoordinator:
         }
         if any(value is not None for value in resolution_notes.values()):
             summary_payload["resolution_notes"] = resolution_notes
+        if orchestrator_escalation_reason is not None:
+            summary_payload["orchestrator_escalation_reason"] = (
+                orchestrator_escalation_reason
+            )
         if self.inner_voice.config.archive_debate_turn_metadata:
             summary_payload["turns"] = self._turn_metadata(turns)
         summary_archive_id = self.archiver.archive(

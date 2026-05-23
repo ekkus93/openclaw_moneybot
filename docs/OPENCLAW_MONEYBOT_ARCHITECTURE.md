@@ -149,11 +149,25 @@ The `inner_voice_plugin` is a special read-only challenger plugin:
   JSON validation; it does not do semantic rewriting or fallback parsing
 - it does **not** use LiteLLM or another generic LLM routing proxy
 - it archives prompt, response, debate transcript, and Arbiter artifacts through the evidence archive
-- it records debate lifecycle audit events for session start, completion, Arbiter escalation, and Arbiter invocation failure
+- it records debate lifecycle audit events for session start, completion, Arbiter escalation,
+  orchestrator escalation, and Arbiter invocation failure
 - it honors debate transcript archival settings so operators can keep full transcript capture enabled or
   fall back to placeholder transcript artifacts plus bounded summary metadata
 - it remains advisory: deterministic policy, TOS/legal, budget, ledger, and wallet controls still
   outrank all inner-voice and Arbiter output
+- an inner-voice or Arbiter `proceed` result never authorizes an irreversible action by itself; execution-
+  adjacent actions still require the deterministic pre-execution path and the governed wallet/service
+  boundary
+
+The v1 rollout stays intentionally narrow:
+
+- configured review stages start with selected higher-risk checkpoints (`tos_legal_check`,
+  `budget_planning`, and `pre_execution`) rather than all stages at once
+- debate transcript capture stays enabled by default so operators can audit the dialogue from early
+  rollout sessions
+- usefulness/noise should be measured from the persisted metrics snapshots before broadening rollout
+- post-v1 follow-up items remain operator-configurable prompt templates with guardrails, branching
+  review trees, Arbiter reruns only on genuinely new evidence, and richer transcript/audit tooling
 
 In the current implementation, the default dry-run workflow uses configured inner-voice review
 passes at selected stages. Multi-round OpenClaw-versus-inner-voice debate is exposed through an

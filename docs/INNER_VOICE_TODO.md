@@ -117,11 +117,12 @@ P2 = operational polish, diagnostics, and post-v1 preparation
   - [x] `arbiter_prompt`
   - [x] `arbiter_response`
   - [x] `arbiter_resolution_summary`
-- [ ] Decide whether additional audit-event types are needed for:
+- [x] Decide whether additional audit-event types are needed for:
   - [x] debate session start
   - [x] debate session end
   - [x] arbiter escalation request
   - [x] arbiter invocation failure
+  - [x] orchestrator escalation
 
 ---
 
@@ -442,7 +443,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 - [x] Decide where in orchestration debate mode is entered.
 - [x] Trigger debate only on configured stages.
-- [ ] Trigger debate only when disagreement handling is relevant for that stage.
+- [x] Trigger debate only when disagreement handling is relevant for that stage.
 - [x] Respect `max_debate_rounds` from config.
 
 ## 7.2 Debate round execution
@@ -470,7 +471,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 - [x] Record `ended_reason = converged` when agreement is reached.
 - [x] Record `ended_reason = max_rounds_reached` when debate ceiling is hit.
 - [x] Record `ended_reason = request_arbiter` when escalation is requested.
-- [ ] Record `ended_reason = orchestrator_escalation` when orchestration escalates for safety reasons.
+- [x] Record `ended_reason = orchestrator_escalation` when orchestration escalates for safety reasons.
 - [x] Record `ended_reason = failure` when debate cannot complete safely.
 
 ---
@@ -572,7 +573,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 - [x] Implement stage-by-stage interpretation matrix.
 - [x] Ensure `block` objections and configured thresholds route to `needs_review` when required.
-- [ ] Ensure inner voice `proceed` never authorizes irreversible action by itself.
+- [x] Ensure inner voice `proceed` never authorizes irreversible action by itself.
 
 ## 10.2 Debate result interpretation
 
@@ -590,8 +591,8 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 ## 10.4 Spend and irreversible-action handling
 
 - [x] Ensure required-path failures resolve to `needs_review`.
-- [ ] Ensure spend and irreversible actions require the configured inner voice path.
-- [ ] Ensure spend and irreversible actions also respect Arbiter failure behavior where Arbiter is required.
+- [x] Ensure spend and irreversible actions require the configured inner voice path.
+- [x] Ensure spend and irreversible actions also respect Arbiter failure behavior where Arbiter is required.
 
 ---
 
@@ -734,17 +735,17 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 ## 15.1 Progressive rollout controls
 
-- [ ] Start with selected high-risk stages only.
-- [ ] Start with transcript capture enabled by default.
-- [ ] Measure noise/usefulness before broader rollout.
+- [x] Start with selected high-risk stages only.
+- [x] Start with transcript capture enabled by default.
+- [x] Measure noise/usefulness before broader rollout.
 
 ## 15.2 Post-v1 preparation tasks
 
-- [ ] Note follow-up design items for post-v1:
-  - [ ] operator-configurable prompt templates with guardrails
-  - [ ] branching review trees
-  - [ ] Arbiter reruns only when genuinely new evidence arrives
-  - [ ] richer transcript viewers or audit tools
+- [x] Note follow-up design items for post-v1:
+  - [x] operator-configurable prompt templates with guardrails
+  - [x] branching review trees
+  - [x] Arbiter reruns only when genuinely new evidence arrives
+  - [x] richer transcript viewers or audit tools
 
 ## 15.3 Final acceptance checklist
 

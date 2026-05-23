@@ -284,3 +284,7 @@
 - Inner-voice and Arbiter failures now carry typed structured failure objects, and review/Arbiter `raw_response_summary` values are now stable typed provider-response summaries instead of ad hoc dicts.
 - Added inner-voice observability helpers to persist computed metrics snapshots and to query persisted review, debate, and Arbiter records by subject, stage, and outcome through the ledger event stream.
 - Updated `docs/INNER_VOICE_TODO.md` to mark the diagnostics/observability items completed in this phase.
+## 2026-05-23T07:02:23Z - GPT-5.4 - Completed remaining inner-voice TODO items
+- The final inner-voice phase added stage/subject relevance gating for debate requests, records `orchestrator_escalation` end states plus a dedicated audit event, and adds a `MoneyBotOrchestrator.settle_model_disagreement(...)` helper that fails closed to `needs_review` on required execution-adjacent debate failures.
+- `docs/INNER_VOICE_TODO.md` is now fully checked off, and the rollout notes in `docs/OPENCLAW_MONEYBOT_ARCHITECTURE.md` now document the selected high-risk default stages, transcript-capture default, usefulness/noise measurement expectation, and post-v1 follow-up items.
+- Full repository validation passed again after these completion changes.

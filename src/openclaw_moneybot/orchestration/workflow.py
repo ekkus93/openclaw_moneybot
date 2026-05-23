@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from openclaw_moneybot.orchestration.models import (
     DryRunMissionRequest,
@@ -11,12 +11,15 @@ from openclaw_moneybot.orchestration.models import (
     ModelDisagreementInterpretation,
 )
 from openclaw_moneybot.plugins.inner_voice_plugin import (
+    ArbiterResolutionResult,
     ArbiterService,
     DebateResponder,
     EvidenceSummary,
     InnerVoiceCoordinator,
+    InnerVoiceDebateError,
     InnerVoiceDebateOutcome,
     InnerVoiceDebateRequest,
+    InnerVoiceDebateTurn,
     InnerVoicePlugin,
     InnerVoicePluginError,
     InnerVoiceReviewRequest,
@@ -169,7 +172,52 @@ class MoneyBotOrchestrator:
         if self.inner_voice_coordinator is None:
             msg = "inner voice debate support is not configured."
             raise ValueError(msg)
-        return self.inner_voice_coordinator.run_debate(request, openclaw=openclaw)
+        if not self._debate_subject_is_relevant(request.stage, request.subject_type):
+            msg = (
+                f"disagreement handling is not relevant for "
+                f"{request.stage.value}/{request.subject_type.value}"
+            )
+            raise ValueError(msg)
+        return self.inner_voice_coordinator.run_debate(
+            request,
+            openclaw=openclaw,
+            resolution_guard=self._debate_orchestrator_escalation_reason,
+        )
+
+    def settle_model_disagreement(
+        self,
+        request: InnerVoiceDebateRequest,
+        *,
+        openclaw: DebateResponder,
+        deterministic_status: str | None = None,
+        deterministic_reason: str | None = None,
+    ) -> ModelDisagreementInterpretation:
+        """Resolve and interpret a disagreement, failing closed on required execution paths."""
+
+        try:
+            outcome = self.resolve_model_disagreement(request, openclaw=openclaw)
+        except InnerVoiceDebateError as error:
+            if not self._requires_fail_closed_debate_path(request):
+                raise
+            return ModelDisagreementInterpretation(
+                debate_id=(
+                    error.failure.record_id
+                    if error.failure is not None
+                    else request.debate_id or "debate_unavailable"
+                ),
+                final_resolution_source="debate_failure",
+                final_status="needs_review",
+                stop_stage="inner_voice_debate",
+                stop_reason=str(error),
+                required_followups=[],
+                transcript_archive_ids=[],
+                arbiter_review_id=None,
+            )
+        return self.interpret_model_disagreement(
+            outcome,
+            deterministic_status=deterministic_status,
+            deterministic_reason=deterministic_reason,
+        )
 
     def interpret_model_disagreement(
         self,
@@ -203,8 +251,12 @@ class MoneyBotOrchestrator:
         required_followups = (
             [] if outcome.arbiter_result is None else outcome.arbiter_result.required_followups
         )
+        disposition = self._resolved_disposition_from_outcome_parts(
+            turns=outcome.turns,
+            resolved_disposition=outcome.resolved_disposition,
+            arbiter_result=outcome.arbiter_result,
+        )
         if outcome.final_resolution_source == "debate":
-            disposition = outcome.resolved_disposition
             reason = self._latest_debate_message(outcome, DebateSpeaker.INNER_VOICE)
         else:
             arbiter_result = outcome.arbiter_result
@@ -212,14 +264,6 @@ class MoneyBotOrchestrator:
                 msg = "arbiter-backed disagreement outcome is missing an Arbiter result"
                 raise ValueError(msg)
             reason = arbiter_result.resolution_summary
-            if arbiter_result.final_resolution is ArbiterFinalResolution.ADOPT_OPENCLAW:
-                disposition = self._latest_disposition(outcome, DebateSpeaker.OPENCLAW)
-            elif arbiter_result.final_resolution is ArbiterFinalResolution.ADOPT_INNER_VOICE:
-                disposition = self._latest_disposition(outcome, DebateSpeaker.INNER_VOICE)
-            elif arbiter_result.final_resolution is ArbiterFinalResolution.PROCEED_WITH_FOLLOWUPS:
-                disposition = InnerVoiceDisposition.PROCEED_WITH_FOLLOWUPS
-            else:
-                disposition = InnerVoiceDisposition.NEEDS_REVIEW
 
         final_status = self._disposition_status(disposition, required_followups)
         return ModelDisagreementInterpretation(
@@ -231,6 +275,64 @@ class MoneyBotOrchestrator:
             required_followups=required_followups,
             transcript_archive_ids=outcome.session.transcript_archive_ids,
             arbiter_review_id=outcome.session.arbiter_review_id,
+        )
+
+    @staticmethod
+    def _debate_subject_is_relevant(
+        stage: InnerVoiceStage,
+        subject_type: InnerVoiceSubjectType,
+    ) -> bool:
+        allowed_subject_types = {
+            InnerVoiceStage.OPPORTUNITY_RANKING: {
+                InnerVoiceSubjectType.OPPORTUNITY,
+            },
+            InnerVoiceStage.TOS_LEGAL_CHECK: {
+                InnerVoiceSubjectType.OPPORTUNITY,
+            },
+            InnerVoiceStage.BUDGET_PLANNING: {
+                InnerVoiceSubjectType.EXPERIMENT_PLAN,
+            },
+            InnerVoiceStage.PRE_EXECUTION: {
+                InnerVoiceSubjectType.EXPERIMENT_PLAN,
+                InnerVoiceSubjectType.EXECUTION_STEP,
+                InnerVoiceSubjectType.SPEND_REQUEST,
+            },
+            InnerVoiceStage.POST_REVIEW: {
+                InnerVoiceSubjectType.EXPERIMENT_REVIEW,
+            },
+        }
+        return subject_type in allowed_subject_types[stage]
+
+    @staticmethod
+    def _requires_fail_closed_debate_path(request: InnerVoiceDebateRequest) -> bool:
+        return request.stage is InnerVoiceStage.PRE_EXECUTION and request.subject_type in {
+            InnerVoiceSubjectType.EXECUTION_STEP,
+            InnerVoiceSubjectType.SPEND_REQUEST,
+        }
+
+    def _debate_orchestrator_escalation_reason(
+        self,
+        request: InnerVoiceDebateRequest,
+        turns: Sequence[InnerVoiceDebateTurn],
+        resolved_disposition: InnerVoiceDisposition | None,
+        arbiter_result: ArbiterResolutionResult | None,
+    ) -> str | None:
+        if not self._requires_fail_closed_debate_path(request):
+            return None
+        disposition = self._resolved_disposition_from_outcome_parts(
+            turns=turns,
+            resolved_disposition=resolved_disposition,
+            arbiter_result=arbiter_result,
+        )
+        required_followups = (
+            [] if arbiter_result is None else arbiter_result.required_followups
+        )
+        final_status = self._disposition_status(disposition, required_followups)
+        if final_status != "proceed_with_followups":
+            return None
+        return (
+            "Execution-adjacent actions cannot auto-advance until required "
+            "follow-up checks are resolved."
         )
 
     @staticmethod
@@ -1266,6 +1368,16 @@ class MoneyBotOrchestrator:
         return None
 
     @staticmethod
+    def _latest_disposition_from_turns(
+        turns: Sequence[InnerVoiceDebateTurn],
+        speaker: DebateSpeaker,
+    ) -> InnerVoiceDisposition | None:
+        for turn in reversed(turns):
+            if turn.speaker is speaker and turn.disposition_signal is not None:
+                return turn.disposition_signal
+        return None
+
+    @staticmethod
     def _latest_debate_message(
         outcome: InnerVoiceDebateOutcome,
         speaker: DebateSpeaker,
@@ -1274,6 +1386,24 @@ class MoneyBotOrchestrator:
             if turn.speaker is speaker:
                 return turn.message_text
         return ""
+
+    @classmethod
+    def _resolved_disposition_from_outcome_parts(
+        cls,
+        *,
+        turns: Sequence[InnerVoiceDebateTurn],
+        resolved_disposition: InnerVoiceDisposition | None,
+        arbiter_result: ArbiterResolutionResult | None,
+    ) -> InnerVoiceDisposition | None:
+        if arbiter_result is None:
+            return resolved_disposition
+        if arbiter_result.final_resolution is ArbiterFinalResolution.ADOPT_OPENCLAW:
+            return cls._latest_disposition_from_turns(turns, DebateSpeaker.OPENCLAW)
+        if arbiter_result.final_resolution is ArbiterFinalResolution.ADOPT_INNER_VOICE:
+            return cls._latest_disposition_from_turns(turns, DebateSpeaker.INNER_VOICE)
+        if arbiter_result.final_resolution is ArbiterFinalResolution.PROCEED_WITH_FOLLOWUPS:
+            return InnerVoiceDisposition.PROCEED_WITH_FOLLOWUPS
+        return InnerVoiceDisposition.NEEDS_REVIEW
 
     @staticmethod
     def _disposition_status(

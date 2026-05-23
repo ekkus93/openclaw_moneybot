@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+import pytest
 
 from openclaw_moneybot.orchestration import DryRunMissionRequest
 from openclaw_moneybot.plugins.inner_voice_plugin import (
@@ -406,9 +407,48 @@ def test_spend_path_debate_can_return_followup_gated_result(tmp_path: Path) -> N
 
     interpretation = orchestrator.interpret_model_disagreement(outcome)
 
+    assert outcome.session.ended_reason.value == "orchestrator_escalation"
     assert interpretation.final_status == "proceed_with_followups"
     assert interpretation.required_followups == ["refresh payout receipt"]
     assert interpretation.transcript_archive_ids
+
+
+def test_irrelevant_debate_stage_subject_pair_is_rejected(tmp_path: Path) -> None:
+    orchestrator, ledger_service = make_orchestrator(tmp_path, spend_enabled=False)
+    plugin = make_inner_voice_plugin(
+        tmp_path,
+        ledger_service,
+        run_after_stages=[InnerVoiceStage.BUDGET_PLANNING],
+        handler=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+    )
+    arbiter = make_arbiter_service(
+        tmp_path,
+        ledger_service,
+        handler=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+    )
+    orchestrator.inner_voice_plugin = plugin
+    orchestrator.arbiter_service = arbiter
+    orchestrator.inner_voice_coordinator = InnerVoiceCoordinator(
+        plugin,
+        arbiter,
+        plugin.archiver,
+        ledger_service,
+    )
+
+    with pytest.raises(ValueError, match="not relevant"):
+        orchestrator.resolve_model_disagreement(
+            InnerVoiceDebateRequest(
+                stage=InnerVoiceStage.BUDGET_PLANNING,
+                subject_type=InnerVoiceSubjectType.OPPORTUNITY,
+                subject_id="opp_001",
+                review_goal="Resolve the budget disagreement.",
+                claim_summary="Proceed with the budget.",
+                disagreement_summary="Debate a mismatched subject type.",
+                openclaw_initial_position="Proceed with the budget.",
+                openclaw_initial_disposition=InnerVoiceDisposition.PROCEED,
+            ),
+            openclaw=StaticResponder([]),
+        )
 
 
 def test_irreversible_action_debate_can_stop_auto_advance(tmp_path: Path) -> None:
@@ -489,6 +529,66 @@ def test_irreversible_action_debate_can_stop_auto_advance(tmp_path: Path) -> Non
     assert interpretation.final_status == "needs_review"
     assert interpretation.stop_stage == "inner_voice_debate"
     assert interpretation.stop_reason == "Pause the irreversible step."
+
+
+def test_spend_path_debate_failure_fails_closed_in_settle_helper(tmp_path: Path) -> None:
+    def inner_voice_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "content": (
+                        '{"turn_type":"objection",'
+                        '"message_text":"I still object to the spend.",'
+                        '"cited_evidence_ids":["ev_4"],'
+                        '"disposition_signal":"needs_review",'
+                        '"max_unresolved_severity":"high",'
+                        '"request_arbiter":false}'
+                    )
+                },
+                "done_reason": "stop",
+            },
+        )
+
+    def arbiter_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{not-json}"}}]})
+
+    orchestrator, ledger_service = make_orchestrator(tmp_path, spend_enabled=True)
+    plugin = make_inner_voice_plugin(
+        tmp_path,
+        ledger_service,
+        run_after_stages=[InnerVoiceStage.PRE_EXECUTION],
+        handler=httpx.MockTransport(inner_voice_handler),
+    )
+    arbiter = make_arbiter_service(
+        tmp_path,
+        ledger_service,
+        handler=httpx.MockTransport(arbiter_handler),
+    )
+    coordinator = InnerVoiceCoordinator(plugin, arbiter, plugin.archiver, ledger_service)
+    orchestrator.inner_voice_plugin = plugin
+    orchestrator.arbiter_service = arbiter
+    orchestrator.inner_voice_coordinator = coordinator
+
+    interpretation = orchestrator.settle_model_disagreement(
+        InnerVoiceDebateRequest(
+            stage=InnerVoiceStage.PRE_EXECUTION,
+            subject_type=InnerVoiceSubjectType.SPEND_REQUEST,
+            subject_id="spend_001",
+            review_goal="Resolve the spend disagreement.",
+            claim_summary="Proceed with the approved spend.",
+            disagreement_summary="Send now or stop until refreshed evidence is available.",
+            openclaw_initial_position="Proceed with the approved spend.",
+            openclaw_initial_disposition=InnerVoiceDisposition.PROCEED,
+            openclaw_initial_max_unresolved_severity=InnerVoiceObjectionSeverity.LOW,
+            max_debate_rounds=1,
+        ),
+        openclaw=StaticResponder([]),
+    )
+
+    assert interpretation.final_resolution_source == "debate_failure"
+    assert interpretation.final_status == "needs_review"
+    assert interpretation.stop_stage == "inner_voice_debate"
 
 
 def test_deterministic_policy_still_outranks_arbiter_output(tmp_path: Path) -> None:
