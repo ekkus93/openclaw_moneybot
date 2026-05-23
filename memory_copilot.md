@@ -288,3 +288,11 @@
 - The final inner-voice phase added stage/subject relevance gating for debate requests, records `orchestrator_escalation` end states plus a dedicated audit event, and adds a `MoneyBotOrchestrator.settle_model_disagreement(...)` helper that fails closed to `needs_review` on required execution-adjacent debate failures.
 - `docs/INNER_VOICE_TODO.md` is now fully checked off, and the rollout notes in `docs/OPENCLAW_MONEYBOT_ARCHITECTURE.md` now document the selected high-risk default stages, transcript-capture default, usefulness/noise measurement expectation, and post-v1 follow-up items.
 - Full repository validation passed again after these completion changes.
+## 2026-05-23T07:25:42Z - GPT-5.4 - Added UNIT_TEST3 coverage tracker
+- Added `docs/UNIT_TEST3_TODO.md`, a detailed unit-test follow-up tracker based on the latest 90% coverage review.
+- The new tracker prioritizes browser governor backend safety branches, inner-voice provider adapters, research/discovery parser services, debate/workflow helper coverage, and a smaller validator/config sweep.
+- The tracker also includes the required repo validation and coverage rerun steps for the eventual UNIT_TEST3 implementation pass.
+## 2026-05-23T07:35:50Z - GPT-5.4 - Started UNIT_TEST3 phase one
+- UNIT_TEST3 phase one is now green locally: added direct unit coverage for `browser_governor/backend.py` helper and execute-flow branches plus `inner_voice_plugin/providers.py` health, strict parsing, malformed-response, and adapter-factory behavior.
+- `docs/UNIT_TEST3_TODO.md` now exists as the master tracker for this coverage pass, and sections 1-2 are marked complete.
+- Full repository validation passed after the phase-one additions.

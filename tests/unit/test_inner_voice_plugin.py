@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
@@ -10,6 +11,7 @@ from typing import cast
 import httpx
 import pytest
 
+import openclaw_moneybot.plugins.inner_voice_plugin.providers as provider_module
 from openclaw_moneybot.plugins.inner_voice_plugin import (
     ArbiterResolutionError,
     ArbiterResolutionRequest,
@@ -23,6 +25,8 @@ from openclaw_moneybot.plugins.inner_voice_plugin import (
     InnerVoiceObjection,
     InnerVoicePlugin,
     InnerVoicePluginError,
+    InnerVoicePromptRequest,
+    InnerVoiceProviderError,
     InnerVoiceReviewRequest,
     build_metrics_snapshot,
     list_arbiter_reviews,
@@ -60,6 +64,50 @@ def make_review_request() -> InnerVoiceReviewRequest:
         review_goal="Challenge the current conclusion.",
         max_objections=4,
     )
+
+
+def make_prompt_request(
+    *,
+    provider: ProviderName,
+    model_name: str = "test-model",
+    top_p: float | None = None,
+) -> InnerVoicePromptRequest:
+    return InnerVoicePromptRequest(
+        request_id="prompt_001",
+        provider=provider,
+        model_name=model_name,
+        system_prompt="system prompt",
+        user_prompt="user prompt",
+        response_schema_json={"type": "object"},
+        temperature=0.2,
+        top_p=top_p,
+        max_output_tokens=256,
+        timeout_seconds=10.0,
+    )
+
+
+def make_provider_config(
+    provider: ProviderName,
+    **overrides: object,
+) -> InnerVoiceConfig:
+    payload: dict[str, object] = {
+        "enabled": True,
+        "provider": provider,
+        "model_name": "test-model",
+        "base_url": (
+            "https://api.openai.com/v1"
+            if provider is ProviderName.OPENAI
+            else "http://127.0.0.1:11434"
+            if provider is ProviderName.OLLAMA
+            else "http://127.0.0.1:8080/v1"
+        ),
+        "api_key_env_var": "OPENAI_API_KEY",
+        "allow_hosted_provider": provider is ProviderName.OPENAI,
+        "timeout_seconds": 10.0,
+        "max_output_tokens": 256,
+    }
+    payload.update(overrides)
+    return InnerVoiceConfig.model_validate(payload)
 
 
 def make_inner_voice_plugin(
@@ -124,6 +172,314 @@ def make_arbiter_service(
         transport=handler,
     )
     return service, ledger_service
+
+
+def test_provider_health_states_cover_disabled_config_auth_and_reachability(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    disabled_adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.OLLAMA),
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+    )
+    misconfigured_adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.OLLAMA),
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+    )
+    misconfigured_adapter.model_name = ""
+    openai_adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.OPENAI),
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+    )
+    unreachable_adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.OLLAMA),
+        transport=httpx.MockTransport(lambda request: httpx.Response(503)),
+    )
+    reachable_adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.OLLAMA),
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+    )
+
+    assert disabled_adapter.health(enabled=False).status == "disabled"
+    assert misconfigured_adapter.health(enabled=True).status == "misconfigured"
+    assert openai_adapter.health(enabled=True).status == "missing_api_key"
+    assert unreachable_adapter.health(enabled=True).status == "provider_unreachable"
+    assert reachable_adapter.health(enabled=True).status == "ok"
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
+    openai_ok_adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.OPENAI),
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+    )
+    assert openai_ok_adapter.health(enabled=True).status == "ok"
+
+    for adapter in (
+        disabled_adapter,
+        misconfigured_adapter,
+        openai_adapter,
+        unreachable_adapter,
+        reachable_adapter,
+        openai_ok_adapter,
+    ):
+        adapter.close()
+
+
+def test_provider_parsing_helpers_are_strict_and_join_text_parts() -> None:
+    assert provider_module.BaseProviderAdapter._parse_strict_json_object('{"ok": true}') == {
+        "ok": True
+    }
+    with pytest.raises(InnerVoiceProviderError, match="malformed JSON"):
+        provider_module.BaseProviderAdapter._parse_strict_json_object("{nope}")
+    with pytest.raises(InnerVoiceProviderError, match="exactly one JSON object"):
+        provider_module.BaseProviderAdapter._parse_strict_json_object('["x"]')
+
+    assert provider_module.BaseProviderAdapter._string_content("value") == "value"
+    assert provider_module.BaseProviderAdapter._string_content(
+        [
+            {"type": "text", "text": '{"a":'},
+            "ignored",
+            {"type": "image"},
+            {"type": "text", "text": "1}"},
+        ]
+    ) == '{"a":1}'
+
+    with pytest.raises(InnerVoiceProviderError, match="string content"):
+        provider_module.BaseProviderAdapter._string_content([{"type": "image"}])
+
+
+@pytest.mark.parametrize(
+    ("status_code", "failure_class"),
+    [(401, "invalid_auth"), (403, "invalid_auth"), (500, "provider_error")],
+)
+def test_openai_adapter_maps_http_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    status_code: int,
+    failure_class: str,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
+    adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.OPENAI),
+        transport=httpx.MockTransport(lambda request: httpx.Response(status_code, json={})),
+    )
+
+    with pytest.raises(InnerVoiceProviderError) as error:
+        adapter.generate(make_prompt_request(provider=ProviderName.OPENAI))
+
+    assert error.value.failure_class == failure_class
+    adapter.close()
+
+
+def test_openai_adapter_handles_transport_missing_key_and_success_variants(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    missing_key_adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.OPENAI),
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+    )
+    with pytest.raises(InnerVoiceProviderError) as missing_key_error:
+        missing_key_adapter.generate(make_prompt_request(provider=ProviderName.OPENAI))
+    assert missing_key_error.value.failure_class == "invalid_auth"
+    missing_key_adapter.close()
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
+
+    transport_adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.OPENAI),
+        transport=httpx.MockTransport(
+            lambda request: (_ for _ in ()).throw(httpx.ConnectError("boom"))
+        ),
+    )
+    with pytest.raises(InnerVoiceProviderError) as transport_error:
+        transport_adapter.generate(make_prompt_request(provider=ProviderName.OPENAI))
+    assert transport_error.value.failure_class == "provider_unavailable"
+    transport_adapter.close()
+
+    payloads = iter(
+        [
+            [],
+            {},
+            {"choices": [123]},
+            {"choices": [{"finish_reason": "stop"}]},
+            {
+                "choices": [
+                    {
+                        "finish_reason": 123,
+                        "message": {"content": '{"ok": true}'},
+                    }
+                ],
+                "usage": {"prompt_tokens": "ten", "completion_tokens": "five"},
+            },
+        ]
+    )
+    seen_payloads: list[dict[str, object]] = []
+
+    def success_handler(request: httpx.Request) -> httpx.Response:
+        seen_payloads.append(json.loads(request.read().decode("utf-8")))
+        return httpx.Response(200, json=next(payloads))
+
+    success_adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.OPENAI),
+        transport=httpx.MockTransport(success_handler),
+    )
+
+    with pytest.raises(InnerVoiceProviderError, match="JSON object"):
+        success_adapter.generate(make_prompt_request(provider=ProviderName.OPENAI))
+    with pytest.raises(InnerVoiceProviderError, match="did not contain choices"):
+        success_adapter.generate(make_prompt_request(provider=ProviderName.OPENAI))
+    with pytest.raises(InnerVoiceProviderError, match="choice was malformed"):
+        success_adapter.generate(make_prompt_request(provider=ProviderName.OPENAI))
+    with pytest.raises(InnerVoiceProviderError, match="missing a message"):
+        success_adapter.generate(make_prompt_request(provider=ProviderName.OPENAI))
+
+    result = success_adapter.generate(
+        make_prompt_request(provider=ProviderName.OPENAI, top_p=0.8)
+    )
+
+    assert result.finish_reason is None
+    assert result.prompt_tokens is None
+    assert result.completion_tokens is None
+    assert seen_payloads[-1]["top_p"] == 0.8
+    assert "top_p" not in seen_payloads[-2]
+    success_adapter.close()
+
+
+def test_ollama_adapter_covers_malformed_and_optional_fields(tmp_path: Path) -> None:
+    payloads = iter(
+        [
+            [],
+            {},
+            {
+                "message": {"content": '{"ok": true}'},
+                "done_reason": 123,
+                "prompt_eval_count": "ten",
+                "eval_count": "five",
+            },
+        ]
+    )
+
+    adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.OLLAMA),
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=next(payloads))),
+    )
+
+    with pytest.raises(InnerVoiceProviderError, match="JSON object"):
+        adapter.generate(make_prompt_request(provider=ProviderName.OLLAMA))
+    with pytest.raises(InnerVoiceProviderError, match="missing a message"):
+        adapter.generate(make_prompt_request(provider=ProviderName.OLLAMA))
+
+    result = adapter.generate(make_prompt_request(provider=ProviderName.OLLAMA))
+
+    assert result.finish_reason is None
+    assert result.prompt_tokens is None
+    assert result.completion_tokens is None
+    adapter.close()
+
+
+@pytest.mark.parametrize(
+    ("response_factory", "failure_class"),
+    [
+        (
+            lambda request: (_ for _ in ()).throw(httpx.ConnectError("boom")),
+            "provider_unavailable",
+        ),
+        (lambda request: httpx.Response(500, json={}), "provider_error"),
+    ],
+)
+def test_llama_server_adapter_maps_transport_and_http_failures(
+    tmp_path: Path,
+    response_factory: Callable[[httpx.Request], httpx.Response],
+    failure_class: str,
+) -> None:
+    adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.LLAMA_SERVER),
+        transport=httpx.MockTransport(response_factory),
+    )
+
+    with pytest.raises(InnerVoiceProviderError) as error:
+        adapter.generate(make_prompt_request(provider=ProviderName.LLAMA_SERVER))
+
+    assert error.value.failure_class == failure_class
+    adapter.close()
+
+
+def test_llama_server_adapter_covers_malformed_payloads_and_optional_usage(tmp_path: Path) -> None:
+    payloads = iter(
+        [
+            [],
+            {},
+            {"choices": [123]},
+            {"choices": [{"finish_reason": "stop"}]},
+            {
+                "choices": [
+                    {
+                        "finish_reason": 123,
+                        "message": {"content": '{"ok": true}'},
+                    }
+                ],
+                "usage": {"prompt_tokens": "ten", "completion_tokens": "five"},
+            },
+        ]
+    )
+    adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.LLAMA_SERVER),
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=next(payloads))),
+    )
+
+    with pytest.raises(InnerVoiceProviderError, match="JSON object"):
+        adapter.generate(make_prompt_request(provider=ProviderName.LLAMA_SERVER))
+    with pytest.raises(InnerVoiceProviderError, match="did not contain choices"):
+        adapter.generate(make_prompt_request(provider=ProviderName.LLAMA_SERVER))
+    with pytest.raises(InnerVoiceProviderError, match="choice was malformed"):
+        adapter.generate(make_prompt_request(provider=ProviderName.LLAMA_SERVER))
+    with pytest.raises(InnerVoiceProviderError, match="missing a message"):
+        adapter.generate(make_prompt_request(provider=ProviderName.LLAMA_SERVER))
+
+    result = adapter.generate(make_prompt_request(provider=ProviderName.LLAMA_SERVER))
+
+    assert result.finish_reason is None
+    assert result.prompt_tokens is None
+    assert result.completion_tokens is None
+    adapter.close()
+
+
+def test_build_provider_adapter_returns_expected_types_and_rejects_unknown_provider(
+    tmp_path: Path,
+) -> None:
+    openai_adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.OPENAI),
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+    )
+    ollama_adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.OLLAMA),
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+    )
+    llama_adapter = provider_module.build_provider_adapter(
+        make_provider_config(ProviderName.LLAMA_SERVER),
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+    )
+
+    assert isinstance(openai_adapter, provider_module.OpenAiProviderAdapter)
+    assert isinstance(ollama_adapter, provider_module.OllamaProviderAdapter)
+    assert isinstance(llama_adapter, provider_module.LlamaServerProviderAdapter)
+
+    class UnsupportedConfig:
+        provider = cast(ProviderName, "bogus")
+        model_name = "test-model"
+        base_url = "http://127.0.0.1"
+        api_key_env_var = "OPENAI_API_KEY"
+        allow_hosted_provider = False
+        timeout_seconds = 10.0
+        max_output_tokens = 256
+
+    with pytest.raises(ValueError, match="Unsupported provider"):
+        provider_module.build_provider_adapter(UnsupportedConfig())
+
+    openai_adapter.close()
+    ollama_adapter.close()
+    llama_adapter.close()
 
 
 def test_openai_inner_voice_review_shapes_request_and_persists_result(
