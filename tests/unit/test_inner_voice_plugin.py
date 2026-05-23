@@ -5,11 +5,13 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 
 import httpx
 import pytest
 
 from openclaw_moneybot.plugins.inner_voice_plugin import (
+    ArbiterResolutionError,
     ArbiterResolutionRequest,
     ArbiterService,
     DebateResponderOutput,
@@ -327,6 +329,40 @@ def test_llama_server_arbiter_shapes_request_and_parses_result(tmp_path: Path) -
     assert result.prevailing_side is ArbiterPrevailingSide.INNER_VOICE
 
 
+def test_arbiter_failure_archives_sanitized_request_summary(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": [{"message": {"content": "not-json"}}]})
+
+    service, ledger_service = make_arbiter_service(
+        tmp_path,
+        provider=ProviderName.LLAMA_SERVER,
+        handler=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(ArbiterResolutionError, match="malformed JSON"):
+        service.resolve(
+            ArbiterResolutionRequest(
+                arbiter_review_id="arbiter_failure_001",
+                debate_id="debate_001",
+                stage=InnerVoiceStage.PRE_EXECUTION,
+                subject_type=InnerVoiceSubjectType.EXPERIMENT_PLAN,
+                subject_id="plan_001",
+                openclaw_position_summary="Proceed now.",
+                inner_voice_position_summary="Stop until the proof is refreshed.",
+                disagreement_summary="Proceed now versus wait for refreshed proof.",
+                transcript_summary="openclaw: proceed\ninner_voice: wait",
+                resolution_goal="Resolve the disagreement.",
+                triggered_by=DebateEndedReason.MAX_ROUNDS_REACHED,
+            )
+        )
+
+    evidence = ledger_service.list_evidence_for_related(
+        related_type=RecordType.ARBITER_REVIEW,
+        related_id="arbiter_failure_001",
+    )
+    assert {item.evidence_type for item in evidence} >= {"arbiter_prompt", "arbiter_response"}
+
+
 def test_inner_voice_review_persists_failure_on_malformed_output(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -458,6 +494,15 @@ def test_debate_converges_without_arbiter(tmp_path: Path) -> None:
         item.evidence_type == "inner_voice_debate_transcript"
         for item in transcript_evidence
     )
+    audit_events = ledger_service.get_related_events(
+        related_type=RecordType.AUDIT_EVENT,
+    )
+    event_names = {
+        cast(dict[str, object], event.payload["payload"]).get("event_name")
+        for event in audit_events
+        if isinstance(event.payload.get("payload"), dict)
+    }
+    assert {"inner_voice_debate_started", "inner_voice_debate_completed"} <= event_names
 
 
 def test_debate_max_rounds_reached_invokes_arbiter(
@@ -528,6 +573,8 @@ def test_debate_max_rounds_reached_invokes_arbiter(
             stage=InnerVoiceStage.PRE_EXECUTION,
             subject_type=InnerVoiceSubjectType.EXPERIMENT_PLAN,
             subject_id="plan_001",
+            openclaw_review_id="openclaw_review_001",
+            inner_voice_review_id="inner_voice_review_001",
             review_goal="Resolve the disagreement.",
             claim_summary="The plan should move forward.",
             disagreement_summary="Proceed or stop.",
@@ -542,6 +589,28 @@ def test_debate_max_rounds_reached_invokes_arbiter(
     assert outcome.session.ended_reason is DebateEndedReason.MAX_ROUNDS_REACHED
     assert outcome.arbiter_result is not None
     assert outcome.arbiter_result.final_resolution is ArbiterFinalResolution.NEEDS_REVIEW
+    assert outcome.session.openclaw_review_id == "openclaw_review_001"
+    assert outcome.session.inner_voice_review_id == "inner_voice_review_001"
+    audit_events = ledger_service.get_related_events(
+        related_type=RecordType.AUDIT_EVENT,
+    )
+    event_names = {
+        cast(dict[str, object], event.payload["payload"]).get("event_name")
+        for event in audit_events
+        if isinstance(event.payload.get("payload"), dict)
+    }
+    assert "inner_voice_arbiter_escalation_requested" in event_names
+    debate_evidence = ledger_service.list_evidence_for_related(
+        related_type=RecordType.INNER_VOICE_DEBATE,
+        related_id=outcome.session.debate_id,
+    )
+    summary_record = next(
+        item for item in debate_evidence if item.evidence_type == "inner_voice_debate_summary"
+    )
+    summary_text = Path(summary_record.archive_path).read_text(encoding="utf-8")
+    assert "openclaw_review_001" in summary_text
+    assert "inner_voice_review_001" in summary_text
+    assert "arbiter_review_id" in summary_text
 
 
 def test_openclaw_arbiter_request_invokes_arbiter(tmp_path: Path) -> None:
@@ -696,6 +765,89 @@ def test_arbiter_failure_results_in_debate_error_and_failed_record(
 
     debate_records = ledger_service.get_related_events(related_id="plan_001")
     assert debate_records or ledger_service.get_opportunity("plan_001") is None
+    audit_events = ledger_service.get_related_events(
+        related_type=RecordType.AUDIT_EVENT,
+    )
+    event_names = {
+        cast(dict[str, object], event.payload["payload"]).get("event_name")
+        for event in audit_events
+        if isinstance(event.payload.get("payload"), dict)
+    }
+    assert "inner_voice_arbiter_invocation_failed" in event_names
+
+
+def test_debate_archives_placeholder_when_raw_transcript_disabled(tmp_path: Path) -> None:
+    def inner_voice_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "content": (
+                        '{"turn_type":"concession",'
+                        '"message_text":"I agree after reviewing the same evidence.",'
+                        '"cited_evidence_ids":["ev_1"],'
+                        '"disposition_signal":"proceed",'
+                        '"max_unresolved_severity":"low",'
+                        '"request_arbiter":false}'
+                    )
+                },
+                "done_reason": "stop",
+            },
+        )
+
+    inner_voice, ledger_service = make_inner_voice_plugin(
+        tmp_path,
+        provider=ProviderName.OLLAMA,
+        handler=httpx.MockTransport(inner_voice_handler),
+        config_overrides={
+            "archive_debate_transcript": False,
+            "archive_debate_turn_metadata": False,
+        },
+    )
+    arbiter, _ = make_arbiter_service(
+        tmp_path,
+        provider=ProviderName.LLAMA_SERVER,
+        handler=httpx.MockTransport(lambda request: httpx.Response(500)),
+    )
+    coordinator = InnerVoiceCoordinator(
+        inner_voice,
+        arbiter,
+        inner_voice.archiver,
+        ledger_service,
+    )
+
+    outcome = coordinator.run_debate(
+        InnerVoiceDebateRequest(
+            stage=InnerVoiceStage.BUDGET_PLANNING,
+            subject_type=InnerVoiceSubjectType.EXPERIMENT_PLAN,
+            subject_id="plan_001",
+            review_goal="Resolve the disagreement.",
+            claim_summary="The plan should move forward.",
+            disagreement_summary="Proceed or stop.",
+            openclaw_initial_position="Proceed with the plan.",
+            openclaw_initial_disposition=InnerVoiceDisposition.PROCEED,
+            openclaw_initial_max_unresolved_severity=InnerVoiceObjectionSeverity.LOW,
+            max_debate_rounds=2,
+        ),
+        openclaw=StaticResponder([]),
+    )
+
+    evidence = ledger_service.list_evidence_for_related(
+        related_type=RecordType.INNER_VOICE_DEBATE,
+        related_id=outcome.session.debate_id,
+    )
+    transcript_record = next(
+        item for item in evidence if item.evidence_type == "inner_voice_debate_transcript"
+    )
+    summary_record = next(
+        item for item in evidence if item.evidence_type == "inner_voice_debate_summary"
+    )
+    transcript_text = Path(transcript_record.archive_path).read_text(encoding="utf-8")
+    summary_text = Path(summary_record.archive_path).read_text(encoding="utf-8")
+
+    assert "transcript_raw_archival_disabled" in transcript_text
+    assert "I agree after reviewing the same evidence." not in transcript_text
+    assert '"turns"' not in summary_text
 
 
 def test_build_metrics_snapshot_summarizes_debate_and_arbiter_results(tmp_path: Path) -> None:
@@ -773,3 +925,5 @@ def test_build_metrics_snapshot_summarizes_debate_and_arbiter_results(tmp_path: 
 
     assert snapshot.invocation_count_by_stage["tos_legal_check"] == 1
     assert snapshot.debate_session_count_by_stage["budget_planning"] == 1
+    assert snapshot.average_prompt_size_chars > 0
+    assert snapshot.average_response_size_chars > 0

@@ -23,12 +23,14 @@ from openclaw_moneybot.plugins.inner_voice_plugin.models import (
     InnerVoiceMetricsSnapshot,
 )
 from openclaw_moneybot.plugins.inner_voice_plugin.prompting import (
+    archive_text,
     format_debate_transcript,
     render_json,
     sanitize_text,
     summarize_transcript,
 )
 from openclaw_moneybot.plugins.inner_voice_plugin.service import InnerVoicePlugin
+from openclaw_moneybot.plugins.support import record_plugin_audit_event
 from openclaw_moneybot.shared.types import (
     DebateEndedReason,
     DebateSpeaker,
@@ -77,6 +79,9 @@ class InnerVoiceCoordinator:
     ) -> InnerVoiceDebateOutcome:
         """Run a bounded debate session and resolve it through convergence or Arbiter."""
 
+        if request.stage not in self.inner_voice.config.run_after_stages:
+            msg = f"debate stage {request.stage.value} is not enabled in run_after_stages"
+            raise ValueError(msg)
         debate_id = request.debate_id or make_id("debate")
         max_rounds = request.max_debate_rounds or self.inner_voice.config.max_debate_rounds
         turns: list[InnerVoiceDebateTurn] = []
@@ -102,6 +107,17 @@ class InnerVoiceCoordinator:
         resolved_disposition: InnerVoiceDisposition | None = None
         arbiter_result = None
 
+        record_plugin_audit_event(
+            self.ledger_service,
+            related_record_id=debate_id,
+            event_name="inner_voice_debate_started",
+            payload={
+                "stage": request.stage.value,
+                "subject_type": request.subject_type.value,
+                "subject_id": request.subject_id,
+                "max_rounds": max_rounds,
+            },
+        )
         try:
             for round_index in range(1, max_rounds + 1):
                 inner_voice_output = self.inner_voice.respond_to_debate(
@@ -189,7 +205,7 @@ class InnerVoiceCoordinator:
                     ended_reason = DebateEndedReason.CONVERGED
                     resolved_disposition = turns[-1].disposition_signal
                     break
-            transcript_archive_ids, summary_archive_id = self._archive_debate_artifacts(
+            transcript_archive_ids = self._archive_debate_transcript(
                 debate_id=debate_id,
                 stage=request.stage.value,
                 subject_id=request.subject_id,
@@ -198,6 +214,21 @@ class InnerVoiceCoordinator:
             )
             if not converged:
                 arbiter_review_id = make_id("arbiter")
+                record_plugin_audit_event(
+                    self.ledger_service,
+                    related_record_id=debate_id,
+                    event_name="inner_voice_arbiter_escalation_requested",
+                    payload={
+                        "debate_id": debate_id,
+                        "arbiter_review_id": arbiter_review_id,
+                        "requested_by": (
+                            arbiter_requested_by.value
+                            if arbiter_requested_by is not None
+                            else "system"
+                        ),
+                        "triggered_by": ended_reason.value,
+                    },
+                )
                 arbiter_result = self.arbiter.resolve(
                     ArbiterResolutionRequest(
                         arbiter_review_id=arbiter_review_id,
@@ -230,12 +261,32 @@ class InnerVoiceCoordinator:
                     ),
                     required=True,
                 )
+            summary_archive_id = self._archive_debate_summary(
+                debate_id=debate_id,
+                stage=request.stage.value,
+                turns=turns,
+                ended_reason=ended_reason,
+                openclaw_review_id=request.openclaw_review_id,
+                inner_voice_review_id=request.inner_voice_review_id,
+                arbiter_review_id=arbiter_result.arbiter_review_id if arbiter_result else None,
+                arbiter_final_resolution=(
+                    arbiter_result.final_resolution.value if arbiter_result is not None else None
+                ),
+                arbiter_prevailing_side=(
+                    arbiter_result.prevailing_side.value if arbiter_result is not None else None
+                ),
+                resolved_disposition=(
+                    resolved_disposition.value if resolved_disposition is not None else None
+                ),
+            )
             session = InnerVoiceDebateSession(
                 debate_id=debate_id,
                 stage=request.stage,
                 subject_type=request.subject_type,
                 subject_id=request.subject_id,
                 initiated_by=DebateSpeaker.OPENCLAW,
+                openclaw_review_id=request.openclaw_review_id,
+                inner_voice_review_id=request.inner_voice_review_id,
                 max_rounds_configured=max_rounds,
                 completed_rounds=max(turn.round_index for turn in turns),
                 ended_reason=ended_reason,
@@ -256,6 +307,8 @@ class InnerVoiceCoordinator:
                     "stage": request.stage.value,
                     "subject_type": request.subject_type.value,
                     "subject_id": request.subject_id,
+                    "openclaw_review_id": request.openclaw_review_id,
+                    "inner_voice_review_id": request.inner_voice_review_id,
                     "ended_reason": ended_reason.value,
                     "converged": converged,
                     "completed_rounds": session.completed_rounds,
@@ -267,6 +320,26 @@ class InnerVoiceCoordinator:
                     "summary_archive_id": summary_archive_id,
                 },
             )
+            record_plugin_audit_event(
+                self.ledger_service,
+                related_record_id=debate_id,
+                event_name="inner_voice_debate_completed",
+                payload={
+                    "ended_reason": ended_reason.value,
+                    "converged": converged,
+                    "completed_rounds": session.completed_rounds,
+                    "arbiter_review_id": session.arbiter_review_id,
+                    "resolved_disposition": (
+                        resolved_disposition.value
+                        if resolved_disposition is not None
+                        else (
+                            arbiter_result.final_resolution.value
+                            if arbiter_result is not None
+                            else "needs_review"
+                        )
+                    ),
+                },
+            )
             return InnerVoiceDebateOutcome(
                 session=session,
                 turns=turns,
@@ -276,6 +349,17 @@ class InnerVoiceCoordinator:
                 ledger_record=ledger_record,
             )
         except (InnerVoicePluginError, ArbiterResolutionError, ValueError) as error:
+            if isinstance(error, ArbiterResolutionError) and arbiter_review_id is not None:
+                record_plugin_audit_event(
+                    self.ledger_service,
+                    related_record_id=debate_id,
+                    event_name="inner_voice_arbiter_invocation_failed",
+                    payload={
+                        "arbiter_review_id": arbiter_review_id,
+                        "failure_class": error.failure_class,
+                        "failure_message": str(error),
+                    },
+                )
             self._persist_failure(
                 debate_id=debate_id,
                 subject_id=request.subject_id,
@@ -306,7 +390,7 @@ class InnerVoiceCoordinator:
         )
         return first_severity not in severe and second_severity not in severe
 
-    def _archive_debate_artifacts(
+    def _archive_debate_transcript(
         self,
         *,
         debate_id: str,
@@ -314,39 +398,88 @@ class InnerVoiceCoordinator:
         subject_id: str,
         turns: Sequence[InnerVoiceDebateTurn],
         ended_reason: DebateEndedReason,
-    ) -> tuple[list[str], str]:
+    ) -> list[str]:
         transcript_text = format_debate_transcript([turn.model_dump(mode="json") for turn in turns])
+        if self.inner_voice.config.archive_debate_transcript:
+            transcript_content = archive_text(
+                transcript_text,
+                raw_allowed=True,
+                redaction_mode=self.inner_voice.config.archive_redaction_mode,
+                max_chars=self.inner_voice.config.max_input_chars,
+            )
+            transcript_notes = f"Inner voice debate transcript for {stage}"
+        else:
+            transcript_content = render_json(
+                {
+                    "archival_status": "transcript_raw_archival_disabled",
+                    "ended_reason": ended_reason.value,
+                    "turn_count": len(turns),
+                    "summary_archive_expected": True,
+                }
+            )
+            transcript_notes = f"Inner voice debate transcript placeholder for {stage}"
         transcript_archive_id = self.archiver.archive(
             EvidenceArchiveRequest(
                 related_type=RecordType.INNER_VOICE_DEBATE,
                 related_id=debate_id,
                 evidence_type="inner_voice_debate_transcript",
-                content_text=sanitize_text(transcript_text),
-                notes=f"Inner voice debate transcript for {stage}",
+                content_text=transcript_content,
+                notes=transcript_notes,
                 summary_hint=f"Debate transcript for {subject_id}",
             )
         ).evidence_id
+        return [transcript_archive_id]
+
+    def _archive_debate_summary(
+        self,
+        *,
+        debate_id: str,
+        stage: str,
+        turns: Sequence[InnerVoiceDebateTurn],
+        ended_reason: DebateEndedReason,
+        openclaw_review_id: str | None,
+        inner_voice_review_id: str | None,
+        arbiter_review_id: str | None = None,
+        arbiter_final_resolution: str | None = None,
+        arbiter_prevailing_side: str | None = None,
+        resolved_disposition: str | None = None,
+    ) -> str:
+        summary_payload: dict[str, object] = {
+            "ended_reason": ended_reason.value,
+            "turn_count": len(turns),
+            "openclaw_review_id": openclaw_review_id,
+            "inner_voice_review_id": inner_voice_review_id,
+            "transcript_summary": summarize_transcript(
+                [turn.model_dump(mode="json") for turn in turns]
+            ),
+        }
+        if arbiter_review_id is not None:
+            summary_payload["arbiter_review_id"] = arbiter_review_id
+        resolution_notes = {
+            "resolved_disposition": resolved_disposition,
+            "arbiter_final_resolution": arbiter_final_resolution,
+            "arbiter_prevailing_side": arbiter_prevailing_side,
+        }
+        if any(value is not None for value in resolution_notes.values()):
+            summary_payload["resolution_notes"] = resolution_notes
+        if self.inner_voice.config.archive_debate_turn_metadata:
+            summary_payload["turns"] = self._turn_metadata(turns)
         summary_archive_id = self.archiver.archive(
             EvidenceArchiveRequest(
                 related_type=RecordType.INNER_VOICE_DEBATE,
                 related_id=debate_id,
                 evidence_type="inner_voice_debate_summary",
-                content_text=sanitize_text(
-                    render_json(
-                        {
-                            "ended_reason": ended_reason.value,
-                            "turn_count": len(turns),
-                            "transcript_summary": summarize_transcript(
-                                [turn.model_dump(mode="json") for turn in turns]
-                            ),
-                        }
-                    )
+                content_text=archive_text(
+                    render_json(summary_payload),
+                    raw_allowed=self.inner_voice.config.archive_debate_turn_metadata,
+                    redaction_mode=self.inner_voice.config.archive_redaction_mode,
+                    max_chars=self.inner_voice.config.max_input_chars,
                 ),
                 notes=f"Inner voice debate summary for {stage}",
                 summary_hint="Debate summary snapshot",
             )
         ).evidence_id
-        return [transcript_archive_id], summary_archive_id
+        return summary_archive_id
 
     def _persist_failure(
         self,
@@ -365,6 +498,16 @@ class InnerVoiceCoordinator:
                 notes="Inner voice debate failure summary",
                 summary_hint=stage,
             )
+        )
+        record_plugin_audit_event(
+            self.ledger_service,
+            related_record_id=debate_id,
+            event_name="inner_voice_debate_failed",
+            payload={
+                "stage": stage,
+                "subject_id": subject_id,
+                "failure_message": failure_message,
+            },
         )
         record_structured_result(
             self.ledger_service,
@@ -386,6 +529,28 @@ class InnerVoiceCoordinator:
             if turn.speaker is speaker:
                 return turn.message_text
         return ""
+
+    @staticmethod
+    def _turn_metadata(turns: Sequence[InnerVoiceDebateTurn]) -> list[dict[str, object]]:
+        return [
+            {
+                "round_index": turn.round_index,
+                "turn_index": turn.turn_index,
+                "speaker": turn.speaker.value,
+                "turn_type": turn.turn_type.value,
+                "request_arbiter": turn.request_arbiter,
+                "cited_evidence_ids": turn.cited_evidence_ids,
+                "disposition_signal": (
+                    turn.disposition_signal.value if turn.disposition_signal is not None else None
+                ),
+                "max_unresolved_severity": (
+                    turn.max_unresolved_severity.value
+                    if turn.max_unresolved_severity is not None
+                    else None
+                ),
+            }
+            for turn in turns
+        ]
 
 
 def build_metrics_snapshot(
@@ -423,10 +588,12 @@ def build_metrics_snapshot(
                 objection_severity_counts[severity_value] += 1
         raw_summary = getattr(review, "raw_response_summary", {})
         if isinstance(raw_summary, dict):
+            prompt_chars = raw_summary.get("prompt_chars")
+            if isinstance(prompt_chars, int):
+                prompt_sizes.append(prompt_chars)
             response_chars = raw_summary.get("response_chars")
             if isinstance(response_chars, int):
                 response_sizes.append(response_chars)
-
     debate_session_count_by_stage: Counter[str] = Counter()
     completed_rounds: list[int] = []
     transcript_sizes: list[int] = []
@@ -460,12 +627,21 @@ def build_metrics_snapshot(
             followup_count += len(followups)
         raw_summary = getattr(arbiter, "raw_response_summary", {})
         if isinstance(raw_summary, dict):
+            prompt_chars = raw_summary.get("prompt_chars")
+            if isinstance(prompt_chars, int):
+                prompt_sizes.append(prompt_chars)
             response_chars = raw_summary.get("response_chars")
             if isinstance(response_chars, int):
                 response_sizes.append(response_chars)
+        if hasattr(arbiter, "failure_class"):
+            arbiter_failures += 1
 
     total_debates = len(debate_outcomes) or 1
     total_arbiters = len(arbiter_results) or 1
+    total_provider_results = len(review_results) + len(arbiter_results) or 1
+    provider_failures = sum(
+        1 for item in [*review_results, *arbiter_results] if hasattr(item, "failure_class")
+    )
     return InnerVoiceMetricsSnapshot(
         invocation_count_by_stage=dict(invocation_count_by_stage),
         needs_review_count_by_stage=dict(needs_review_count_by_stage),
@@ -479,7 +655,7 @@ def build_metrics_snapshot(
         arbiter_prevailing_side_counts=dict(prevailing_side_counts),
         arbiter_failure_rate=arbiter_failures / total_arbiters,
         followup_creation_rate=followup_count / total_arbiters,
-        provider_failure_rate=0.0,
+        provider_failure_rate=provider_failures / total_provider_results,
         average_prompt_size_chars=(sum(prompt_sizes) / len(prompt_sizes) if prompt_sizes else 0.0),
         average_response_size_chars=(
             sum(response_sizes) / len(response_sizes) if response_sizes else 0.0

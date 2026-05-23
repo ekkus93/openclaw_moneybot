@@ -1063,7 +1063,18 @@ class MoneyBotOrchestrator:
         budget_summary: str | None = None,
     ) -> InnerVoiceReviewResult | None:
         plugin = self.inner_voice_plugin
-        if plugin is None or stage not in plugin.config.run_after_stages:
+        if plugin is None:
+            return None
+        if stage not in plugin.config.run_after_stages:
+            if required:
+                msg = (
+                    f"required inner voice stage {stage.value} "
+                    "is not configured in run_after_stages"
+                )
+                raise InnerVoicePluginError(
+                    msg,
+                    failure_class="required_stage_invocation_missing",
+                )
             return None
         review_request = InnerVoiceReviewRequest(
             review_id=make_id("inner_voice_review"),

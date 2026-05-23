@@ -105,6 +105,11 @@ class ArbiterService:
                 failure_class=failure_class,
                 failure_message=str(error),
                 required=required,
+                request_summary={
+                    "request": request.model_dump(mode="json"),
+                    "provider": self.config.provider.value,
+                    "model_name": self.config.model_name,
+                },
             )
             raise ArbiterResolutionError(str(error), failure_class=failure_class) from error
 
@@ -237,9 +242,25 @@ class ArbiterService:
         failure_class: str,
         failure_message: str,
         required: bool,
+        request_summary: Mapping[str, object],
     ) -> None:
         if self.config.persist_failures:
-            archive_id = self.archiver.archive(
+            prompt_archive_id = self.archiver.archive(
+                EvidenceArchiveRequest(
+                    related_type=RecordType.ARBITER_REVIEW,
+                    related_id=arbiter_review_id,
+                    evidence_type="arbiter_prompt",
+                    content_text=archive_text(
+                        render_json(request_summary),
+                        raw_allowed=False,
+                        redaction_mode=self.config.archive_redaction_mode,
+                        max_chars=self.config.max_input_chars,
+                    ),
+                    notes="Arbiter failure request summary",
+                    summary_hint=failure_class,
+                )
+            ).evidence_id
+            response_archive_id = self.archiver.archive(
                 EvidenceArchiveRequest(
                     related_type=RecordType.ARBITER_REVIEW,
                     related_id=arbiter_review_id,
@@ -266,7 +287,7 @@ class ArbiterService:
                     "failure_message": failure_message,
                     "was_required": required,
                     "resolved_disposition": "needs_review",
-                    "evidence_archive_ids": [archive_id],
+                    "evidence_archive_ids": [prompt_archive_id, response_archive_id],
                 },
             )
         record_plugin_audit_event(

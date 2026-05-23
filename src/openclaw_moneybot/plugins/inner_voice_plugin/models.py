@@ -200,6 +200,8 @@ class InnerVoiceDebateSession(MoneyBotModel):
     subject_type: InnerVoiceSubjectType
     subject_id: str
     initiated_by: DebateSpeaker
+    openclaw_review_id: str | None = None
+    inner_voice_review_id: str | None = None
     max_rounds_configured: int = Field(gt=0)
     completed_rounds: int = Field(ge=0)
     ended_reason: DebateEndedReason

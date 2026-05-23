@@ -217,6 +217,33 @@ def test_required_pre_execution_inner_voice_failure_stops_wallet_path(tmp_path: 
     assert result.wallet_result is None
 
 
+def test_required_pre_execution_inner_voice_stage_missing_stops_wallet_path(tmp_path: Path) -> None:
+    def inner_voice_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"message": {"content": "{}"}, "done_reason": "stop"})
+
+    orchestrator, ledger_service = make_orchestrator(tmp_path, spend_enabled=True)
+    orchestrator.inner_voice_plugin = make_inner_voice_plugin(
+        tmp_path,
+        ledger_service,
+        run_after_stages=[InnerVoiceStage.BUDGET_PLANNING],
+        handler=httpx.MockTransport(inner_voice_handler),
+    )
+
+    result = orchestrator.run_dry_run(
+        make_request(
+            enable_wallet_payment=True,
+            draft_recipient_email="maintainer@example.com",
+            draft_recipient_name="Maintainer",
+        )
+    )
+
+    assert result.status == "needs_review"
+    assert result.stop_stage == "inner_voice_pre_execution"
+    assert result.stop_reason is not None
+    assert "required inner voice stage pre_execution" in result.stop_reason
+    assert result.wallet_result is None
+
+
 def test_initial_policy_block_stops_before_downstream_work(tmp_path: Path) -> None:
     policy_guard = PolicyGuardWithCategoryOverride(
         MoneyBotPolicyGuard(make_policy_config()),

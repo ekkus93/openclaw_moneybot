@@ -118,10 +118,10 @@ P2 = operational polish, diagnostics, and post-v1 preparation
   - [x] `arbiter_response`
   - [x] `arbiter_resolution_summary`
 - [ ] Decide whether additional audit-event types are needed for:
-  - [ ] debate session start
-  - [ ] debate session end
-  - [ ] arbiter escalation request
-  - [ ] arbiter invocation failure
+  - [x] debate session start
+  - [x] debate session end
+  - [x] arbiter escalation request
+  - [x] arbiter invocation failure
 
 ---
 
@@ -130,7 +130,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 ## 2.1 Inner voice config model
 
 - [x] Add `InnerVoiceConfig` to shared config loading.
-- [ ] Implement fields for:
+- [x] Implement fields for:
   - [x] `enabled`
   - [x] `provider`
   - [x] `model_name`
@@ -163,7 +163,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 ## 2.2 Arbiter config model
 
 - [x] Add `ArbiterConfig` to shared config loading.
-- [ ] Implement fields for:
+- [x] Implement fields for:
   - [x] `provider`
   - [x] `model_name`
   - [x] `base_url`
@@ -228,7 +228,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 - [x] Request strict JSON object output.
 - [x] Capture finish reason and token usage when available.
 - [ ] Reject unsupported endpoint/model combinations that cannot satisfy JSON requirements.
-- [ ] Respect hosted-provider opt-in rules.
+- [x] Respect hosted-provider opt-in rules.
 
 ## 3.3 Ollama adapter
 
@@ -289,7 +289,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 - [x] Implement `InnerVoiceDebateSession`.
 - [x] Implement `InnerVoiceDebateTurn`.
-- [ ] Add fields for:
+- [x] Add fields for:
   - [x] `debate_id`
   - [x] `stage`
   - [x] `subject_type`
@@ -302,7 +302,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
   - [x] `arbiter_requested_by`
   - [x] `arbiter_review_id`
   - [x] transcript artifact linkage
-- [ ] Add turn-level fields for:
+- [x] Add turn-level fields for:
   - [x] `round_index`
   - [x] `turn_index`
   - [x] `speaker`
@@ -317,7 +317,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 - [x] Implement `ArbiterResolutionRequest`.
 - [x] Implement `ArbiterResolutionResult`.
-- [ ] Add input fields for:
+- [x] Add input fields for:
   - [x] `arbiter_review_id`
   - [x] `debate_id`
   - [x] `stage`
@@ -336,7 +336,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
   - [x] `tos_summary`
   - [x] `budget_summary`
   - [x] `resolution_goal`
-- [ ] Add output fields for:
+- [x] Add output fields for:
   - [x] `final_resolution`
   - [x] `prevailing_side`
   - [x] `resolution_summary`
@@ -355,7 +355,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 - [x] Implement deterministic prompt field ordering.
 - [x] Implement bounded text size handling.
 - [x] Implement explicit truncation markers.
-- [ ] Implement stage-specific fixed-in-code prompt fragments for:
+- [x] Implement stage-specific fixed-in-code prompt fragments for:
   - [x] `opportunity_ranking`
   - [x] `tos_legal_check`
   - [x] `budget_planning`
@@ -370,7 +370,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 - [x] Implement `max_evidence_items`.
 - [x] Implement `max_chars_per_evidence`.
 - [x] Implement stale-evidence labelling before prompt construction.
-- [ ] Ensure raw HTML, screenshots, and attachments are summarized, not inlined.
+- [x] Ensure raw HTML, screenshots, and attachments are summarized, not inlined.
 
 ## 5.3 Arbiter prompt rendering
 
@@ -388,7 +388,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 - [x] Implement secret scanning for prompt archival.
 - [x] Implement secret scanning for raw response archival.
 - [x] Implement secret scanning for debate transcript archival.
-- [ ] Redact or hash:
+- [x] Redact or hash:
   - [x] API keys
   - [x] bearer tokens
   - [x] wallet-sensitive metadata
@@ -419,7 +419,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
   - [x] malformed provider output
   - [x] schema validation failure
   - [x] prompt too large
-  - [ ] required stage invocation missing
+  - [x] required stage invocation missing
 - [ ] Produce explicit structured failure objects.
 - [x] Ensure required-path failures resolve fail-closed.
 - [x] Ensure optional-path failures remain auditable when `persist_failures=True`.
@@ -440,38 +440,38 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 ## 7.1 Debate eligibility and triggering
 
-- [ ] Decide where in orchestration debate mode is entered.
-- [ ] Trigger debate only on configured stages.
+- [x] Decide where in orchestration debate mode is entered.
+- [x] Trigger debate only on configured stages.
 - [ ] Trigger debate only when disagreement handling is relevant for that stage.
-- [ ] Respect `max_debate_rounds` from config.
+- [x] Respect `max_debate_rounds` from config.
 
 ## 7.2 Debate round execution
 
-- [ ] Build the initial OpenClaw position summary for debate use.
-- [ ] Build the first inner voice objection pass.
-- [ ] Implement bounded round execution.
-- [ ] Ensure each round normally contains:
-  - [ ] one OpenClaw turn
-  - [ ] one inner voice turn
-- [ ] Allow early termination on convergence.
-- [ ] Allow explicit `request_arbiter` from either side.
+- [x] Build the initial OpenClaw position summary for debate use.
+- [x] Build the first inner voice objection pass.
+- [x] Implement bounded round execution.
+- [x] Ensure each round normally contains:
+  - [x] one OpenClaw turn
+  - [x] one inner voice turn
+- [x] Allow early termination on convergence.
+- [x] Allow explicit `request_arbiter` from either side.
 
 ## 7.3 Convergence evaluation
 
-- [ ] Implement structured convergence checks.
-- [ ] Determine convergence by:
-  - [ ] matching disposition
-  - [ ] no unresolved `high` or `block` objections
-  - [ ] no active Arbiter request
-- [ ] Avoid naive plain-text matching as the convergence criterion.
+- [x] Implement structured convergence checks.
+- [x] Determine convergence by:
+  - [x] matching disposition
+  - [x] no unresolved `high` or `block` objections
+  - [x] no active Arbiter request
+- [x] Avoid naive plain-text matching as the convergence criterion.
 
 ## 7.4 Debate end-state handling
 
-- [ ] Record `ended_reason = converged` when agreement is reached.
-- [ ] Record `ended_reason = max_rounds_reached` when debate ceiling is hit.
-- [ ] Record `ended_reason = request_arbiter` when escalation is requested.
+- [x] Record `ended_reason = converged` when agreement is reached.
+- [x] Record `ended_reason = max_rounds_reached` when debate ceiling is hit.
+- [x] Record `ended_reason = request_arbiter` when escalation is requested.
 - [ ] Record `ended_reason = orchestrator_escalation` when orchestration escalates for safety reasons.
-- [ ] Record `ended_reason = failure` when debate cannot complete safely.
+- [x] Record `ended_reason = failure` when debate cannot complete safely.
 
 ---
 
@@ -479,38 +479,38 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 ## 8.1 Transcript capture
 
-- [ ] Persist every turn in order.
-- [ ] Preserve the exchanged dialogue text after sanitization.
-- [ ] Avoid lossy paraphrasing of turn content.
-- [ ] Capture round number, turn number, speaker, turn type, and arbiter request flag.
-- [ ] Capture cited evidence references.
+- [x] Persist every turn in order.
+- [x] Preserve the exchanged dialogue text after sanitization.
+- [x] Avoid lossy paraphrasing of turn content.
+- [x] Capture round number, turn number, speaker, turn type, and arbiter request flag.
+- [x] Capture cited evidence references.
 
 ## 8.2 Transcript artifact creation
 
-- [ ] Archive debate transcript through `receipt_and_evidence_archiver`.
-- [ ] Archive a debate summary artifact.
-- [ ] Support raw transcript archival when safe and configured.
-- [ ] Support sanitized transcript archival when raw text is not safe.
+- [x] Archive debate transcript through `receipt_and_evidence_archiver`.
+- [x] Archive a debate summary artifact.
+- [x] Support raw transcript archival when safe and configured.
+- [x] Support sanitized transcript archival when raw text is not safe.
 
 ## 8.3 Debate ledger linkage
 
-- [ ] Create ledger-linked `INNER_VOICE_DEBATE` records.
-- [ ] Link debate records to:
-  - [ ] subject
-  - [ ] stage
-  - [ ] inner voice review IDs
-  - [ ] transcript artifact IDs
-  - [ ] later Arbiter record if invoked
+- [x] Create ledger-linked `INNER_VOICE_DEBATE` records.
+- [x] Link debate records to:
+  - [x] subject
+  - [x] stage
+  - [x] inner voice review IDs
+  - [x] transcript artifact IDs
+  - [x] later Arbiter record if invoked
 
 ## 8.4 Transcript audit UX
 
-- [ ] Ensure an operator can reconstruct the debate round by round from persisted records.
-- [ ] Ensure transcript records clearly distinguish:
-  - [ ] OpenClaw turns
-  - [ ] inner voice turns
-  - [ ] arbiter request turns
-  - [ ] resolution notes
-- [ ] Ensure the system never labels the transcript as hidden internal reasoning.
+- [x] Ensure an operator can reconstruct the debate round by round from persisted records.
+- [x] Ensure transcript records clearly distinguish:
+  - [x] OpenClaw turns
+  - [x] inner voice turns
+  - [x] arbiter request turns
+  - [x] resolution notes
+- [x] Ensure the system never labels the transcript as hidden internal reasoning.
 
 ---
 
@@ -518,51 +518,51 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 ## 9.1 Arbiter invocation policy
 
-- [ ] Invoke Arbiter when:
-  - [ ] `max_debate_rounds` is reached without agreement
-  - [ ] either OpenClaw or inner voice requests Arbiter resolution
-- [ ] Ensure Arbiter is treated as required, not optional, in the debate-resolution path.
-- [ ] Ensure one Arbiter pass per debate session in v1.
+- [x] Invoke Arbiter when:
+  - [x] `max_debate_rounds` is reached without agreement
+  - [x] either OpenClaw or inner voice requests Arbiter resolution
+- [x] Ensure Arbiter is treated as required, not optional, in the debate-resolution path.
+- [x] Ensure one Arbiter pass per debate session in v1.
 
 ## 9.2 Arbiter request building
 
-- [ ] Build `ArbiterResolutionRequest` from:
-  - [ ] debate session metadata
-  - [ ] OpenClaw position summary
-  - [ ] inner voice position summary
-  - [ ] disagreement summary
-  - [ ] transcript summary / artifacts
-  - [ ] evidence summaries
-  - [ ] constraints and stage summaries
-- [ ] Ensure request size stays within configured bounds.
+- [x] Build `ArbiterResolutionRequest` from:
+  - [x] debate session metadata
+  - [x] OpenClaw position summary
+  - [x] inner voice position summary
+  - [x] disagreement summary
+  - [x] transcript summary / artifacts
+  - [x] evidence summaries
+  - [x] constraints and stage summaries
+- [x] Ensure request size stays within configured bounds.
 
 ## 9.3 Arbiter provider execution
 
-- [ ] Select Arbiter provider/model from Arbiter config.
-- [ ] Allow provider/model to differ from OpenClaw and inner voice.
-- [ ] Apply the same direct-adapter, no-LiteLLM rules.
-- [ ] Use lower temperature and structured JSON output.
+- [x] Select Arbiter provider/model from Arbiter config.
+- [x] Allow provider/model to differ from OpenClaw and inner voice.
+- [x] Apply the same direct-adapter, no-LiteLLM rules.
+- [x] Use lower temperature and structured JSON output.
 
 ## 9.4 Arbiter response handling
 
-- [ ] Parse returned JSON.
-- [ ] Validate against `ArbiterResolutionResult`.
-- [ ] Enforce final-resolution enum constraints.
-- [ ] Normalize compact `raw_response_summary`.
+- [x] Parse returned JSON.
+- [x] Validate against `ArbiterResolutionResult`.
+- [x] Enforce final-resolution enum constraints.
+- [x] Normalize compact `raw_response_summary`.
 
 ## 9.5 Arbiter finality rules
 
-- [ ] Treat Arbiter resolution as final among the LLM participants for the debate session.
-- [ ] Do not rerun Arbiter on the same debate session in v1.
-- [ ] Ensure Arbiter result ends further OpenClaw-versus-inner-voice debate for that session.
+- [x] Treat Arbiter resolution as final among the LLM participants for the debate session.
+- [x] Do not rerun Arbiter on the same debate session in v1.
+- [x] Ensure Arbiter result ends further OpenClaw-versus-inner-voice debate for that session.
 - [ ] Ensure deterministic policy still outranks Arbiter output.
 
 ## 9.6 Arbiter failure handling
 
-- [ ] Classify Arbiter provider/network/malformed-output failures.
-- [ ] Ensure required Arbiter failure resolves workflow to `needs_review`.
-- [ ] Archive sanitized request summary on Arbiter failure.
-- [ ] Persist `ARBITER_REVIEW` failure records with explicit failure fields.
+- [x] Classify Arbiter provider/network/malformed-output failures.
+- [x] Ensure required Arbiter failure resolves workflow to `needs_review`.
+- [x] Archive sanitized request summary on Arbiter failure.
+- [x] Persist `ARBITER_REVIEW` failure records with explicit failure fields.
 
 ---
 
@@ -688,7 +688,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 ## 13.1 README and architecture docs
 
 - [x] Update `README.md` with inner voice and Arbiter config documentation once implemented.
-- [ ] Update `docs/OPENCLAW_MONEYBOT_ARCHITECTURE.md` with:
+- [x] Update `docs/OPENCLAW_MONEYBOT_ARCHITECTURE.md` with:
   - [x] inner voice plugin inventory entry
   - [x] debate-loop architecture note
   - [x] Arbiter escalation note
@@ -748,11 +748,11 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 ## 15.3 Final acceptance checklist
 
-- [ ] Inner voice critique path works with schema validation and fail-closed behavior.
-- [ ] Debate loop is bounded by config and fully auditable.
-- [ ] Transcript artifacts preserve exchanged dialogue safely.
-- [ ] Arbiter is invoked on max-round or explicit-request escalation.
-- [ ] Arbiter result is final for the v1 debate session.
+- [x] Inner voice critique path works with schema validation and fail-closed behavior.
+- [x] Debate loop is bounded by config and fully auditable.
+- [x] Transcript artifacts preserve exchanged dialogue safely.
+- [x] Arbiter is invoked on max-round or explicit-request escalation.
+- [x] Arbiter result is final for the v1 debate session.
 - [ ] Deterministic policy remains the ultimate authority.
-- [ ] Ledger and evidence linkage are complete for review, debate, and Arbiter records.
-- [ ] Unit, integration, mypy, ruff, and pytest all pass.
+- [x] Ledger and evidence linkage are complete for review, debate, and Arbiter records.
+- [x] Unit, integration, mypy, ruff, and pytest all pass.

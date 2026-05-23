@@ -267,3 +267,8 @@
 - Hardened the inner-voice and Arbiter runtime with bounded prompt construction, deterministic truncation markers, evidence ordering/deduplication, stale-evidence labeling, stronger secret redaction and hash modes, provider health checks, and more specific failure classification including `prompt_too_large`.
 - Added prompt-size, stale-evidence, provider-unreachable, and prompt-too-large coverage in `tests/unit/test_inner_voice_plugin.py`, and updated `docs/INNER_VOICE_TODO.md` to mark the completed provider/model/prompt/service hardening items from this phase.
 - The repository again passes full `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest`, now with 677 passing tests.
+
+## 2026-05-23T06:18:52Z - GPT-5.4 - Hardened debate archival and required-stage handling
+- Hardened the debate/runtime path so required inner-voice stages fail closed when not configured, debates emit audit events for start/completion/escalation/failure, transcript archival honors the raw-transcript and turn-metadata config flags, and debate summaries now carry linked review IDs plus Arbiter resolution notes.
+- Added coverage for required-stage-missing wallet-path behavior, debate audit events, transcript placeholder archival, Arbiter failure request-summary archival, debate summary linkage, and prompt-size metrics updates in `tests/integration/test_workflow.py` and `tests/unit/test_inner_voice_plugin.py`.
+- Updated `docs/INNER_VOICE_TODO.md` and `docs/OPENCLAW_MONEYBOT_ARCHITECTURE.md` to reflect the completed debate/orchestration/Arbiter archival work, and the repository now passes full `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with 680 passing tests.

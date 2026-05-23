@@ -147,6 +147,9 @@ The `inner_voice_plugin` is a special read-only challenger plugin:
 - it uses direct provider-specific adapters for OpenAI, Ollama, and llama-server
 - it does **not** use LiteLLM or another generic LLM routing proxy
 - it archives prompt, response, debate transcript, and Arbiter artifacts through the evidence archive
+- it records debate lifecycle audit events for session start, completion, Arbiter escalation, and Arbiter invocation failure
+- it honors debate transcript archival settings so operators can keep full transcript capture enabled or
+  fall back to placeholder transcript artifacts plus bounded summary metadata
 - it remains advisory: deterministic policy, TOS/legal, budget, ledger, and wallet controls still
   outrank all inner-voice and Arbiter output
 
