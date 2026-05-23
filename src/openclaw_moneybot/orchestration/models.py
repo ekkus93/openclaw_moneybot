@@ -83,3 +83,16 @@ class DryRunMissionResult(MoneyBotModel):
     stop_stage: str | None = None
     stop_reason: str | None = None
     dry_run: bool = True
+
+
+class ModelDisagreementInterpretation(MoneyBotModel):
+    """Deterministic interpretation of a debate/Arbiter outcome."""
+
+    debate_id: str
+    final_resolution_source: str
+    final_status: str
+    stop_stage: str | None = None
+    stop_reason: str | None = None
+    required_followups: list[str] = Field(default_factory=list)
+    transcript_archive_ids: list[str] = Field(default_factory=list)
+    arbiter_review_id: str | None = None

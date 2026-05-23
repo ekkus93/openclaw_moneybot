@@ -9,10 +9,21 @@ from pathlib import Path
 import httpx
 
 from openclaw_moneybot.orchestration import DryRunMissionRequest
-from openclaw_moneybot.plugins.inner_voice_plugin import InnerVoicePlugin
-from openclaw_moneybot.shared import ArchiveConfig, InnerVoiceConfig
+from openclaw_moneybot.plugins.inner_voice_plugin import (
+    ArbiterService,
+    DebateResponderOutput,
+    DebateResponderRequest,
+    InnerVoiceCoordinator,
+    InnerVoiceDebateRequest,
+    InnerVoicePlugin,
+)
+from openclaw_moneybot.shared import ArbiterConfig, ArchiveConfig, InnerVoiceConfig
 from openclaw_moneybot.shared.types import (
+    ArbiterFinalResolution,
+    InnerVoiceDisposition,
+    InnerVoiceObjectionSeverity,
     InnerVoiceStage,
+    InnerVoiceSubjectType,
     PolicyDecisionType,
     ProviderName,
     RecordType,
@@ -116,6 +127,34 @@ def make_inner_voice_plugin(
         ledger_service,
         transport=handler,
     )
+
+
+def make_arbiter_service(
+    tmp_path: Path,
+    ledger_service: LedgerService,
+    *,
+    handler: httpx.BaseTransport,
+) -> ArbiterService:
+    return ArbiterService(
+        ArbiterConfig(
+            provider=ProviderName.LLAMA_SERVER,
+            model_name="arbiter-test",
+            base_url="http://127.0.0.1:8080/v1",
+            allow_hosted_provider=False,
+            allow_non_local_provider=False,
+        ),
+        ArchiveConfig(base_directory=make_archive_config(tmp_path).base_directory),
+        ledger_service,
+        transport=handler,
+    )
+
+
+class StaticResponder:
+    def __init__(self, outputs: list[DebateResponderOutput]) -> None:
+        self._outputs = iter(outputs)
+
+    def respond_to_debate(self, request: DebateResponderRequest) -> DebateResponderOutput:
+        return next(self._outputs)
 
 
 def test_dry_run_workflow_creates_full_trail(tmp_path: Path) -> None:
@@ -242,6 +281,256 @@ def test_required_pre_execution_inner_voice_stage_missing_stops_wallet_path(tmp_
     assert result.stop_reason is not None
     assert "required inner voice stage pre_execution" in result.stop_reason
     assert result.wallet_result is None
+
+
+def test_spend_path_debate_can_return_followup_gated_result(tmp_path: Path) -> None:
+    def inner_voice_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "content": (
+                        '{"turn_type":"objection",'
+                        '"message_text":"Use a refreshed receipt before sending funds.",'
+                        '"cited_evidence_ids":["ev_2"],'
+                        '"disposition_signal":"needs_review",'
+                        '"max_unresolved_severity":"high",'
+                        '"request_arbiter":false}'
+                    )
+                },
+                "done_reason": "stop",
+            },
+        )
+
+    def arbiter_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": (
+                                '{"final_resolution":"proceed_with_followups",'
+                                '"prevailing_side":"mixed",'
+                                '"resolution_summary":"Proceed only after refreshing the receipt.",'
+                                '"rationale_summary":"The spend can continue once '
+                                'the proof is refreshed.",'
+                                '"required_followups":["refresh payout receipt"],'
+                                '"unresolved_risks":["stale receipt"]}'
+                            )
+                        },
+                    }
+                ]
+            },
+        )
+
+    orchestrator, ledger_service = make_orchestrator(tmp_path, spend_enabled=True)
+    plugin = make_inner_voice_plugin(
+        tmp_path,
+        ledger_service,
+        run_after_stages=[InnerVoiceStage.PRE_EXECUTION],
+        handler=httpx.MockTransport(inner_voice_handler),
+    )
+    arbiter = make_arbiter_service(
+        tmp_path,
+        ledger_service,
+        handler=httpx.MockTransport(arbiter_handler),
+    )
+    coordinator = InnerVoiceCoordinator(plugin, arbiter, plugin.archiver, ledger_service)
+    orchestrator.inner_voice_plugin = plugin
+    orchestrator.arbiter_service = arbiter
+    orchestrator.inner_voice_coordinator = coordinator
+
+    outcome = orchestrator.resolve_model_disagreement(
+        InnerVoiceDebateRequest(
+            stage=InnerVoiceStage.PRE_EXECUTION,
+            subject_type=InnerVoiceSubjectType.EXECUTION_STEP,
+            subject_id="wallet_step_001",
+            review_goal="Resolve the pre-execution spend disagreement.",
+            claim_summary="Proceed with the approved wallet spend.",
+            disagreement_summary="Send now or require one more receipt refresh first.",
+            openclaw_initial_position="Proceed with the approved wallet spend now.",
+            openclaw_initial_disposition=InnerVoiceDisposition.PROCEED,
+            openclaw_initial_max_unresolved_severity=InnerVoiceObjectionSeverity.LOW,
+            max_debate_rounds=1,
+        ),
+        openclaw=StaticResponder([]),
+    )
+
+    interpretation = orchestrator.interpret_model_disagreement(outcome)
+
+    assert interpretation.final_status == "proceed_with_followups"
+    assert interpretation.required_followups == ["refresh payout receipt"]
+    assert interpretation.transcript_archive_ids
+
+
+def test_irreversible_action_debate_can_stop_auto_advance(tmp_path: Path) -> None:
+    def inner_voice_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "content": (
+                        '{"turn_type":"objection",'
+                        '"message_text":"Do not submit until the irreversible step is reviewed.",'
+                        '"cited_evidence_ids":["ev_3"],'
+                        '"disposition_signal":"needs_review",'
+                        '"max_unresolved_severity":"high",'
+                        '"request_arbiter":false}'
+                    )
+                },
+                "done_reason": "stop",
+            },
+        )
+
+    orchestrator, ledger_service = make_orchestrator(tmp_path, spend_enabled=False)
+    plugin = make_inner_voice_plugin(
+        tmp_path,
+        ledger_service,
+        run_after_stages=[InnerVoiceStage.PRE_EXECUTION],
+        handler=httpx.MockTransport(inner_voice_handler),
+    )
+    arbiter = make_arbiter_service(
+        tmp_path,
+        ledger_service,
+        handler=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {
+                                "content": (
+                                    '{"final_resolution":"block_pending_checks",'
+                                    '"prevailing_side":"inner_voice",'
+                                    '"resolution_summary":"Pause the irreversible step.",'
+                                    '"rationale_summary":"The remaining risk is too high.",'
+                                    '"required_followups":["perform manual review"],'
+                                    '"unresolved_risks":["irreversible action risk"]}'
+                                )
+                            },
+                        }
+                    ]
+                },
+            )
+        ),
+    )
+    coordinator = InnerVoiceCoordinator(plugin, arbiter, plugin.archiver, ledger_service)
+    orchestrator.inner_voice_plugin = plugin
+    orchestrator.arbiter_service = arbiter
+    orchestrator.inner_voice_coordinator = coordinator
+
+    outcome = orchestrator.resolve_model_disagreement(
+        InnerVoiceDebateRequest(
+            stage=InnerVoiceStage.PRE_EXECUTION,
+            subject_type=InnerVoiceSubjectType.EXECUTION_STEP,
+            subject_id="submission_step_001",
+            review_goal="Resolve the irreversible submission disagreement.",
+            claim_summary="Proceed with the irreversible submission step.",
+            disagreement_summary="Submit now or stop for manual review.",
+            openclaw_initial_position="Proceed with the irreversible submission step.",
+            openclaw_initial_disposition=InnerVoiceDisposition.PROCEED,
+            openclaw_initial_max_unresolved_severity=InnerVoiceObjectionSeverity.LOW,
+            max_debate_rounds=1,
+        ),
+        openclaw=StaticResponder([]),
+    )
+
+    interpretation = orchestrator.interpret_model_disagreement(outcome)
+
+    assert interpretation.final_status == "needs_review"
+    assert interpretation.stop_stage == "inner_voice_debate"
+    assert interpretation.stop_reason == "Pause the irreversible step."
+
+
+def test_deterministic_policy_still_outranks_arbiter_output(tmp_path: Path) -> None:
+    def inner_voice_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "content": (
+                        '{"turn_type":"objection",'
+                        '"message_text":"I disagree but arbitration can resolve it.",'
+                        '"cited_evidence_ids":["ev_2"],'
+                        '"disposition_signal":"needs_review",'
+                        '"max_unresolved_severity":"medium",'
+                        '"request_arbiter":false}'
+                    )
+                },
+                "done_reason": "stop",
+            },
+        )
+
+    def arbiter_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": (
+                                '{"final_resolution":"adopt_openclaw",'
+                                '"prevailing_side":"openclaw",'
+                                '"resolution_summary":"Proceeding would be acceptable '
+                                'at the LLM layer.",'
+                                '"rationale_summary":"The disagreement is not material.",'
+                                '"required_followups":[],'
+                                '"unresolved_risks":[]}'
+                            )
+                        },
+                    }
+                ]
+            },
+        )
+
+    orchestrator, ledger_service = make_orchestrator(tmp_path, spend_enabled=True)
+    plugin = make_inner_voice_plugin(
+        tmp_path,
+        ledger_service,
+        run_after_stages=[InnerVoiceStage.PRE_EXECUTION],
+        handler=httpx.MockTransport(inner_voice_handler),
+    )
+    arbiter = make_arbiter_service(
+        tmp_path,
+        ledger_service,
+        handler=httpx.MockTransport(arbiter_handler),
+    )
+    coordinator = InnerVoiceCoordinator(plugin, arbiter, plugin.archiver, ledger_service)
+    orchestrator.inner_voice_plugin = plugin
+    orchestrator.arbiter_service = arbiter
+    orchestrator.inner_voice_coordinator = coordinator
+
+    outcome = orchestrator.resolve_model_disagreement(
+        InnerVoiceDebateRequest(
+            stage=InnerVoiceStage.PRE_EXECUTION,
+            subject_type=InnerVoiceSubjectType.EXECUTION_STEP,
+            subject_id="wallet_step_002",
+            review_goal="Resolve the spend disagreement.",
+            claim_summary="Proceed with the approved wallet spend.",
+            disagreement_summary="Proceed now or stop.",
+            openclaw_initial_position="Proceed with the approved wallet spend now.",
+            openclaw_initial_disposition=InnerVoiceDisposition.PROCEED,
+            openclaw_initial_max_unresolved_severity=InnerVoiceObjectionSeverity.LOW,
+            max_debate_rounds=1,
+        ),
+        openclaw=StaticResponder([]),
+    )
+
+    interpretation = orchestrator.interpret_model_disagreement(
+        outcome,
+        deterministic_status="block",
+        deterministic_reason="Policy blocked the purchase category.",
+    )
+
+    assert outcome.arbiter_result is not None
+    assert outcome.arbiter_result.final_resolution is ArbiterFinalResolution.ADOPT_OPENCLAW
+    assert interpretation.final_status == "block"
+    assert interpretation.stop_stage == "deterministic_gate"
+    assert interpretation.stop_reason == "Policy blocked the purchase category."
 
 
 def test_initial_policy_block_stops_before_downstream_work(tmp_path: Path) -> None:

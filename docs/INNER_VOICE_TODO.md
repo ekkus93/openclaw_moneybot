@@ -40,7 +40,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 - [x] Keep the inner voice plugin advisory and read-only.
 - [x] Keep the Arbiter limited to disagreement resolution between OpenClaw and the inner voice.
 - [x] Do not allow inner voice or Arbiter code to call wallet, email, browser, shell, or other side-effect tools.
-- [ ] Do not allow inner voice or Arbiter outputs to override deterministic policy, TOS/legal gates, budget caps, ledger requirements, or wallet controls.
+- [x] Do not allow inner voice or Arbiter outputs to override deterministic policy, TOS/legal gates, budget caps, ledger requirements, or wallet controls.
 - [x] Do not use LiteLLM or any generic third-party LLM routing proxy.
 - [x] Use direct provider-specific adapters for OpenAI, Ollama, and llama-server.
 - [x] Keep secrets out of prompts, transcripts, logs, exceptions, and persisted artifacts.
@@ -555,7 +555,7 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 - [x] Treat Arbiter resolution as final among the LLM participants for the debate session.
 - [x] Do not rerun Arbiter on the same debate session in v1.
 - [x] Ensure Arbiter result ends further OpenClaw-versus-inner-voice debate for that session.
-- [ ] Ensure deterministic policy still outranks Arbiter output.
+- [x] Ensure deterministic policy still outranks Arbiter output.
 
 ## 9.6 Arbiter failure handling
 
@@ -576,20 +576,20 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 
 ## 10.2 Debate result interpretation
 
-- [ ] Ensure converged debate feeds a single structured result back into orchestration.
+- [x] Ensure converged debate feeds a single structured result back into orchestration.
 - [ ] Ensure debate transcript IDs remain linked to downstream review records.
 
 ## 10.3 Arbiter result interpretation
 
-- [ ] If Arbiter returns `adopt_openclaw`, continue with that position subject to deterministic gates.
+- [x] If Arbiter returns `adopt_openclaw`, continue with that position subject to deterministic gates.
 - [ ] If Arbiter returns `adopt_inner_voice`, continue with that position subject to deterministic gates.
-- [ ] If Arbiter returns `proceed_with_followups`, create required follow-up work.
-- [ ] If Arbiter returns `needs_review` or `block_pending_checks`, prevent auto-advance.
-- [ ] Ensure no LLM result can lower an existing deterministic `block` or `needs_review`.
+- [x] If Arbiter returns `proceed_with_followups`, create required follow-up work.
+- [x] If Arbiter returns `needs_review` or `block_pending_checks`, prevent auto-advance.
+- [x] Ensure no LLM result can lower an existing deterministic `block` or `needs_review`.
 
 ## 10.4 Spend and irreversible-action handling
 
-- [ ] Ensure required-path failures resolve to `needs_review`.
+- [x] Ensure required-path failures resolve to `needs_review`.
 - [ ] Ensure spend and irreversible actions require the configured inner voice path.
 - [ ] Ensure spend and irreversible actions also respect Arbiter failure behavior where Arbiter is required.
 
@@ -675,11 +675,11 @@ P2 = operational polish, diagnostics, and post-v1 preparation
 ## 12.6 Integration tests
 
 - [x] Test stage-triggered inner voice invocation.
-- [ ] Test spend-path behavior with inner voice and debate.
-- [ ] Test irreversible-action path behavior with inner voice and debate.
+- [x] Test spend-path behavior with inner voice and debate.
+- [x] Test irreversible-action path behavior with inner voice and debate.
 - [x] Test transcript and artifact persistence end-to-end.
 - [x] Test Arbiter escalation end-to-end.
-- [ ] Test deterministic policy still outranks LLM and Arbiter outputs.
+- [x] Test deterministic policy still outranks LLM and Arbiter outputs.
 
 ---
 
