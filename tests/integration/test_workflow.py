@@ -6,8 +6,18 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
+
 from openclaw_moneybot.orchestration import DryRunMissionRequest
-from openclaw_moneybot.shared.types import PolicyDecisionType, RecordType, ReviewDecisionType
+from openclaw_moneybot.plugins.inner_voice_plugin import InnerVoicePlugin
+from openclaw_moneybot.shared import ArchiveConfig, InnerVoiceConfig
+from openclaw_moneybot.shared.types import (
+    InnerVoiceStage,
+    PolicyDecisionType,
+    ProviderName,
+    RecordType,
+    ReviewDecisionType,
+)
 from openclaw_moneybot.skills.budget_and_roi_planner import BudgetAndRoiPlanner
 from openclaw_moneybot.skills.budget_and_roi_planner.models import (
     BudgetPlanRequest,
@@ -29,7 +39,12 @@ from openclaw_moneybot.skills.wallet_governor_client.models import (
     WalletSpendResult,
 )
 
-from .helpers import make_orchestrator, make_policy_config, make_source_document
+from .helpers import (
+    make_archive_config,
+    make_orchestrator,
+    make_policy_config,
+    make_source_document,
+)
 
 
 class PolicyGuardWithCategoryOverride:
@@ -80,6 +95,29 @@ def make_request(**overrides: object) -> DryRunMissionRequest:
     return DryRunMissionRequest.model_validate(payload)
 
 
+def make_inner_voice_plugin(
+    tmp_path: Path,
+    ledger_service: LedgerService,
+    *,
+    run_after_stages: list[InnerVoiceStage],
+    handler: httpx.BaseTransport,
+    require_for_spend: bool = True,
+) -> InnerVoicePlugin:
+    return InnerVoicePlugin(
+        InnerVoiceConfig(
+            enabled=True,
+            provider=ProviderName.OLLAMA,
+            model_name="inner-voice-test",
+            base_url="http://127.0.0.1:11434",
+            run_after_stages=run_after_stages,
+            require_for_spend=require_for_spend,
+        ),
+        ArchiveConfig(base_directory=make_archive_config(tmp_path).base_directory),
+        ledger_service,
+        transport=handler,
+    )
+
+
 def test_dry_run_workflow_creates_full_trail(tmp_path: Path) -> None:
     orchestrator, _ = make_orchestrator(tmp_path, spend_enabled=False)
 
@@ -110,6 +148,73 @@ def test_dry_run_workflow_creates_full_trail(tmp_path: Path) -> None:
         "experiment_review",
     } <= event_types
     assert result.evidence_archive_ids
+
+
+def test_workflow_runs_configured_inner_voice_review_after_budget(tmp_path: Path) -> None:
+    def inner_voice_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "content": (
+                        '{"overall_assessment":"Proceed, but collect one more receipt.",'
+                        '"recommended_disposition":"proceed_with_followups",'
+                        '"confidence_adjustment":0,'
+                        '"objections":[{"title":"Receipt gap","severity":"low",'
+                        '"reason":"A payout receipt should still be archived."}],'
+                        '"missing_evidence":["payout receipt"],'
+                        '"stale_information_risks":[],'
+                        '"overlooked_constraints":[],'
+                        '"counterarguments":[],'
+                        '"recommended_followups":["archive payout receipt"]}'
+                    )
+                },
+                "done_reason": "stop",
+            },
+        )
+
+    orchestrator, ledger_service = make_orchestrator(tmp_path, spend_enabled=False)
+    orchestrator.inner_voice_plugin = make_inner_voice_plugin(
+        tmp_path,
+        ledger_service,
+        run_after_stages=[InnerVoiceStage.BUDGET_PLANNING],
+        handler=httpx.MockTransport(inner_voice_handler),
+    )
+
+    result = orchestrator.run_dry_run(make_request(enable_wallet_payment=False))
+
+    assert result.status == "completed"
+    assert result.inner_voice_review_ids
+    review_evidence = ledger_service.list_evidence_for_related(
+        related_type=RecordType.INNER_VOICE_REVIEW,
+        related_id=result.inner_voice_review_ids[0],
+    )
+    assert {item.evidence_type for item in review_evidence} >= {
+        "inner_voice_prompt",
+        "inner_voice_response",
+    }
+
+
+def test_required_pre_execution_inner_voice_failure_stops_wallet_path(tmp_path: Path) -> None:
+    orchestrator, ledger_service = make_orchestrator(tmp_path, spend_enabled=True)
+    orchestrator.inner_voice_plugin = make_inner_voice_plugin(
+        tmp_path,
+        ledger_service,
+        run_after_stages=[InnerVoiceStage.PRE_EXECUTION],
+        handler=httpx.MockTransport(lambda request: httpx.Response(500)),
+    )
+
+    result = orchestrator.run_dry_run(
+        make_request(
+            enable_wallet_payment=True,
+            draft_recipient_email="maintainer@example.com",
+            draft_recipient_name="Maintainer",
+        )
+    )
+
+    assert result.status == "needs_review"
+    assert result.stop_stage == "inner_voice_pre_execution"
+    assert result.wallet_result is None
 
 
 def test_initial_policy_block_stops_before_downstream_work(tmp_path: Path) -> None:

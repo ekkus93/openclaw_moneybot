@@ -7,6 +7,7 @@ from openclaw_moneybot.shared.bitcoin import (
 )
 from openclaw_moneybot.shared.config import (
     AppConfig,
+    ArbiterConfig,
     ArchiveConfig,
     ArtifactRendererConfig,
     ArxivResearchConfig,
@@ -20,6 +21,7 @@ from openclaw_moneybot.shared.config import (
     DownloadQuarantineConfig,
     EmailConfig,
     InboxObserverConfig,
+    InnerVoiceConfig,
     LedgerConfig,
     MastodonDiscoveryConfig,
     MetricsExportConfig,
@@ -49,7 +51,17 @@ from openclaw_moneybot.shared.contracts import (
 )
 from openclaw_moneybot.shared.errors import ErrorCode, MoneyBotError, MoneyBotErrorDetail
 from openclaw_moneybot.shared.types import (
+    ArbiterFinalResolution,
+    ArbiterPrevailingSide,
     BitcoinNetwork,
+    DebateEndedReason,
+    DebateSpeaker,
+    DebateTurnType,
+    InnerVoiceDisposition,
+    InnerVoiceObjectionSeverity,
+    InnerVoiceStage,
+    InnerVoiceSubjectType,
+    ProviderName,
     SpendRequestStatus,
     WalletTransactionStatus,
 )
@@ -57,6 +69,7 @@ from openclaw_moneybot.shared.types import (
 __all__ = [
     "AppConfig",
     "ArchiveConfig",
+    "ArbiterConfig",
     "AddressValidationResult",
     "ArxivResearchConfig",
     "ArtifactRendererConfig",
@@ -76,6 +89,11 @@ __all__ = [
     "EvidenceRecord",
     "ExperimentReview",
     "InboxObserverConfig",
+    "InnerVoiceConfig",
+    "InnerVoiceDisposition",
+    "InnerVoiceObjectionSeverity",
+    "InnerVoiceStage",
+    "InnerVoiceSubjectType",
     "LedgerConfig",
     "LedgerRecord",
     "MastodonDiscoveryConfig",
@@ -90,6 +108,7 @@ __all__ = [
     "Opportunity",
     "OpportunityIndexConfig",
     "PolicyDecision",
+    "ProviderName",
     "RulesSnapshotGatewayConfig",
     "StockMarketDataConfig",
     "WikipediaResearchConfig",
@@ -100,6 +119,11 @@ __all__ = [
     "WalletGovernorConfig",
     "WalletTransactionRecord",
     "WalletTransactionStatus",
+    "ArbiterFinalResolution",
+    "ArbiterPrevailingSide",
+    "DebateEndedReason",
+    "DebateSpeaker",
+    "DebateTurnType",
     "validate_btc_address",
     "load_app_config",
 ]

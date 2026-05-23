@@ -6,10 +6,26 @@ import json
 from collections.abc import Mapping
 
 from openclaw_moneybot.orchestration.models import DryRunMissionRequest, DryRunMissionResult
+from openclaw_moneybot.plugins.inner_voice_plugin import (
+    ArbiterService,
+    DebateResponder,
+    EvidenceSummary,
+    InnerVoiceCoordinator,
+    InnerVoiceDebateOutcome,
+    InnerVoiceDebateRequest,
+    InnerVoicePlugin,
+    InnerVoicePluginError,
+    InnerVoiceReviewRequest,
+    InnerVoiceReviewResult,
+)
 from openclaw_moneybot.shared.types import (
     ActionType,
     BudgetDecisionType,
     EligibilityDecisionType,
+    InnerVoiceDisposition,
+    InnerVoiceObjectionSeverity,
+    InnerVoiceStage,
+    InnerVoiceSubjectType,
     PolicyDecisionType,
     ReconciliationStatus,
     RecordType,
@@ -112,6 +128,9 @@ class MoneyBotOrchestrator:
         revenue_reconciler: RevenueReconciler,
         strategy_memory_summarizer: StrategyMemorySummarizer,
         archiver: ReceiptAndEvidenceArchiver,
+        inner_voice_plugin: InnerVoicePlugin | None = None,
+        arbiter_service: ArbiterService | None = None,
+        inner_voice_coordinator: InnerVoiceCoordinator | None = None,
     ) -> None:
         self.ledger_service = ledger_service
         self.scout = scout
@@ -129,6 +148,22 @@ class MoneyBotOrchestrator:
         self.revenue_reconciler = revenue_reconciler
         self.strategy_memory_summarizer = strategy_memory_summarizer
         self.archiver = archiver
+        self.inner_voice_plugin = inner_voice_plugin
+        self.arbiter_service = arbiter_service
+        self.inner_voice_coordinator = inner_voice_coordinator
+
+    def resolve_model_disagreement(
+        self,
+        request: InnerVoiceDebateRequest,
+        *,
+        openclaw: DebateResponder,
+    ) -> InnerVoiceDebateOutcome:
+        """Resolve a bounded disagreement through the configured debate workflow."""
+
+        if self.inner_voice_coordinator is None:
+            msg = "inner voice debate support is not configured."
+            raise ValueError(msg)
+        return self.inner_voice_coordinator.run_debate(request, openclaw=openclaw)
 
     @staticmethod
     def _wallet_handoff_float(wallet_handoff: Mapping[str, object], key: str) -> float:
@@ -150,6 +185,7 @@ class MoneyBotOrchestrator:
 
     def run_dry_run(self, request: DryRunMissionRequest) -> DryRunMissionResult:
         """Execute the default workflow in dry-run mode."""
+        inner_voice_review_ids: list[str] = []
         scout_result = self.scout.evaluate(
             OpportunityScoutRequest(
                 mission=request.mission,
@@ -257,7 +293,47 @@ class MoneyBotOrchestrator:
                 status=tos_result.decision,
                 stop_stage="tos_legal",
                 stop_reason=tos_result.tos_risk_summary,
+                inner_voice_review_ids=inner_voice_review_ids,
             )
+        tos_inner_voice = self._run_inner_voice_review(
+            stage=InnerVoiceStage.TOS_LEGAL_CHECK,
+            subject_type=InnerVoiceSubjectType.OPPORTUNITY,
+            subject_id=candidate.opportunity_id,
+            claim_summary=f"TOS/legal review concluded {tos_result.decision} for {candidate.name}.",
+            structured_context={
+                "opportunity_id": candidate.opportunity_id,
+                "tos_legal_check_id": tos_result.ledger_record.tos_legal_check_id,
+                "tos_decision": tos_result.decision,
+                "automation_policy": tos_result.ledger_record.automation_policy,
+            },
+            evidence_ids=evidence_ids,
+            constraints_summary=[
+                "Inner voice remains advisory and cannot override deterministic policy.",
+                "Use only visible summaries and archived evidence.",
+            ],
+            policy_summary=initial_policy.notes,
+            tos_summary=tos_result.tos_risk_summary,
+            review_goal="Challenge whether the TOS/legal decision is adequately supported.",
+            required=False,
+        )
+        if tos_inner_voice is not None:
+            inner_voice_review_ids.append(tos_inner_voice.review_id)
+            evidence_ids.extend(tos_inner_voice.evidence_archive_ids)
+            if self._inner_voice_requires_review(tos_inner_voice):
+                return self._finalize_result(
+                    request=request,
+                    candidate=candidate,
+                    evidence_ids=evidence_ids,
+                    duplicate_result=duplicate_result,
+                    eligibility_result=eligibility_result,
+                    initial_policy=initial_policy,
+                    tos_result=tos_result,
+                    status="needs_review",
+                    stop_stage="inner_voice_tos_legal",
+                    stop_reason=self._inner_voice_stop_reason(tos_inner_voice),
+                    review_enabled=True,
+                    inner_voice_review_ids=inner_voice_review_ids,
+                )
         budget_result = self.budget_planner.evaluate(
             BudgetPlanRequest(
                 opportunity_id=candidate.opportunity_id,
@@ -301,7 +377,53 @@ class MoneyBotOrchestrator:
                 stop_stage="budget",
                 stop_reason=next(iter(budget_result.budget_plan.reasons), None),
                 review_enabled=True,
+                inner_voice_review_ids=inner_voice_review_ids,
             )
+        budget_inner_voice = self._run_inner_voice_review(
+            stage=InnerVoiceStage.BUDGET_PLANNING,
+            subject_type=InnerVoiceSubjectType.EXPERIMENT_PLAN,
+            subject_id=budget_result.budget_plan.budget_plan_id,
+            claim_summary=(
+                f"Budget planning concluded execute_request for {candidate.name} within the "
+                "bounded experiment plan."
+            ),
+            structured_context={
+                "opportunity_id": candidate.opportunity_id,
+                "budget_plan_id": budget_result.budget_plan.budget_plan_id,
+                "decision": budget_result.budget_plan.decision.value,
+                "proposed_spend_usd": budget_result.budget_plan.max_loss_usd,
+                "expected_revenue_usd": budget_result.budget_plan.expected_gross_revenue_usd,
+            },
+            evidence_ids=evidence_ids,
+            constraints_summary=[
+                "Budget cannot exceed configured wallet and policy caps.",
+                "No irreversible action is authorized by this review alone.",
+            ],
+            policy_summary=initial_policy.notes,
+            tos_summary=tos_result.tos_risk_summary,
+            budget_summary=next(iter(budget_result.budget_plan.reasons), None),
+            review_goal="Challenge the execution budget and ROI assumptions.",
+            required=False,
+        )
+        if budget_inner_voice is not None:
+            inner_voice_review_ids.append(budget_inner_voice.review_id)
+            evidence_ids.extend(budget_inner_voice.evidence_archive_ids)
+            if self._inner_voice_requires_review(budget_inner_voice):
+                return self._finalize_result(
+                    request=request,
+                    candidate=candidate,
+                    evidence_ids=evidence_ids,
+                    duplicate_result=duplicate_result,
+                    eligibility_result=eligibility_result,
+                    initial_policy=initial_policy,
+                    tos_result=tos_result,
+                    budget_result=budget_result,
+                    status="needs_review",
+                    stop_stage="inner_voice_budget",
+                    stop_reason=self._inner_voice_stop_reason(budget_inner_voice),
+                    review_enabled=True,
+                    inner_voice_review_ids=inner_voice_review_ids,
+                )
 
         counterparty_result = self.counterparty_risk_profiler.profile(
             CounterpartyRiskProfileRequest(
@@ -337,6 +459,7 @@ class MoneyBotOrchestrator:
                 stop_stage="counterparty_risk",
                 stop_reason=counterparty_result.recommended_action,
                 review_enabled=True,
+                inner_voice_review_ids=inner_voice_review_ids,
             )
 
         execution_policy = self.policy_guard.evaluate(
@@ -374,6 +497,7 @@ class MoneyBotOrchestrator:
                     or next(iter(execution_policy.blocked_reasons), None)
                 ),
                 review_enabled=True,
+                inner_voice_review_ids=inner_voice_review_ids,
             )
 
         submission_package_result = self.submission_package_builder.build(
@@ -410,6 +534,7 @@ class MoneyBotOrchestrator:
                 stop_stage="submission_package",
                 stop_reason=next(iter(submission_package_result.unresolved_items), None),
                 review_enabled=True,
+                inner_voice_review_ids=inner_voice_review_ids,
             )
 
         deliverable_quality_result = self.deliverable_quality_checker.evaluate(
@@ -447,7 +572,82 @@ class MoneyBotOrchestrator:
                     or next(iter(deliverable_quality_result.invalid_items), None)
                 ),
                 review_enabled=True,
+                inner_voice_review_ids=inner_voice_review_ids,
             )
+        pre_execution_required = self._inner_voice_required_for_pre_execution(request)
+        try:
+            pre_execution_inner_voice = self._run_inner_voice_review(
+                stage=InnerVoiceStage.PRE_EXECUTION,
+                subject_type=InnerVoiceSubjectType.EXECUTION_STEP,
+                subject_id=candidate.opportunity_id,
+                claim_summary=(
+                    f"Pre-execution checks passed for {candidate.name}; the workflow is ready "
+                    "to draft deliverables and optionally request wallet action."
+                ),
+                structured_context={
+                    "opportunity_id": candidate.opportunity_id,
+                    "budget_plan_id": budget_result.budget_plan.budget_plan_id,
+                    "execution_policy_decision_id": (
+                        execution_policy.ledger_record.policy_decision_id
+                    ),
+                    "deliverable_quality_status": deliverable_quality_result.status.value,
+                    "enable_wallet_payment": request.enable_wallet_payment,
+                    "wallet_handoff_present": budget_result.wallet_handoff is not None,
+                },
+                evidence_ids=evidence_ids,
+                constraints_summary=[
+                    "Spend still requires wallet governor approval and ledger linkage.",
+                    "Inner voice cannot independently authorize irreversible actions.",
+                ],
+                policy_summary=execution_policy.notes,
+                tos_summary=tos_result.tos_risk_summary,
+                budget_summary=next(iter(budget_result.budget_plan.reasons), None),
+                review_goal="Challenge whether execution should proceed without additional review.",
+                required=pre_execution_required,
+            )
+        except InnerVoicePluginError as error:
+            return self._finalize_result(
+                request=request,
+                candidate=candidate,
+                evidence_ids=evidence_ids,
+                duplicate_result=duplicate_result,
+                eligibility_result=eligibility_result,
+                initial_policy=initial_policy,
+                tos_result=tos_result,
+                budget_result=budget_result,
+                counterparty_result=counterparty_result,
+                execution_policy=execution_policy,
+                submission_package_result=submission_package_result,
+                deliverable_quality_result=deliverable_quality_result,
+                status="needs_review",
+                stop_stage="inner_voice_pre_execution",
+                stop_reason=str(error),
+                review_enabled=True,
+                inner_voice_review_ids=inner_voice_review_ids,
+            )
+        if pre_execution_inner_voice is not None:
+            inner_voice_review_ids.append(pre_execution_inner_voice.review_id)
+            evidence_ids.extend(pre_execution_inner_voice.evidence_archive_ids)
+            if self._inner_voice_requires_review(pre_execution_inner_voice):
+                return self._finalize_result(
+                    request=request,
+                    candidate=candidate,
+                    evidence_ids=evidence_ids,
+                    duplicate_result=duplicate_result,
+                    eligibility_result=eligibility_result,
+                    initial_policy=initial_policy,
+                    tos_result=tos_result,
+                    budget_result=budget_result,
+                    counterparty_result=counterparty_result,
+                    execution_policy=execution_policy,
+                    submission_package_result=submission_package_result,
+                    deliverable_quality_result=deliverable_quality_result,
+                    status="needs_review",
+                    stop_stage="inner_voice_pre_execution",
+                    stop_reason=self._inner_voice_stop_reason(pre_execution_inner_voice),
+                    review_enabled=True,
+                    inner_voice_review_ids=inner_voice_review_ids,
+                )
 
         email_draft_id: str | None = None
         if request.draft_recipient_email is not None:
@@ -534,6 +734,7 @@ class MoneyBotOrchestrator:
             submission_package_result=submission_package_result,
             deliverable_quality_result=deliverable_quality_result,
             email_draft_id=email_draft_id,
+            inner_voice_review_ids=inner_voice_review_ids,
             wallet_quote=wallet_quote,
             wallet_result=wallet_result,
             status="completed",
@@ -556,6 +757,7 @@ class MoneyBotOrchestrator:
         submission_package_result: SubmissionPackageBuildResult | None = None,
         deliverable_quality_result: DeliverableQualityCheckResult | None = None,
         email_draft_id: str | None = None,
+        inner_voice_review_ids: list[str] | None = None,
         wallet_quote: WalletQuoteSkillResult | None = None,
         wallet_result: WalletSpendResult | None = None,
         status: str,
@@ -621,6 +823,7 @@ class MoneyBotOrchestrator:
                         "wallet_result_status": (
                             None if wallet_result is None else wallet_result.status
                         ),
+                        "inner_voice_review_ids": inner_voice_review_ids or [],
                     },
                     indent=2,
                     sort_keys=True,
@@ -738,6 +941,7 @@ class MoneyBotOrchestrator:
                 else deliverable_quality_result.deliverable_quality_id
             ),
             email_draft_id=email_draft_id,
+            inner_voice_review_ids=inner_voice_review_ids or [],
             wallet_quote=wallet_quote,
             wallet_result=wallet_result,
             experiment_review_id=(
@@ -841,6 +1045,98 @@ class MoneyBotOrchestrator:
             ) is not None
             and record.related_record_type in allowed_types
         ]
+
+    def _run_inner_voice_review(
+        self,
+        *,
+        stage: InnerVoiceStage,
+        subject_type: InnerVoiceSubjectType,
+        subject_id: str,
+        claim_summary: str,
+        structured_context: Mapping[str, object],
+        evidence_ids: list[str],
+        constraints_summary: list[str],
+        review_goal: str,
+        required: bool,
+        policy_summary: str | None = None,
+        tos_summary: str | None = None,
+        budget_summary: str | None = None,
+    ) -> InnerVoiceReviewResult | None:
+        plugin = self.inner_voice_plugin
+        if plugin is None or stage not in plugin.config.run_after_stages:
+            return None
+        review_request = InnerVoiceReviewRequest(
+            review_id=make_id("inner_voice_review"),
+            stage=stage,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            claim_summary=claim_summary,
+            structured_context=json.loads(json.dumps(structured_context, default=str)),
+            evidence_summary=self._inner_voice_evidence_summary(evidence_ids),
+            constraints_summary=constraints_summary,
+            policy_summary=policy_summary,
+            tos_summary=tos_summary,
+            budget_summary=budget_summary,
+            review_goal=review_goal,
+            max_objections=plugin.config.max_objections,
+        )
+        try:
+            return plugin.review(review_request, required=required)
+        except InnerVoicePluginError:
+            if required:
+                raise
+            return None
+
+    def _inner_voice_evidence_summary(self, evidence_ids: list[str]) -> list[EvidenceSummary]:
+        summaries: list[EvidenceSummary] = []
+        for evidence_id in evidence_ids:
+            record = self.ledger_service.get_evidence_record(evidence_id)
+            if record is None:
+                continue
+            summaries.append(
+                EvidenceSummary(
+                    evidence_id=record.evidence_id,
+                    evidence_type=record.evidence_type,
+                    source_url=record.source_url,
+                    captured_at=record.created_at.isoformat(),
+                    summary=(
+                        f"{record.evidence_type} archived at {record.archive_path} for "
+                        f"{record.related_record_type.value}:{record.related_record_id}"
+                    ),
+                )
+            )
+        return summaries
+
+    @staticmethod
+    def _inner_voice_requires_review(review: InnerVoiceReviewResult) -> bool:
+        if review.recommended_disposition in {
+            InnerVoiceDisposition.NEEDS_REVIEW,
+            InnerVoiceDisposition.BLOCK_PENDING_CHECKS,
+        }:
+            return True
+        return any(
+            objection.severity
+            in {
+                InnerVoiceObjectionSeverity.HIGH,
+                InnerVoiceObjectionSeverity.BLOCK,
+            }
+            for objection in review.objections
+        )
+
+    @staticmethod
+    def _inner_voice_stop_reason(review: InnerVoiceReviewResult) -> str:
+        if review.objections:
+            first_objection = review.objections[0]
+            return f"{first_objection.title}: {first_objection.reason}"
+        return review.overall_assessment
+
+    def _inner_voice_required_for_pre_execution(self, request: DryRunMissionRequest) -> bool:
+        plugin = self.inner_voice_plugin
+        if plugin is None:
+            return False
+        if request.enable_wallet_payment and plugin.config.require_for_spend:
+            return True
+        return request.enable_wallet_payment and plugin.config.require_for_irreversible_actions
 
     @staticmethod
     def _make_initial_policy_request(candidate: OpportunityCandidate) -> PolicyCheckRequest:

@@ -130,6 +130,7 @@ mastodon_discovery_plugin
 bluesky_discovery_plugin
 stock_market_data_plugin
 crypto_market_data_plugin
+inner_voice_plugin
 ```
 
 Plugin rollout rules:
@@ -139,6 +140,19 @@ Plugin rollout rules:
 - Read-only-by-default helpers include `wallet_observer_plugin` and `opportunity_index_plugin`; stateful helpers may write only to approved local paths plus the ledger/evidence archive.
 - Plugin failures are fail-closed: invalid input, stale snapshots, quarantine rejection, or missing required helper data must block the dependent skill path instead of silently falling back.
 - Plugins do not implement internal retry loops; callers provide any timeout policy, and persisted plugin operations must remain idempotent through deterministic file roots and ledger-linked records.
+
+The `inner_voice_plugin` is a special read-only challenger plugin:
+
+- it produces structured critique, bounded debate turns, and required Arbiter escalation records
+- it uses direct provider-specific adapters for OpenAI, Ollama, and llama-server
+- it does **not** use LiteLLM or another generic LLM routing proxy
+- it archives prompt, response, debate transcript, and Arbiter artifacts through the evidence archive
+- it remains advisory: deterministic policy, TOS/legal, budget, ledger, and wallet controls still
+  outrank all inner-voice and Arbiter output
+
+In the current implementation, the default dry-run workflow uses configured inner-voice review
+passes at selected stages. Multi-round OpenClaw-versus-inner-voice debate is exposed through an
+explicit orchestration seam rather than being implicitly fabricated inside the dry-run path.
 
 ### 2.5 SQLite Ledger
 

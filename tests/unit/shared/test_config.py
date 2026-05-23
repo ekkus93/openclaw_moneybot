@@ -8,6 +8,8 @@ import pytest
 
 from openclaw_moneybot.shared.config import (
     AppConfig,
+    ArbiterConfig,
+    ArchiveConfig,
     ArxivResearchConfig,
     BiomedicalResearchConfig,
     BlueskyDiscoveryConfig,
@@ -15,7 +17,10 @@ from openclaw_moneybot.shared.config import (
     BrowserGovernorConfig,
     CryptoMarketDataConfig,
     EmailConfig,
+    InnerVoiceConfig,
+    LedgerConfig,
     MastodonDiscoveryConfig,
+    MoneyBotPolicyConfig,
     OpenAlexResearchConfig,
     StockMarketDataConfig,
     WalletGovernorConfig,
@@ -23,7 +28,7 @@ from openclaw_moneybot.shared.config import (
     load_app_config,
 )
 from openclaw_moneybot.shared.errors import ErrorCode, MoneyBotError
-from openclaw_moneybot.shared.types import EmailMode
+from openclaw_moneybot.shared.types import EmailMode, ProviderName
 
 
 def test_load_app_config_success(tmp_path: Path) -> None:
@@ -302,6 +307,60 @@ def test_crypto_market_data_defaults_are_bounded_and_disabled() -> None:
 def test_crypto_market_data_config_rejects_non_coingecko_hosts() -> None:
     with pytest.raises(ValueError, match="api.coingecko.com"):
         CryptoMarketDataConfig(api_base_url="https://example.com/api/v3")
+
+
+def test_inner_voice_defaults_are_bounded_and_disabled() -> None:
+    config = InnerVoiceConfig()
+
+    assert config.enabled is False
+    assert config.provider is ProviderName.OLLAMA
+    assert config.model_name == ""
+    assert config.max_debate_rounds == 2
+
+
+def test_inner_voice_enabled_requires_model_name() -> None:
+    with pytest.raises(ValueError, match="model_name"):
+        InnerVoiceConfig(enabled=True)
+
+
+def test_inner_voice_local_provider_rejects_non_local_url() -> None:
+    with pytest.raises(ValueError, match="localhost"):
+        InnerVoiceConfig(
+            provider=ProviderName.OLLAMA,
+            base_url="http://example.com:11434",
+        )
+
+
+def test_arbiter_defaults_require_no_enable_flag() -> None:
+    config = ArbiterConfig()
+
+    assert config.provider is ProviderName.OPENAI
+    assert config.model_name == ""
+    assert not hasattr(config, "enabled")
+
+
+def test_app_config_requires_arbiter_model_when_inner_voice_enabled(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="arbiter.model_name"):
+        AppConfig(
+            policy=MoneyBotPolicyConfig(
+                policy_version="v1",
+                blocked_categories=[],
+                review_required_categories=[],
+                max_single_spend_usd=10,
+                max_daily_spend_usd=20,
+                max_weekly_spend_usd=40,
+            ),
+            ledger=LedgerConfig(database_path=tmp_path / "moneybot.sqlite3"),
+            archive=ArchiveConfig(base_directory=tmp_path / "archive"),
+            wallet_governor=WalletGovernorConfig(base_url="http://127.0.0.1:8080"),
+            email=EmailConfig(),
+            inner_voice=InnerVoiceConfig(
+                enabled=True,
+                provider=ProviderName.OLLAMA,
+                model_name="llama3",
+            ),
+            arbiter=ArbiterConfig(model_name=""),
+        )
 
 
 def test_load_app_config_rejects_non_mapping_root(tmp_path: Path) -> None:

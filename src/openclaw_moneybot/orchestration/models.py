@@ -71,6 +71,7 @@ class DryRunMissionResult(MoneyBotModel):
     submission_package_id: str | None = None
     deliverable_quality_id: str | None = None
     email_draft_id: str | None = None
+    inner_voice_review_ids: list[str] = Field(default_factory=list)
     wallet_quote: WalletQuoteSkillResult | None = None
     wallet_result: WalletSpendResult | None = None
     experiment_review_id: str | None = None

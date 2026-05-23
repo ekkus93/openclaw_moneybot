@@ -5,6 +5,11 @@ from __future__ import annotations
 import httpx
 
 from openclaw_moneybot.orchestration.workflow import MoneyBotOrchestrator
+from openclaw_moneybot.plugins.inner_voice_plugin import (
+    ArbiterService,
+    InnerVoiceCoordinator,
+    InnerVoicePlugin,
+)
 from openclaw_moneybot.shared import AppConfig
 from openclaw_moneybot.skills.account_eligibility_checker import AccountEligibilityChecker
 from openclaw_moneybot.skills.budget_and_roi_planner import BudgetAndRoiPlanner
@@ -30,10 +35,34 @@ def build_orchestrator(
     config: AppConfig,
     *,
     wallet_transport: httpx.BaseTransport | None = None,
+    inner_voice_transport: httpx.BaseTransport | None = None,
+    arbiter_transport: httpx.BaseTransport | None = None,
 ) -> MoneyBotOrchestrator:
     """Construct the default MoneyBot orchestrator from loaded config."""
     ledger_service = LedgerService.from_db_path(config.ledger.database_path)
     archiver = ReceiptAndEvidenceArchiver(config.archive, ledger_service)
+    inner_voice_plugin = None
+    arbiter_service = None
+    inner_voice_coordinator = None
+    if config.inner_voice.enabled:
+        inner_voice_plugin = InnerVoicePlugin(
+            config.inner_voice,
+            config.archive,
+            ledger_service,
+            transport=inner_voice_transport,
+        )
+        arbiter_service = ArbiterService(
+            config.arbiter,
+            config.archive,
+            ledger_service,
+            transport=arbiter_transport,
+        )
+        inner_voice_coordinator = InnerVoiceCoordinator(
+            inner_voice_plugin,
+            arbiter_service,
+            archiver,
+            ledger_service,
+        )
     return MoneyBotOrchestrator(
         ledger_service=ledger_service,
         scout=OpportunityScout(),
@@ -57,4 +86,7 @@ def build_orchestrator(
         revenue_reconciler=RevenueReconciler(config.archive, ledger_service),
         strategy_memory_summarizer=StrategyMemorySummarizer(config.archive, ledger_service),
         archiver=archiver,
+        inner_voice_plugin=inner_voice_plugin,
+        arbiter_service=arbiter_service,
+        inner_voice_coordinator=inner_voice_coordinator,
     )

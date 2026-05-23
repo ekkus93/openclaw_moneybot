@@ -9,11 +9,18 @@ import httpx
 
 from openclaw_moneybot.orchestration.factory import build_orchestrator
 from openclaw_moneybot.orchestration.workflow import MoneyBotOrchestrator
+from openclaw_moneybot.plugins.inner_voice_plugin import (
+    ArbiterService,
+    InnerVoiceCoordinator,
+    InnerVoicePlugin,
+)
 from openclaw_moneybot.shared import (
     AppConfig,
+    ArbiterConfig,
     ArchiveConfig,
     BrowserGovernorConfig,
     EmailConfig,
+    InnerVoiceConfig,
     LedgerConfig,
     MoneyBotPolicyConfig,
     WalletGovernorConfig,
@@ -81,6 +88,9 @@ def test_build_orchestrator_wires_expected_component_types(tmp_path: Path) -> No
     assert isinstance(orchestrator.revenue_reconciler, RevenueReconciler)
     assert isinstance(orchestrator.strategy_memory_summarizer, StrategyMemorySummarizer)
     assert isinstance(orchestrator.archiver, ReceiptAndEvidenceArchiver)
+    assert orchestrator.inner_voice_plugin is None
+    assert orchestrator.arbiter_service is None
+    assert orchestrator.inner_voice_coordinator is None
 
 
 def test_build_orchestrator_passes_optional_wallet_transport(tmp_path: Path) -> None:
@@ -106,3 +116,26 @@ def test_factory_created_ledger_path_exists_and_is_migrated(tmp_path: Path) -> N
         }
 
     assert "ledger_events" in tables
+
+
+def test_build_orchestrator_wires_inner_voice_components_when_enabled(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    config.inner_voice = InnerVoiceConfig(
+        enabled=True,
+        provider="ollama",
+        model_name="llama3",
+        base_url="http://127.0.0.1:11434",
+    )
+    config.arbiter = ArbiterConfig(
+        provider="llama_server",
+        model_name="llama3-arbiter",
+        base_url="http://127.0.0.1:8080/v1",
+        allow_hosted_provider=False,
+        allow_non_local_provider=False,
+    )
+
+    orchestrator = build_orchestrator(config)
+
+    assert isinstance(orchestrator.inner_voice_plugin, InnerVoicePlugin)
+    assert isinstance(orchestrator.arbiter_service, ArbiterService)
+    assert isinstance(orchestrator.inner_voice_coordinator, InnerVoiceCoordinator)

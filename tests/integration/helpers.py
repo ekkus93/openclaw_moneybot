@@ -13,6 +13,11 @@ from fastapi.testclient import TestClient
 from openclaw_moneybot.orchestration import MoneyBotOrchestrator
 from openclaw_moneybot.plugins.browser_governor import BrowserGovernorService
 from openclaw_moneybot.plugins.email_governor import EmailGovernorService, FakeEmailTransport
+from openclaw_moneybot.plugins.inner_voice_plugin import (
+    ArbiterService,
+    InnerVoiceCoordinator,
+    InnerVoicePlugin,
+)
 from openclaw_moneybot.plugins.rules_snapshot_gateway import (
     RulesSnapshotCaptureRequest,
     RulesSnapshotCaptureResult,
@@ -521,6 +526,9 @@ def make_orchestrator(
     policy_guard: PolicyEvaluator | None = None,
     tos_checker: TosEvaluator | None = None,
     budget_planner: BudgetEvaluator | None = None,
+    inner_voice_plugin: InnerVoicePlugin | None = None,
+    arbiter_service: ArbiterService | None = None,
+    inner_voice_coordinator: InnerVoiceCoordinator | None = None,
 ) -> tuple[MoneyBotOrchestrator, LedgerService]:
     ledger_service = LedgerService.from_db_path(tmp_path / "moneybot.sqlite3")
     archive_config = make_archive_config(tmp_path)
@@ -561,6 +569,9 @@ def make_orchestrator(
         revenue_reconciler=RevenueReconciler(archive_config, ledger_service),
         strategy_memory_summarizer=StrategyMemorySummarizer(archive_config, ledger_service),
         archiver=ReceiptAndEvidenceArchiver(archive_config, ledger_service),
+        inner_voice_plugin=inner_voice_plugin,
+        arbiter_service=arbiter_service,
+        inner_voice_coordinator=inner_voice_coordinator,
     )
     return orchestrator, ledger_service
 

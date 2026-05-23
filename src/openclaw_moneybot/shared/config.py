@@ -12,7 +12,13 @@ from pydantic import Field, ValidationError, ValidationInfo, field_validator, mo
 from openclaw_moneybot.shared.base import MoneyBotModel
 from openclaw_moneybot.shared.bitcoin import normalize_btc_address_for_comparison
 from openclaw_moneybot.shared.errors import ErrorCode, MoneyBotError, MoneyBotErrorDetail
-from openclaw_moneybot.shared.types import ActionType, BitcoinNetwork, EmailMode
+from openclaw_moneybot.shared.types import (
+    ActionType,
+    BitcoinNetwork,
+    EmailMode,
+    InnerVoiceStage,
+    ProviderName,
+)
 
 
 class MoneyBotPolicyConfig(MoneyBotModel):
@@ -643,6 +649,173 @@ class CryptoMarketDataConfig(MoneyBotModel):
         return value.rstrip("/")
 
 
+def _parse_http_base_url(value: str, *, field_name: str) -> str:
+    normalized = value.strip()
+    parsed = urlparse(normalized)
+    if parsed.scheme not in {"http", "https"}:
+        msg = f"{field_name} must be an http or https URL"
+        raise ValueError(msg)
+    if parsed.hostname is None:
+        msg = f"{field_name} must include a hostname"
+        raise ValueError(msg)
+    return normalized.rstrip("/")
+
+
+def _validate_local_provider_url(
+    value: str,
+    *,
+    field_name: str,
+    allow_non_local_provider: bool,
+) -> str:
+    normalized = _parse_http_base_url(value, field_name=field_name)
+    parsed = urlparse(normalized)
+    if not allow_non_local_provider and parsed.hostname not in {"127.0.0.1", "localhost"}:
+        msg = (
+            f"{field_name} must point to localhost or 127.0.0.1 unless "
+            "allow_non_local_provider is true"
+        )
+        raise ValueError(msg)
+    return normalized
+
+
+class InnerVoiceConfig(MoneyBotModel):
+    """Inner voice plugin configuration."""
+
+    enabled: bool = False
+    provider: ProviderName = ProviderName.OLLAMA
+    model_name: str = ""
+    base_url: str = "http://127.0.0.1:11434"
+    api_key_env_var: str = ""
+    allow_non_local_provider: bool = False
+    timeout_seconds: float = Field(default=30.0, gt=0, le=120.0)
+    temperature: float = Field(default=0.2, ge=0.0, le=1.0)
+    top_p: float = Field(default=0.9, gt=0.0, le=1.0)
+    max_output_tokens: int = Field(default=1_200, gt=0, le=8_192)
+    max_input_chars: int = Field(default=24_000, gt=0, le=200_000)
+    max_objections: int = Field(default=8, gt=0, le=20)
+    max_evidence_items: int = Field(default=12, gt=0, le=50)
+    max_chars_per_evidence: int = Field(default=1_200, gt=0, le=10_000)
+    archive_raw_prompt: bool = True
+    archive_raw_response: bool = True
+    archive_redaction_mode: str = "sanitize"
+    persist_failures: bool = True
+    max_debate_rounds: int = Field(default=2, gt=0, le=10)
+    archive_debate_transcript: bool = True
+    archive_debate_turn_metadata: bool = True
+    invocation_policy: str = "risk_based"
+    run_after_stages: list[InnerVoiceStage] = Field(
+        default_factory=lambda: [
+            InnerVoiceStage.TOS_LEGAL_CHECK,
+            InnerVoiceStage.BUDGET_PLANNING,
+            InnerVoiceStage.PRE_EXECUTION,
+        ]
+    )
+    require_for_spend: bool = True
+    require_for_irreversible_actions: bool = True
+    low_confidence_threshold: float = Field(default=0.65, ge=0.0, le=1.0)
+    stale_evidence_days: int = Field(default=30, gt=0, le=3650)
+    allow_hosted_provider: bool = False
+
+    @field_validator("model_name", "api_key_env_var", "invocation_policy")
+    @classmethod
+    def normalize_config_strings(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("archive_redaction_mode")
+    @classmethod
+    def validate_archive_redaction_mode(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"sanitize", "hash_sensitive_fields", "disabled"}:
+            msg = "archive_redaction_mode must be sanitize, hash_sensitive_fields, or disabled"
+            raise ValueError(msg)
+        return normalized
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, value: str, info: ValidationInfo) -> str:
+        provider = info.data.get("provider", ProviderName.OLLAMA)
+        allow_non_local = bool(info.data.get("allow_non_local_provider", False))
+        if provider is ProviderName.OPENAI:
+            parsed = urlparse(_parse_http_base_url(value, field_name="base_url"))
+            if parsed.scheme != "https":
+                msg = "base_url must be an https URL for openai"
+                raise ValueError(msg)
+            return value.rstrip("/")
+        return _validate_local_provider_url(
+            value,
+            field_name="base_url",
+            allow_non_local_provider=allow_non_local,
+        )
+
+    @model_validator(mode="after")
+    def validate_inner_voice_config(self) -> InnerVoiceConfig:
+        if self.enabled and not self.model_name:
+            msg = "model_name must be configured when inner_voice is enabled."
+            raise ValueError(msg)
+        if self.provider is ProviderName.OPENAI and not self.allow_hosted_provider:
+            msg = "allow_hosted_provider must be true when provider is openai."
+            raise ValueError(msg)
+        return self
+
+
+class ArbiterConfig(MoneyBotModel):
+    """Arbiter disagreement-resolution configuration."""
+
+    provider: ProviderName = ProviderName.OPENAI
+    model_name: str = ""
+    base_url: str = "https://api.openai.com/v1"
+    api_key_env_var: str = "OPENAI_API_KEY"
+    allow_non_local_provider: bool = True
+    timeout_seconds: float = Field(default=45.0, gt=0, le=120.0)
+    temperature: float = Field(default=0.1, ge=0.0, le=1.0)
+    top_p: float = Field(default=0.9, gt=0.0, le=1.0)
+    max_output_tokens: int = Field(default=1_600, gt=0, le=8_192)
+    max_input_chars: int = Field(default=32_000, gt=0, le=200_000)
+    archive_raw_prompt: bool = True
+    archive_raw_response: bool = True
+    archive_redaction_mode: str = "sanitize"
+    persist_failures: bool = True
+    allow_hosted_provider: bool = True
+
+    @field_validator("model_name", "api_key_env_var")
+    @classmethod
+    def normalize_arbiter_strings(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("archive_redaction_mode")
+    @classmethod
+    def validate_arbiter_redaction_mode(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"sanitize", "hash_sensitive_fields", "disabled"}:
+            msg = "archive_redaction_mode must be sanitize, hash_sensitive_fields, or disabled"
+            raise ValueError(msg)
+        return normalized
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_arbiter_base_url(cls, value: str, info: ValidationInfo) -> str:
+        provider = info.data.get("provider", ProviderName.OPENAI)
+        allow_non_local = bool(info.data.get("allow_non_local_provider", True))
+        if provider is ProviderName.OPENAI:
+            parsed = urlparse(_parse_http_base_url(value, field_name="base_url"))
+            if parsed.scheme != "https":
+                msg = "base_url must be an https URL for openai"
+                raise ValueError(msg)
+            return value.rstrip("/")
+        return _validate_local_provider_url(
+            value,
+            field_name="base_url",
+            allow_non_local_provider=allow_non_local,
+        )
+
+    @model_validator(mode="after")
+    def validate_arbiter_config(self) -> ArbiterConfig:
+        if self.provider is ProviderName.OPENAI and not self.allow_hosted_provider:
+            msg = "allow_hosted_provider must be true when Arbiter provider is openai."
+            raise ValueError(msg)
+        return self
+
+
 class AppConfig(MoneyBotModel):
     """Top-level MoneyBot configuration."""
 
@@ -677,6 +850,15 @@ class AppConfig(MoneyBotModel):
     bluesky_discovery: BlueskyDiscoveryConfig = Field(default_factory=BlueskyDiscoveryConfig)
     stock_market_data: StockMarketDataConfig = Field(default_factory=StockMarketDataConfig)
     crypto_market_data: CryptoMarketDataConfig = Field(default_factory=CryptoMarketDataConfig)
+    inner_voice: InnerVoiceConfig = Field(default_factory=InnerVoiceConfig)
+    arbiter: ArbiterConfig = Field(default_factory=ArbiterConfig)
+
+    @model_validator(mode="after")
+    def validate_inner_voice_and_arbiter(self) -> AppConfig:
+        if self.inner_voice.enabled and not self.arbiter.model_name:
+            msg = "arbiter.model_name must be configured when inner_voice is enabled."
+            raise ValueError(msg)
+        return self
 
 
 def load_app_config(path: Path) -> AppConfig:

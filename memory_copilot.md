@@ -221,3 +221,40 @@
 ## 2026-05-22T01:58:13Z - GPT-5.4 - Published crypto plugin and Kuzu guide
 - Committed the validated `crypto_market_data_plugin` batch together with the new `docs/KUZU.md` rollout guide, including the shared config/type/export wiring, architecture and README updates, and unit coverage.
 - Pushed the updated `copilot` branch to GitHub so it now includes the CoinGecko-backed crypto market data plugin and the detailed Kuzu adoption documentation.
+
+## 2026-05-22T19:31:40Z - GPT-5.4 - Added inner voice plugin spec
+- Added `docs/INNER_VOICE_SPEC.md` as a comprehensive specification for a governed inner-voice challenger plugin that critiques the main model's conclusions without becoming a second autonomous agent.
+- The spec defines provider support for OpenAI, Ollama, and llama-server, structured input/output contracts, invocation points, safety rules, hosted-provider opt-in, ledger/evidence behavior, failure handling, and a phased rollout plan.
+
+## 2026-05-22T19:36:11Z - GPT-5.4 - Expanded inner voice spec details
+- Expanded `docs/INNER_VOICE_SPEC.md` to pin down implementation-defining details that were still open, including the runtime placement and persistence path, normalized provider request/response contracts, configuration edge rules, fixed schema enums, evidence truncation rules, archive redaction policy, failure persistence behavior, and deterministic stage interpretation rules.
+- The spec now also defines usefulness metrics for rollout evaluation and narrows the remaining open questions to a small set of post-spec implementation choices rather than core architecture gaps.
+
+## 2026-05-22T19:38:14Z - GPT-5.4 - Forbid LiteLLM for inner voice connectivity
+- Updated `docs/INNER_VOICE_SPEC.md` to make the LLM connectivity model explicit: the inner voice plugin must use direct provider-specific adapters for OpenAI, Ollama, and llama-server rather than a generic LLM gateway or aggregation layer.
+- The spec now explicitly forbids LiteLLM for inner voice provider access so request handling, credential flow, fallback behavior, and transport semantics remain directly auditable inside the repository.
+
+## 2026-05-22T19:42:22Z - GPT-5.4 - Resolved more inner voice v1 decisions
+- Updated `docs/INNER_VOICE_SPEC.md` so v1 does not assume or document a built-in default model; the operator must explicitly choose `model_name` when enabling the inner voice plugin.
+- The spec now also recommends fixed-in-code per-stage prompt templates for v1 and explicitly allows multiple challenger passes for the same subject, with unique review IDs, pass indexes, and immutable linked review records.
+
+## 2026-05-22T19:51:56Z - GPT-5.4 - Debate round limit should be configurable
+- Recorded the requirement that any future OpenClaw-versus-Inner-Voice debate window should use a configurable maximum round count instead of a hard-coded limit.
+- This will matter when the Arbiter/escalation design is specified, because orchestration should control when debate stops and escalation begins.
+
+## 2026-05-22T19:56:00Z - GPT-5.4 - Added debate transcript logging to inner voice spec
+- Extended `docs/INNER_VOICE_SPEC.md` with debate-specific logging requirements, including `max_debate_rounds`, transcript archival flags, an `INNER_VOICE_DEBATE` record type, debate session and turn schemas, transcript ordering rules, and linkage to later escalation or Arbiter records.
+- The spec now explicitly says the operator should be able to inspect the actual exchanged debate dialogue round by round while clarifying that the stored transcript is the visible model-to-model dialogue, not hidden internal reasoning or inaccessible raw chain-of-thought.
+
+## 2026-05-22T20:11:22Z - GPT-5.4 - Added Arbiter resolution spec
+- Extended `docs/INNER_VOICE_SPEC.md` with a dedicated Arbiter design: the Arbiter is required rather than behind an enable flag, is invoked when max debate rounds are reached without agreement or when either debate participant requests arbitration, and may use a different provider/model than OpenClaw or the main inner voice.
+- The spec now includes Arbiter config rules, request/result schemas, `ARBITER_REVIEW` persistence, audit linkage back to debate transcripts, failure behavior, and the v1 rule that one Arbiter pass produces the final LLM-level resolution for that debate session while still remaining subordinate to deterministic policy gates.
+
+## 2026-05-22T20:14:43Z - GPT-5.4 - Added inner voice implementation TODO doc
+- Added `docs/INNER_VOICE_TODO.md` as a comprehensive implementation tracker derived from `docs/INNER_VOICE_SPEC.md`, covering the inner voice plugin, bounded debate loop, debate transcript persistence, required Arbiter escalation, provider adapters, shared contracts, prompt building, ledger/archive wiring, tests, metrics, and rollout tasks.
+- The new TODO doc breaks the work into detailed priorities, tasks, and subtasks so the feature can be implemented incrementally without reopening the core architecture decisions already captured in the spec.
+## 2026-05-22T20:37:34Z - GPT-5.4 - Inner voice implementation slice is green
+- Implemented the first full inner-voice package slice under `src/openclaw_moneybot/plugins/inner_voice_plugin/`, including typed review/debate/Arbiter models, direct provider adapters for OpenAI/Ollama/llama-server, prompt builders, the review service, the Arbiter service, bounded debate coordination, archive/ledger persistence, and factory wiring.
+- Added shared config and type support for `inner_voice` and `arbiter`, plus unit/integration coverage in `tests/unit/test_inner_voice_plugin.py`, `tests/integration/test_inner_voice_integration.py`, `tests/unit/shared/test_config.py`, and `tests/unit/test_orchestration_factory.py`.
+- The repository now passes full `uv run --python 3.11 ruff check .`, `uv run --python 3.11 mypy .`, and `uv run --python 3.11 pytest` with the new inner-voice slice included.
+- The main remaining design gap is workflow integration: `MoneyBotOrchestrator.run_dry_run()` has no existing OpenClaw main-model runtime to participate in live debate rounds, so deeper stage-triggered debate wiring needs an explicit orchestration decision rather than silently inventing one.

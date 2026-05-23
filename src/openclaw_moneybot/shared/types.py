@@ -325,3 +325,99 @@ class RecordType(StrEnum):
     BLUESKY_DISCOVERY = "bluesky_discovery"
     STOCK_MARKET_DATA = "stock_market_data"
     CRYPTO_MARKET_DATA = "crypto_market_data"
+    INNER_VOICE_REVIEW = "inner_voice_review"
+    INNER_VOICE_DEBATE = "inner_voice_debate"
+    ARBITER_REVIEW = "arbiter_review"
+
+
+class ProviderName(StrEnum):
+    """Supported LLM provider families."""
+
+    OPENAI = "openai"
+    OLLAMA = "ollama"
+    LLAMA_SERVER = "llama_server"
+
+
+class InnerVoiceStage(StrEnum):
+    """Workflow stages where the inner voice may run."""
+
+    OPPORTUNITY_RANKING = "opportunity_ranking"
+    TOS_LEGAL_CHECK = "tos_legal_check"
+    BUDGET_PLANNING = "budget_planning"
+    PRE_EXECUTION = "pre_execution"
+    POST_REVIEW = "post_review"
+
+
+class InnerVoiceSubjectType(StrEnum):
+    """Subjects that can be reviewed by the inner voice."""
+
+    OPPORTUNITY = "opportunity"
+    EXPERIMENT_PLAN = "experiment_plan"
+    SPEND_REQUEST = "spend_request"
+    EXECUTION_STEP = "execution_step"
+    EXPERIMENT_REVIEW = "experiment_review"
+
+
+class InnerVoiceDisposition(StrEnum):
+    """Allowed critique dispositions."""
+
+    PROCEED = "proceed"
+    PROCEED_WITH_FOLLOWUPS = "proceed_with_followups"
+    NEEDS_REVIEW = "needs_review"
+    BLOCK_PENDING_CHECKS = "block_pending_checks"
+
+
+class InnerVoiceObjectionSeverity(StrEnum):
+    """Severity bands for inner-voice objections."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    BLOCK = "block"
+
+
+class DebateSpeaker(StrEnum):
+    """Allowed debate participants."""
+
+    OPENCLAW = "openclaw"
+    INNER_VOICE = "inner_voice"
+
+
+class DebateTurnType(StrEnum):
+    """Structured debate turn categories."""
+
+    PROPOSAL = "proposal"
+    OBJECTION = "objection"
+    REBUTTAL = "rebuttal"
+    CONCESSION = "concession"
+    REQUEST_ARBITER = "request_arbiter"
+    RESOLUTION_NOTE = "resolution_note"
+
+
+class DebateEndedReason(StrEnum):
+    """Reasons a debate session can end."""
+
+    CONVERGED = "converged"
+    MAX_ROUNDS_REACHED = "max_rounds_reached"
+    REQUEST_ARBITER = "request_arbiter"
+    ORCHESTRATOR_ESCALATION = "orchestrator_escalation"
+    FAILURE = "failure"
+
+
+class ArbiterFinalResolution(StrEnum):
+    """Arbiter outcomes for a debate session."""
+
+    ADOPT_OPENCLAW = "adopt_openclaw"
+    ADOPT_INNER_VOICE = "adopt_inner_voice"
+    PROCEED_WITH_FOLLOWUPS = "proceed_with_followups"
+    NEEDS_REVIEW = "needs_review"
+    BLOCK_PENDING_CHECKS = "block_pending_checks"
+
+
+class ArbiterPrevailingSide(StrEnum):
+    """Which side prevailed after Arbiter review."""
+
+    OPENCLAW = "openclaw"
+    INNER_VOICE = "inner_voice"
+    MIXED = "mixed"
+    NEITHER = "neither"

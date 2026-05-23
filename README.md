@@ -151,7 +151,32 @@ crypto_market_data:
   enabled: false
   api_base_url: "https://api.coingecko.com/api/v3"
   max_chart_points: 30
+inner_voice:
+  enabled: false
+  provider: "ollama"
+  model_name: "your-inner-voice-model"
+  base_url: "http://127.0.0.1:11434"
+  allow_non_local_provider: false
+  allow_hosted_provider: false
+  max_debate_rounds: 2
+  run_after_stages: ["tos_legal_check", "budget_planning", "pre_execution"]
+  require_for_spend: true
+  require_for_irreversible_actions: true
+arbiter:
+  provider: "llama_server"
+  model_name: "your-arbiter-model"
+  base_url: "http://127.0.0.1:8080/v1"
+  allow_non_local_provider: false
+  allow_hosted_provider: false
 ```
+
+Inner voice connectivity uses **direct provider-specific adapters** for OpenAI, Ollama, and
+llama-server. It does **not** use LiteLLM or another generic routing proxy.
+
+The default dry-run workflow now supports **stage-triggered inner-voice review** at configured
+`run_after_stages` checkpoints. Multi-round debate and Arbiter resolution remain available
+through the explicit `resolve_model_disagreement()` seam rather than being silently synthesized
+inside `run_dry_run()`.
 
 2. Build the orchestrator from config and run a mission:
 
@@ -205,6 +230,22 @@ For Brave Search, set the hosted API credential in your environment before enabl
 ```bash
 export BRAVE_SEARCH_API_KEY="your-token"
 ```
+
+For hosted OpenAI-backed inner voice or Arbiter usage, opt in explicitly and set the credential:
+
+```bash
+export OPENAI_API_KEY="your-token"
+```
+
+Example deployment patterns:
+
+1. **Local inner voice + local Arbiter**: `inner_voice.provider: ollama`,
+   `arbiter.provider: llama_server`, both on loopback URLs.
+2. **Local inner voice + hosted Arbiter**: keep `inner_voice` on Ollama, switch `arbiter.provider`
+   to `openai`, set `allow_hosted_provider: true`, and export `OPENAI_API_KEY`.
+3. **Hosted inner voice + hosted Arbiter**: set both providers to `openai`, set
+   `allow_hosted_provider: true` in both blocks, and keep the model names explicit because v1 has
+   no built-in default model.
 
 The same plugin can also be used for current-events/news lookups through a bounded
 `search_news()` path, which stays on Brave web search but applies recency and optional
